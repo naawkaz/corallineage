@@ -1,0 +1,23 @@
+services:
+    postgres:
+      image: postgres:15
+      environment:
+        POSTGRES_DB: coral_framework
+        POSTGRES_USER: coral_user
+        POSTGRES_PASSWORD: coral_pass
+      ports:
+        - "5432:5432"
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+
+    mlflow:
+      image: ghcr.io/mlflow/mlflow:latest
+      ports:
+        - "5000:5000"
+      command: mlflow server --host 0.0.0.0 --port 5000
+      volumes:
+        - mlflow_data:/mlflow
+
+volumes:
+  postgres_data:
+  mlflow_data:
