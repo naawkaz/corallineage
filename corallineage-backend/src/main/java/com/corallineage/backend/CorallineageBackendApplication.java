@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class CorallineageBackendApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(CorallineageBackendApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(CorallineageBackendApplication.class, args);
+    }
 
 }
