@@ -1,0 +1,42 @@
+export type TriggerReason =
+  | 'IMAGES_ADDED'
+  | 'IMAGES_REMOVED'
+  | 'ANNOTATIONS_MODIFIED'
+  | 'LABEL_DEFINITION_CHANGED'
+  | 'MANUAL_SNAPSHOT'
+
+export interface LabelDefinition {
+  labelCode: string
+  labelName: string
+  labelCategory: string | null
+  deprecated: boolean
+}
+
+export interface DatasetVersion {
+  id: number
+  datasetId: number
+  versionTag: string
+  createdAt: string
+  createdBy: string
+  triggerReason: TriggerReason
+  imageCount: number
+  annotationCount: number
+  dvcCommitHash: string
+  notes: string | null
+  labelDefinitions?: LabelDefinition[]
+}
+
+export interface CreateVersionRequest {
+  versionTag: string
+  triggerReason: TriggerReason
+  createdBy: string
+  notes?: string | null
+}
+
+export interface Page<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}

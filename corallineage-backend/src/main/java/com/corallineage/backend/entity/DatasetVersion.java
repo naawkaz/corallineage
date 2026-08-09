@@ -5,8 +5,10 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "dataset_versions",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"dataset_id", "version_tag"}),
        indexes = {
-           @Index(name = "idx_dataset_versions_created_at", columnList = "createdAt")
+           @Index(name = "idx_dataset_versions_created_at", columnList = "createdAt"),
+           @Index(name = "idx_dataset_versions_dataset", columnList = "dataset_id")
        })
 public class DatasetVersion {
 
@@ -14,7 +16,11 @@ public class DatasetVersion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "version_tag", nullable = false, unique = true, length = 50)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_id", nullable = false)
+    private Dataset dataset;
+
+    @Column(name = "version_tag", nullable = false, length = 50)
     private String versionTag;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -48,6 +54,9 @@ public class DatasetVersion {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Dataset getDataset() { return dataset; }
+    public void setDataset(Dataset dataset) { this.dataset = dataset; }
 
     public String getVersionTag() { return versionTag; }
     public void setVersionTag(String versionTag) { this.versionTag = versionTag; }

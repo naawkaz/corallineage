@@ -2,3 +2,5 @@
     remote = mylocalstorage
 ['remote "mylocalstorage"']
     url = C:\Users\zechn\OneDrive\CS\APU FYP\DVC_Remote
+['remote "origin"']
+    url = C:\Users\zechn\OneDrive\CS\APU FYP\DVC_Remote
