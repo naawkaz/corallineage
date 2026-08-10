@@ -2,6 +2,7 @@ package com.corallineage.backend.logging;
 
 public enum EventType {
     DATASET_VERSION_CREATED,
+    DATASET_IMPORT_COMPLETED,
     IMAGE_ADDED,
     IMAGE_REMOVED,
     ANNOTATIONS_MODIFIED,

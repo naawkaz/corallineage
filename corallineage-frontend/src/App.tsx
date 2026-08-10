@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ComingSoon from './pages/ComingSoon'
 import Datasets from './pages/Datasets'
+import EventLog from './pages/EventLog'
 import VersionBrowser from './pages/VersionBrowser'
 import VersionDetail from './pages/VersionDetail'
 import { DatasetProvider } from './lib/DatasetContext'
@@ -16,6 +17,7 @@ function App() {
             <Route path="/datasets" element={<Datasets />} />
             <Route path="/versions" element={<VersionBrowser />} />
             <Route path="/versions/:id" element={<VersionDetail />} />
+            <Route path="/events" element={<EventLog />} />
             <Route path="*" element={<ComingSoon />} />
           </Route>
         </Routes>
