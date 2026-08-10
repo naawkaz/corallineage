@@ -14,7 +14,8 @@ import java.time.Instant;
            @Index(name = "idx_events_type", columnList = "event_type"),
            @Index(name = "idx_events_dataset_version", columnList = "dataset_version_id"),
            @Index(name = "idx_events_model_version", columnList = "model_version_id"),
-           @Index(name = "idx_events_occurred_at", columnList = "occurred_at")
+           @Index(name = "idx_events_occurred_at", columnList = "occurred_at"),
+           @Index(name = "idx_events_image", columnList = "image_id")
        })
 public class AnnotationEvent {
 

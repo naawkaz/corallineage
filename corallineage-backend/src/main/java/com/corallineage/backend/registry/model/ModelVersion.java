@@ -33,7 +33,7 @@ public class ModelVersion {
     private String trainedBy;
 
     @Column(name = "architecture", nullable = false, length = 100)
-    private String architecture = "EfficientNet";
+    private String architecture = "efficientnet_b0";
 
     // Stored as JSON text; Hibernate 6 native JSON mapping (Spring Boot 3+)
     @JdbcTypeCode(SqlTypes.JSON)

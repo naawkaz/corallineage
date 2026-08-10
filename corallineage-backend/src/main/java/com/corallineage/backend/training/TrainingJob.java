@@ -24,6 +24,10 @@ public class TrainingJob {
     @JoinColumn(name = "dataset_version_id", nullable = false)
     private DatasetVersion datasetVersion;
 
+    @Column(name = "architecture", nullable = false, length = 100,
+            columnDefinition = "VARCHAR(100) DEFAULT 'efficientnet_b0'")
+    private String architecture = "efficientnet_b0";
+
     @Column(name = "initiated_by", nullable = false, length = 100)
     private String initiatedBy;
 
@@ -57,6 +61,9 @@ public class TrainingJob {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getArchitecture() { return architecture; }
+    public void setArchitecture(String architecture) { this.architecture = architecture; }
 
     public DatasetVersion getDatasetVersion() { return datasetVersion; }
     public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
