@@ -4,6 +4,8 @@ import ComingSoon from './pages/ComingSoon'
 import Datasets from './pages/Datasets'
 import EventLog from './pages/EventLog'
 import Import from './pages/Import'
+import ModelDetail from './pages/ModelDetail'
+import ModelRegistry from './pages/ModelRegistry'
 import TrainingJobs from './pages/TrainingJobs'
 import VersionBrowser from './pages/VersionBrowser'
 import VersionDetail from './pages/VersionDetail'
@@ -21,6 +23,8 @@ function App() {
             <Route path="/import" element={<Import />} />
             <Route path="/versions/:id" element={<VersionDetail />} />
             <Route path="/training" element={<TrainingJobs />} />
+            <Route path="/models" element={<ModelRegistry />} />
+            <Route path="/models/:id" element={<ModelDetail />} />
             <Route path="/events" element={<EventLog />} />
             <Route path="*" element={<ComingSoon />} />
           </Route>

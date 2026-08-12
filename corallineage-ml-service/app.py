@@ -1,5 +1,7 @@
 import os
+import platform
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -44,6 +46,7 @@ ARCHITECTURE_IDS = {a["id"] for a in ARCHITECTURES}
 IMAGE_SIZE = 224
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+RANDOM_SEED = 42
 
 
 @app.route("/health", methods=["GET"])
@@ -103,10 +106,45 @@ class ImageFolderDataset(Dataset):
         return tensor, label
 
 
+def log_confusion_matrix(y_true: list, y_pred: list, class_names: list):
+    """Plots and logs a confusion matrix as an MLflow artifact (confusion_matrix.png)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import mlflow
+
+    n = len(class_names)
+    matrix = np.zeros((n, n), dtype=int)
+    for true_label, pred_label in zip(y_true, y_pred):
+        matrix[true_label][pred_label] += 1
+
+    fig, ax = plt.subplots(figsize=(max(4, n), max(4, n)))
+    ax.imshow(matrix, cmap="Blues")
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(class_names, rotation=45, ha="right")
+    ax.set_yticklabels(class_names)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title("Confusion Matrix")
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, str(matrix[i][j]), ha="center", va="center")
+    fig.tight_layout()
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        image_path = Path(tmp_dir) / "confusion_matrix.png"
+        fig.savefig(image_path)
+        plt.close(fig)
+        mlflow.log_artifact(str(image_path))
+
+
 def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
     learning_rate = float(hyperparameters.get("learningRate", 0.001))
     batch_size = int(hyperparameters.get("batchSize", 32))
     epochs = int(hyperparameters.get("epochs", 10))
+
+    torch.manual_seed(RANDOM_SEED)
 
     dataset = ImageFolderDataset(dataset_path)
     class_mappings = {str(i): name for name, i in dataset.class_to_idx.items()}
@@ -128,6 +166,10 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
 
     with mlflow.start_run() as run:
         mlflow.log_param("architecture", architecture)
+        mlflow.log_param("pythonVersion", platform.python_version())
+        mlflow.log_param("pytorchVersion", torch.__version__)
+        mlflow.log_param("cudaVersion", "cpu")
+        mlflow.log_param("randomSeed", str(RANDOM_SEED))
         for epoch in range(epochs):
             epoch_loss = 0.0
             correct = 0
@@ -152,6 +194,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
         # split — dataset is typically tiny for this prototype; C-07 explicitly
         # notes accuracy is not an evaluation criterion here).
         model.eval()
+        y_true, y_pred = [], []
         with torch.no_grad():
             for images, labels in loader:
                 outputs = model(images)
@@ -160,6 +203,10 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
                     per_class_total[label] += 1
                     if label == pred:
                         per_class_correct[label] += 1
+                    y_true.append(label)
+                    y_pred.append(pred)
+
+        log_confusion_matrix(y_true, y_pred, dataset.classes)
 
         overall_accuracy = (
             sum(per_class_correct.values()) / sum(per_class_total.values())
