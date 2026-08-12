@@ -8,6 +8,7 @@ const sections: { label: string; items: { to: string; icon: string; label: strin
     items: [
       { to: '/datasets', icon: '🪸', label: 'Datasets' },
       { to: '/versions', icon: '🗂', label: 'Version History' },
+      { to: '/import', icon: '⬆', label: 'Import Data' },
       { to: '/diff', icon: '⇄', label: 'Compare Versions' },
     ],
   },

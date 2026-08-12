@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
+import { fetchImages, imageFileUrl } from '../api/images'
 import { triggerReasonBadge, triggerReasonLabel } from '../constants'
 import { formatCount, formatDate } from '../lib/format'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import type { DatasetVersion } from '../types/version'
+import type { DatasetImage } from '../types/image'
+
+const IMAGE_PAGE_SIZE = 40
 
 export default function VersionDetail() {
   const { id } = useParams()
@@ -14,6 +18,13 @@ export default function VersionDetail() {
   const [version, setVersion] = useState<DatasetVersion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [images, setImages] = useState<DatasetImage[]>([])
+  const [imagePage, setImagePage] = useState(0)
+  const [imageTotalPages, setImageTotalPages] = useState(0)
+  const [imagesLoading, setImagesLoading] = useState(true)
+  const [imagesError, setImagesError] = useState<string | null>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!activeDatasetId) return
@@ -35,6 +46,28 @@ export default function VersionDetail() {
       cancelled = true
     }
   }, [activeDatasetId, versionId])
+
+  useEffect(() => {
+    if (!activeDatasetId) return
+    let cancelled = false
+    fetchImages(activeDatasetId, versionId, imagePage, IMAGE_PAGE_SIZE)
+      .then((res) => {
+        if (!cancelled) {
+          setImages(res.content)
+          setImageTotalPages(res.totalPages)
+          setImagesError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setImagesError(errorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setImagesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeDatasetId, versionId, imagePage])
 
   return (
     <>
@@ -181,6 +214,142 @@ export default function VersionDetail() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {version && (
+          <div style={{ marginTop: 24 }}>
+            <div className="section-header">
+              <div className="section-title">Images ({formatCount(version.imageCount)})</div>
+            </div>
+            <div className="card" style={{ padding: 16 }}>
+              {imagesError && <div className="alert alert-error">{imagesError}</div>}
+              {imagesLoading && images.length === 0 && (
+                <div className="loading-state">
+                  <span className="spinner" /> Loading images…
+                </div>
+              )}
+              {!imagesLoading && !imagesError && images.length === 0 && (
+                <div className="empty-state">
+                  <p>No images recorded for this version.</p>
+                </div>
+              )}
+              {images.length > 0 && (
+                <>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                      gap: 8,
+                    }}
+                  >
+                    {images.map((image, idx) => (
+                      <button
+                        key={image.id}
+                        onClick={() => setLightboxIndex(idx)}
+                        style={{
+                          padding: 0,
+                          border: '1px solid var(--border-md)',
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          aspectRatio: '1 / 1',
+                          background: 'var(--bg-secondary)',
+                        }}
+                        title={image.filename}
+                      >
+                        <img
+                          src={imageFileUrl(image)}
+                          alt={image.filename}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  {imageTotalPages > 1 && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setImagesLoading(true)
+                          setImagePage((p) => Math.max(0, p - 1))
+                        }}
+                        disabled={imagePage === 0}
+                      >
+                        Previous page
+                      </button>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Page {imagePage + 1} of {imageTotalPages}
+                      </span>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setImagesLoading(true)
+                          setImagePage((p) => Math.min(imageTotalPages - 1, p + 1))
+                        }}
+                        disabled={imagePage + 1 >= imageTotalPages}
+                      >
+                        Next page
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {lightboxIndex !== null && images[lightboxIndex] && (
+          <div
+            onClick={() => setLightboxIndex(null)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i))
+              }}
+              disabled={lightboxIndex === 0}
+              className="btn btn-secondary"
+              style={{ position: 'absolute', left: 24 }}
+            >
+              ‹ Prev
+            </button>
+            <img
+              src={imageFileUrl(images[lightboxIndex])}
+              alt={images[lightboxIndex].filename}
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '80vw', maxHeight: '80vh', objectFit: 'contain' }}
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setLightboxIndex((i) => (i !== null && i < images.length - 1 ? i + 1 : i))
+              }}
+              disabled={lightboxIndex >= images.length - 1}
+              className="btn btn-secondary"
+              style={{ position: 'absolute', right: 24 }}
+            >
+              Next ›
+            </button>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 24,
+                color: '#fff',
+                fontSize: 13,
+              }}
+            >
+              {images[lightboxIndex].filename} ({lightboxIndex + 1} / {images.length})
             </div>
           </div>
         )}
