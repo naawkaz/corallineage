@@ -21,17 +21,13 @@ const sections: { label: string; items: { to: string; icon: string; label: strin
   },
   {
     label: 'Annotation',
-    items: [
-      { to: '/annotation', icon: '🏷', label: 'Annotation Jobs' },
-      { to: '/review', icon: '✔️', label: 'Review Predictions' },
-    ],
+    items: [{ to: '/annotation', icon: '🏷', label: 'Annotation Jobs' }],
   },
   {
     label: 'Provenance',
     items: [
       { to: '/events', icon: '📋', label: 'Event Log' },
       { to: '/ontology', icon: '🔖', label: 'Ontology Changes' },
-      { to: '/dirty', icon: '⚠️', label: 'Dirty Annotations' },
     ],
   },
   {

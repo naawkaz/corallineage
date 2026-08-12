@@ -1,5 +1,6 @@
 import type { TriggerReason } from './types/version'
 import type { EventType } from './types/event'
+import type { ChangeType } from './types/ontology'
 
 export const CURRENT_USER = 'researcher_01'
 
@@ -45,4 +46,19 @@ export function eventTypeLabel(value: EventType): string {
 
 export function eventTypeBadge(value: EventType): string {
   return EVENT_TYPES.find((t) => t.value === value)?.badge ?? 'badge-gray'
+}
+
+export const CHANGE_TYPES: { value: ChangeType; label: string; badge: string }[] = [
+  { value: 'LABEL_ADDED', label: 'Label added', badge: 'badge-blue' },
+  { value: 'LABEL_DEPRECATED', label: 'Label deprecated', badge: 'badge-gray' },
+  { value: 'LABEL_SPLIT', label: 'Label split', badge: 'badge-amber' },
+  { value: 'LABEL_RENAMED', label: 'Label renamed', badge: 'badge-amber' },
+]
+
+export function changeTypeLabel(value: ChangeType): string {
+  return CHANGE_TYPES.find((t) => t.value === value)?.label ?? value
+}
+
+export function changeTypeBadge(value: ChangeType): string {
+  return CHANGE_TYPES.find((t) => t.value === value)?.badge ?? 'badge-gray'
 }

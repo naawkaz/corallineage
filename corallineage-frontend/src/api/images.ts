@@ -18,3 +18,7 @@ export async function fetchImages(
 export function imageFileUrl(image: DatasetImage): string {
   return `${api.defaults.baseURL}${image.url}`
 }
+
+export function imageFileUrlById(imageId: number): string {
+  return `${api.defaults.baseURL}/images/${imageId}/file`
+}

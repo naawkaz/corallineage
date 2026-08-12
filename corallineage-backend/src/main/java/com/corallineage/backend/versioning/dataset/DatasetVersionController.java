@@ -45,4 +45,13 @@ public class DatasetVersionController {
         DatasetVersionResponse response = datasetVersionService.createSnapshot(datasetId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+    @PostMapping("/{versionId}/labels")
+    public ResponseEntity<LabelDefinitionResponse> addLabelDefinition(
+            @PathVariable Long datasetId,
+            @PathVariable Long versionId,
+            @Valid @RequestBody CreateLabelDefinitionRequest request) {
+        LabelDefinitionResponse response = datasetVersionService.addLabelDefinition(datasetId, versionId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 }

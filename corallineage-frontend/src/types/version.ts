@@ -33,6 +33,12 @@ export interface CreateVersionRequest {
   notes?: string | null
 }
 
+export interface CreateLabelDefinitionRequest {
+  labelCode: string
+  labelName: string
+  labelCategory?: string
+}
+
 export interface Page<T> {
   content: T[]
   totalElements: number

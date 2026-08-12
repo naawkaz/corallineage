@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fetchVersion } from '../api/versions'
+import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { fetchImages, imageFileUrl } from '../api/images'
 import { triggerReasonBadge, triggerReasonLabel } from '../constants'
@@ -25,6 +25,13 @@ export default function VersionDetail() {
   const [imagesLoading, setImagesLoading] = useState(true)
   const [imagesError, setImagesError] = useState<string | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  const [addLabelOpen, setAddLabelOpen] = useState(false)
+  const [labelCode, setLabelCode] = useState('')
+  const [labelName, setLabelName] = useState('')
+  const [labelCategory, setLabelCategory] = useState('')
+  const [addLabelSubmitting, setAddLabelSubmitting] = useState(false)
+  const [addLabelError, setAddLabelError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!activeDatasetId) return
@@ -68,6 +75,29 @@ export default function VersionDetail() {
       cancelled = true
     }
   }, [activeDatasetId, versionId, imagePage])
+
+  async function handleAddLabel() {
+    if (!activeDatasetId) return
+    setAddLabelSubmitting(true)
+    setAddLabelError(null)
+    try {
+      await createLabelDefinition(activeDatasetId, versionId, {
+        labelCode: labelCode.trim(),
+        labelName: labelName.trim(),
+        labelCategory: labelCategory.trim() === '' ? undefined : labelCategory.trim(),
+      })
+      const updated = await fetchVersion(activeDatasetId, versionId)
+      setVersion(updated)
+      setAddLabelOpen(false)
+      setLabelCode('')
+      setLabelName('')
+      setLabelCategory('')
+    } catch (err) {
+      setAddLabelError(errorMessage(err))
+    } finally {
+      setAddLabelSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -171,7 +201,71 @@ export default function VersionDetail() {
             <div>
               <div className="section-header">
                 <div className="section-title">Label definitions at this version</div>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setAddLabelOpen((prev) => !prev)
+                    setAddLabelError(null)
+                  }}
+                >
+                  {addLabelOpen ? 'Cancel' : 'Add Label'}
+                </button>
               </div>
+              {addLabelOpen && (
+                <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+                  {addLabelError && (
+                    <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                      {addLabelError}
+                    </div>
+                  )}
+                  <div className="form-row">
+                    <label className="form-label" htmlFor="labelCode">
+                      Label code
+                    </label>
+                    <input
+                      id="labelCode"
+                      className="form-input"
+                      placeholder="e.g. ACROPORA"
+                      value={labelCode}
+                      onChange={(e) => setLabelCode(e.target.value)}
+                    />
+                    <div className="form-hint">Must be unique within this version.</div>
+                  </div>
+                  <div className="form-row">
+                    <label className="form-label" htmlFor="labelName">
+                      Label name
+                    </label>
+                    <input
+                      id="labelName"
+                      className="form-input"
+                      placeholder="e.g. Acropora"
+                      value={labelName}
+                      onChange={(e) => setLabelName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-row" style={{ marginBottom: 0 }}>
+                    <label className="form-label" htmlFor="labelCategory">
+                      Category (optional)
+                    </label>
+                    <input
+                      id="labelCategory"
+                      className="form-input"
+                      placeholder="e.g. Coral"
+                      value={labelCategory}
+                      onChange={(e) => setLabelCategory(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ marginTop: 16 }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleAddLabel}
+                      disabled={addLabelSubmitting || !labelCode.trim() || !labelName.trim()}
+                    >
+                      {addLabelSubmitting ? 'Adding…' : 'Add Label'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="card">
                 {version.labelDefinitions && version.labelDefinitions.length > 0 ? (
                   <table>

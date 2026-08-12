@@ -238,4 +238,68 @@ class DatasetVersionServiceTest {
         assertThatThrownBy(() -> datasetVersionService.getVersionHistory(99L, PageRequest.of(0, 20)))
                 .isInstanceOf(NotFoundException.class);
     }
+
+    private CreateLabelDefinitionRequest labelRequest(String code) {
+        CreateLabelDefinitionRequest request = new CreateLabelDefinitionRequest();
+        request.setLabelCode(code);
+        request.setLabelName(code.toLowerCase());
+        request.setLabelCategory("CORAL");
+        return request;
+    }
+
+    @Test
+    void addLabelDefinition_success_persistsAndReturnsLabel() {
+        DatasetVersion version = new DatasetVersion();
+        version.setId(3L);
+        version.setDataset(dataset());
+
+        when(datasetVersionRepository.findById(3L)).thenReturn(Optional.of(version));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(3L, "MACRO")).thenReturn(false);
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = datasetVersionService.addLabelDefinition(1L, 3L, labelRequest("MACRO"));
+
+        assertThat(response.getLabelCode()).isEqualTo("MACRO");
+        assertThat(response.getLabelName()).isEqualTo("macro");
+        assertThat(response.isDeprecated()).isFalse();
+        verify(labelDefinitionRepository).save(any(LabelDefinition.class));
+    }
+
+    @Test
+    void addLabelDefinition_versionNotFound_throwsNotFound() {
+        when(datasetVersionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> datasetVersionService.addLabelDefinition(1L, 99L, labelRequest("MACRO")))
+                .isInstanceOf(NotFoundException.class);
+        verify(labelDefinitionRepository, never()).save(any(LabelDefinition.class));
+    }
+
+    @Test
+    void addLabelDefinition_belongsToDifferentDataset_throwsNotFound() {
+        Dataset otherDataset = new Dataset();
+        otherDataset.setId(2L);
+        DatasetVersion version = new DatasetVersion();
+        version.setId(3L);
+        version.setDataset(otherDataset);
+
+        when(datasetVersionRepository.findById(3L)).thenReturn(Optional.of(version));
+
+        assertThatThrownBy(() -> datasetVersionService.addLabelDefinition(1L, 3L, labelRequest("MACRO")))
+                .isInstanceOf(NotFoundException.class);
+        verify(labelDefinitionRepository, never()).save(any(LabelDefinition.class));
+    }
+
+    @Test
+    void addLabelDefinition_duplicateCode_throwsConflict() {
+        DatasetVersion version = new DatasetVersion();
+        version.setId(3L);
+        version.setDataset(dataset());
+
+        when(datasetVersionRepository.findById(3L)).thenReturn(Optional.of(version));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(3L, "MACRO")).thenReturn(true);
+
+        assertThatThrownBy(() -> datasetVersionService.addLabelDefinition(1L, 3L, labelRequest("MACRO")))
+                .isInstanceOf(ConflictException.class);
+        verify(labelDefinitionRepository, never()).save(any(LabelDefinition.class));
+    }
 }

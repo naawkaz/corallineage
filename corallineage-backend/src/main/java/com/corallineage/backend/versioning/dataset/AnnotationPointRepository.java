@@ -9,4 +9,6 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
     long countByImageDatasetVersionDatasetId(Long datasetId);
 
     List<AnnotationPoint> findByImageDatasetVersionId(Long datasetVersionId);
+
+    List<AnnotationPoint> findByImageDatasetVersionIdAndLabelDefinitionLabelCode(Long datasetVersionId, String labelCode);
 }

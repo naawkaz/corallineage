@@ -251,6 +251,82 @@ def run_mock_training(architecture: str, dataset_path: str, hyperparameters: dic
     }
 
 
+def run_annotate(architecture: str, weights_path: str, class_mappings: dict, images: list):
+    idx_to_label = {int(k): v for k, v in class_mappings.items()}
+    num_classes = len(idx_to_label)
+
+    model = load_model(architecture, num_classes=num_classes)
+    state_dict = torch.load(weights_path, map_location="cpu")
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    predictions = []
+    with torch.no_grad():
+        for image_entry in images:
+            image_id = image_entry["imageId"]
+            file_path = image_entry["filePath"]
+            with Image.open(file_path) as img:
+                img = img.convert("RGB").resize((IMAGE_SIZE, IMAGE_SIZE))
+                tensor = torch.from_numpy(np.array(img)).permute(2, 0, 1).float() / 255.0
+                tensor = (tensor - IMAGENET_MEAN) / IMAGENET_STD
+            logits = model(tensor.unsqueeze(0))
+            probabilities = torch.softmax(logits, dim=1).squeeze(0)
+            predicted_idx = int(torch.argmax(probabilities).item())
+            confidence = float(probabilities[predicted_idx].item())
+            predictions.append({
+                "imageId": image_id,
+                "points": [{
+                    "pointIndex": 0,
+                    "predictedLabelCode": idx_to_label[predicted_idx],
+                    "confidenceScore": confidence,
+                }],
+            })
+
+    return {"predictions": predictions}
+
+
+def run_mock_annotate(images: list):
+    """Canned instant response, bypasses torch entirely — mirrors run_mock_training's demo path."""
+    return {
+        "predictions": [
+            {
+                "imageId": image_entry["imageId"],
+                "points": [{"pointIndex": 0, "predictedLabelCode": "ACROPORA", "confidenceScore": 0.85}],
+            }
+            for image_entry in images
+        ]
+    }
+
+
+@app.route("/annotate", methods=["POST"])
+def annotate():
+    payload = request.get_json(force=True, silent=True) or {}
+    architecture = payload.get("architecture")
+    weights_path = payload.get("weightsPath")
+    class_mappings = payload.get("classMappings")
+    images = payload.get("images", [])
+
+    if architecture not in ARCHITECTURE_IDS:
+        return jsonify({"error": f"Unsupported architecture: {architecture}"}), 400
+    if not weights_path or not Path(weights_path).is_file():
+        return jsonify({"error": f"weightsPath does not exist: {weights_path}"}), 400
+    if not class_mappings:
+        return jsonify({"error": "classMappings is required"}), 400
+    if not images:
+        return jsonify({"error": "images list is empty"}), 400
+
+    try:
+        if MOCK_TRAINING:
+            result = run_mock_annotate(images)
+        else:
+            result = run_annotate(architecture, weights_path, class_mappings, images)
+        return jsonify(result), 200
+    except FileNotFoundError as ex:
+        return jsonify({"error": f"Image file not found: {ex}"}), 400
+    except Exception as ex:
+        return jsonify({"error": f"Inference failed: {ex}"}), 500
+
+
 @app.route("/train", methods=["POST"])
 def train():
     payload = request.get_json(force=True, silent=True) or {}

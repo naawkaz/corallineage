@@ -1,5 +1,11 @@
 import { api } from './client'
-import type { CreateVersionRequest, DatasetVersion, Page } from '../types/version'
+import type {
+  CreateLabelDefinitionRequest,
+  CreateVersionRequest,
+  DatasetVersion,
+  LabelDefinition,
+  Page,
+} from '../types/version'
 
 export async function fetchVersions(
   datasetId: number,
@@ -22,5 +28,17 @@ export async function createVersion(
   request: CreateVersionRequest,
 ): Promise<DatasetVersion> {
   const { data } = await api.post<DatasetVersion>(`/datasets/${datasetId}/versions`, request)
+  return data
+}
+
+export async function createLabelDefinition(
+  datasetId: number,
+  versionId: number,
+  request: CreateLabelDefinitionRequest,
+): Promise<LabelDefinition> {
+  const { data } = await api.post<LabelDefinition>(
+    `/datasets/${datasetId}/versions/${versionId}/labels`,
+    request,
+  )
   return data
 }

@@ -1,11 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import AnnotationJobs from './pages/AnnotationJobs'
+import AnnotationReview from './pages/AnnotationReview'
 import ComingSoon from './pages/ComingSoon'
 import Datasets from './pages/Datasets'
 import EventLog from './pages/EventLog'
 import Import from './pages/Import'
 import ModelDetail from './pages/ModelDetail'
 import ModelRegistry from './pages/ModelRegistry'
+import OntologyChanges from './pages/OntologyChanges'
 import TrainingJobs from './pages/TrainingJobs'
 import VersionBrowser from './pages/VersionBrowser'
 import VersionDetail from './pages/VersionDetail'
@@ -25,7 +28,10 @@ function App() {
             <Route path="/training" element={<TrainingJobs />} />
             <Route path="/models" element={<ModelRegistry />} />
             <Route path="/models/:id" element={<ModelDetail />} />
+            <Route path="/annotation" element={<AnnotationJobs />} />
+            <Route path="/annotation/jobs/:id/review" element={<AnnotationReview />} />
             <Route path="/events" element={<EventLog />} />
+            <Route path="/ontology" element={<OntologyChanges />} />
             <Route path="*" element={<ComingSoon />} />
           </Route>
         </Routes>

@@ -52,4 +52,23 @@ public class PythonMlServiceClient {
             throw new MlServiceException("Training failed: " + ex.getResponseBodyAsString(), ex);
         }
     }
+
+    public AnnotateResult annotate(String architecture, String weightsPath, Map<String, String> classMappings,
+                                    List<AnnotateImageInput> images) {
+        try {
+            return restClient.post()
+                    .uri("/annotate")
+                    .body(Map.of(
+                            "architecture", architecture,
+                            "weightsPath", weightsPath,
+                            "classMappings", classMappings,
+                            "images", images))
+                    .retrieve()
+                    .body(AnnotateResult.class);
+        } catch (ResourceAccessException ex) {
+            throw new MlServiceException("Python ML service is unreachable: " + ex.getMessage(), ex);
+        } catch (RestClientResponseException ex) {
+            throw new MlServiceException("Inference failed: " + ex.getResponseBodyAsString(), ex);
+        }
+    }
 }

@@ -86,6 +86,27 @@ public class DatasetVersionService {
         return datasetVersionMapper.toResponseWithLabels(version, labels);
     }
 
+    @Transactional
+    public LabelDefinitionResponse addLabelDefinition(Long datasetId, Long versionId, CreateLabelDefinitionRequest request) {
+        DatasetVersion version = datasetVersionRepository.findById(versionId)
+                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionId));
+        if (!version.getDataset().getId().equals(datasetId)) {
+            throw new NotFoundException("Dataset version not found: " + versionId);
+        }
+        if (labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(versionId, request.getLabelCode())) {
+            throw new ConflictException("Label code already exists on this version: " + request.getLabelCode());
+        }
+
+        LabelDefinition label = new LabelDefinition();
+        label.setDatasetVersion(version);
+        label.setLabelCode(request.getLabelCode());
+        label.setLabelName(request.getLabelName());
+        label.setLabelCategory(request.getLabelCategory());
+        LabelDefinition saved = labelDefinitionRepository.save(label);
+
+        return datasetVersionMapper.toLabelResponse(saved);
+    }
+
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
