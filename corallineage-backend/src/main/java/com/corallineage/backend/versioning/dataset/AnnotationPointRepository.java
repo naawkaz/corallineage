@@ -29,9 +29,36 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
             + "group by ld.labelCode, ld.labelName")
     List<LabelCountRow> countByLabelUpToVersion(@Param("datasetId") Long datasetId, @Param("cutoff") Instant cutoff);
 
+    /**
+     * Project-wide per-label point counts within a date range — the reproducibility report's classDistribution.
+     * Grouped by labelCode only (unlike {@link #countByLabelUpToVersion}, which is scoped to one dataset):
+     * across different datasets the same code can legitimately carry different labelName values (e.g. a
+     * hand-authored "Crustose Coralline Algae" in one dataset vs. an import's auto-bootstrapped "CCA" in
+     * another — see DatasetImportExecutor.bootstrapLabelDefinitions), and grouping by the (code, name) pair
+     * would otherwise split one logical class into multiple report rows. max(ld.labelName) just picks a
+     * deterministic representative label for display; the point counts themselves are exact either way.
+     */
+    @Query("select ld.labelCode as labelCode, max(ld.labelName) as labelName, count(ap) as pointCount "
+            + "from AnnotationPoint ap join ap.labelDefinition ld "
+            + "where ap.createdAt between :from and :to "
+            + "group by ld.labelCode")
+    List<LabelCountRow> countByLabelBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    /** Project-wide per-source point counts within a date range — the reproducibility report's annotationSourceSplit. */
+    @Query("select ap.annotationSource as annotationSource, count(ap) as pointCount "
+            + "from AnnotationPoint ap "
+            + "where ap.createdAt between :from and :to "
+            + "group by ap.annotationSource")
+    List<SourceCountRow> countBySourceBetween(@Param("from") Instant from, @Param("to") Instant to);
+
     interface LabelCountRow {
         String getLabelCode();
         String getLabelName();
+        long getPointCount();
+    }
+
+    interface SourceCountRow {
+        String getAnnotationSource();
         long getPointCount();
     }
 }

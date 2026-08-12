@@ -4,7 +4,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
+import java.util.List;
+
 public interface ModelVersionRepository extends JpaRepository<ModelVersion, Long> {
 
     Page<ModelVersion> findByStatus(String status, Pageable pageable);
+
+    List<ModelVersion> findByTrainedAtBetween(Instant from, Instant to);
 }

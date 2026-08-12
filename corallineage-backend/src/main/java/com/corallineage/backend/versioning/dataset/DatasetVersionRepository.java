@@ -4,6 +4,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, Long> {
@@ -15,4 +17,6 @@ public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, 
     Optional<DatasetVersion> findTopByDatasetIdOrderByCreatedAtDesc(Long datasetId);
 
     long countByDatasetId(Long datasetId);
+
+    List<DatasetVersion> findByCreatedAtBetween(Instant from, Instant to);
 }
