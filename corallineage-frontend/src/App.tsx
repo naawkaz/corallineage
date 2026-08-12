@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import AnnotationJobs from './pages/AnnotationJobs'
 import AnnotationReview from './pages/AnnotationReview'
 import ComingSoon from './pages/ComingSoon'
+import DatasetDiff from './pages/DatasetDiff'
 import Datasets from './pages/Datasets'
 import EventLog from './pages/EventLog'
 import Import from './pages/Import'
@@ -24,6 +25,7 @@ function App() {
             <Route path="/datasets" element={<Datasets />} />
             <Route path="/versions" element={<VersionBrowser />} />
             <Route path="/import" element={<Import />} />
+            <Route path="/diff" element={<DatasetDiff />} />
             <Route path="/versions/:id" element={<VersionDetail />} />
             <Route path="/training" element={<TrainingJobs />} />
             <Route path="/models" element={<ModelRegistry />} />
