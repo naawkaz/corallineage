@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { fetchAnnotationJob, fetchAnnotationJobs, submitAnnotationJob } from '../api/annotations'
 import { fetchImages } from '../api/images'
 import { fetchModels } from '../api/models'
@@ -39,7 +39,10 @@ function reviewStatusBadge(status: AnnotationJob['reviewStatus']): string {
 
 export default function AnnotationJobs() {
   const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [tab, setTab] = useState<'submit' | 'review'>('submit')
 
@@ -62,7 +65,7 @@ export default function AnnotationJobs() {
   const pollingRef = useRef<number | null>(null)
 
   function loadJobs() {
-    fetchAnnotationJobs(0, 20)
+    fetchAnnotationJobs(projectId, 0, 20)
       .then((res) => {
         setJobs(res.content)
         setJobsError(null)
@@ -73,30 +76,30 @@ export default function AnnotationJobs() {
 
   useEffect(() => {
     loadJobs()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   useEffect(() => {
-    fetchModels(0, 50, 'ACTIVE')
+    fetchModels(projectId, 0, 50, 'ACTIVE')
       .then((res) => {
         setModels(res.content)
         if (res.content.length > 0) setSelectedModelId(res.content[0].id)
       })
       .catch(() => setModels([]))
-  }, [])
+  }, [projectId])
 
   useEffect(() => {
-    if (!activeDatasetId) return
-    fetchVersions(activeDatasetId, 0, 50)
+    fetchVersions(projectId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length > 0) setSelectedVersionId(res.content[0].id)
       })
       .catch(() => setVersions([]))
-  }, [activeDatasetId])
+  }, [projectId])
 
   useEffect(() => {
-    if (!activeDatasetId || !selectedVersionId) return
-    fetchImages(activeDatasetId, selectedVersionId, 0, 200)
+    if (!selectedVersionId) return
+    fetchImages(projectId, selectedVersionId, 0, 200)
       .then((res) => {
         setImages(res.content)
         setSelectedImageIds([])
@@ -105,7 +108,7 @@ export default function AnnotationJobs() {
         setImages([])
         setSelectedImageIds([])
       })
-  }, [activeDatasetId, selectedVersionId])
+  }, [projectId, selectedVersionId])
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
@@ -128,23 +131,8 @@ export default function AnnotationJobs() {
       window.clearInterval(intervalId)
       pollingRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJob])
-
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   function toggleImage(id: number) {
     setSelectedImageIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
@@ -179,7 +167,7 @@ export default function AnnotationJobs() {
         <div>
           <div className="topbar-title">Annotation Jobs</div>
           <div className="topbar-sub">
-            {activeDataset ? `Run model inference on ${activeDataset.datasetName}` : 'Run model inference'}
+            {project ? `Run model inference on ${project.datasetName}` : 'Run model inference'}
           </div>
         </div>
       </div>
@@ -210,6 +198,7 @@ export default function AnnotationJobs() {
                 <div className="form-row">
                   <label className="form-label">Model</label>
                   <select
+                    className="form-select"
                     value={selectedModelId ?? ''}
                     onChange={(e) => setSelectedModelId(e.target.value ? Number(e.target.value) : null)}
                   >
@@ -225,6 +214,7 @@ export default function AnnotationJobs() {
                 <div className="form-row">
                   <label className="form-label">Dataset version</label>
                   <select
+                    className="form-select"
                     value={selectedVersionId ?? ''}
                     onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
                   >
@@ -319,7 +309,7 @@ export default function AnnotationJobs() {
                         {activeJob.totalPredictions} prediction(s) ready.{' '}
                         <button
                           className="btn btn-secondary"
-                          onClick={() => navigate(`/annotation/jobs/${activeJob.jobId}/review`)}
+                          onClick={() => navigate(`/projects/${projectId}/annotation/jobs/${activeJob.jobId}/review`)}
                         >
                           Review now
                         </button>
@@ -337,7 +327,7 @@ export default function AnnotationJobs() {
               <div className="section-header">
                 <div className="section-title">Recent Jobs</div>
               </div>
-              <JobsTable jobs={jobs.slice(0, 5)} loading={jobsLoading} error={jobsError} navigate={navigate} />
+              <JobsTable jobs={jobs.slice(0, 5)} loading={jobsLoading} error={jobsError} navigate={navigate} projectId={projectId} />
             </div>
           </div>
         )}
@@ -347,7 +337,7 @@ export default function AnnotationJobs() {
             <div className="section-header">
               <div className="section-title">All Annotation Jobs</div>
             </div>
-            <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} />
+            <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} projectId={projectId} />
           </div>
         )}
       </div>
@@ -360,11 +350,13 @@ function JobsTable({
   loading,
   error,
   navigate,
+  projectId,
 }: {
   jobs: AnnotationJob[]
   loading: boolean
   error: string | null
   navigate: (path: string) => void
+  projectId: number
 }) {
   return (
     <div className="card">
@@ -397,13 +389,23 @@ function JobsTable({
               <tr
                 key={job.jobId}
                 style={{ cursor: job.status === 'COMPLETED' ? 'pointer' : 'default' }}
-                onClick={() => job.status === 'COMPLETED' && navigate(`/annotation/jobs/${job.jobId}/review`)}
+                onClick={() => job.status === 'COMPLETED' && navigate(`/projects/${projectId}/annotation/jobs/${job.jobId}/review`)}
               >
                 <td>
                   <span className={`badge ${jobStatusBadge(job.status)}`}>{job.status}</span>
                 </td>
                 <td>
-                  <span className={`badge ${reviewStatusBadge(job.reviewStatus)}`}>{job.reviewStatus}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className={`badge ${reviewStatusBadge(job.reviewStatus)}`}>{job.reviewStatus}</span>
+                    {job.reviewStatus === 'IN_PROGRESS' && job.totalPredictions > 0 && (
+                      <div className="progress-bar-bg" style={{ width: 80 }}>
+                        <div
+                          className="progress-bar-fill"
+                          style={{ width: `${(job.reviewedPredictions / job.totalPredictions) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td>{job.modelTag ?? '—'}</td>
                 <td>{job.imageCount}</td>

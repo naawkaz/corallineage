@@ -1,12 +1,44 @@
 import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { fetchEvents } from '../api/events'
 import { errorMessage } from '../api/client'
-import { EVENT_TYPES, PAGE_SIZE, eventTypeBadge, eventTypeLabel } from '../constants'
+import { EVENT_TYPES, PAGE_SIZE, eventTypeLabel } from '../constants'
 import { formatDate } from '../lib/format'
+import { useDatasetContext } from '../lib/datasetContextCore'
 import type { AnnotationEvent, EventFilters, EventType } from '../types/event'
 import type { Page } from '../types/version'
 
+function eventTypeColor(type: EventType): string {
+  switch (type) {
+    case 'DATASET_VERSION_CREATED':
+    case 'DATASET_IMPORT_COMPLETED':
+    case 'MODEL_TRAINED':
+    case 'MODEL_APPLIED':
+    case 'DIRTY_FLAGS_RESOLVED':
+    case 'REPORT_GENERATED':
+      return 'var(--success)'
+    case 'HUMAN_CORRECTION':
+    case 'DIRTY_FLAGS_RAISED':
+      return 'var(--warning)'
+    case 'IMAGE_REMOVED':
+    case 'ONTOLOGY_CHANGE_DETECTED':
+      return 'var(--danger)'
+    case 'IMAGE_ADDED':
+    case 'ANNOTATIONS_MODIFIED':
+    case 'TRAINING_JOB_STARTED':
+    case 'MODEL_STATUS_CHANGED':
+    case 'ANNOTATION_JOB_STARTED':
+    default:
+      return 'var(--accent)'
+  }
+}
+
 export default function EventLog() {
+  const { projectId: projectIdParam } = useParams<{ projectId?: string }>()
+  const projectId = projectIdParam ? Number(projectIdParam) : undefined
+  const { datasets } = useDatasetContext()
+  const project = projectId ? datasets.find((d) => d.id === projectId) ?? null : null
+
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Page<AnnotationEvent> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,7 +53,7 @@ export default function EventLog() {
 
   useEffect(() => {
     let cancelled = false
-    fetchEvents(appliedFilters, page, PAGE_SIZE)
+    fetchEvents({ ...appliedFilters, datasetId: projectId }, page, PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setData(res)
@@ -37,7 +69,7 @@ export default function EventLog() {
     return () => {
       cancelled = true
     }
-  }, [appliedFilters, page])
+  }, [appliedFilters, page, projectId])
 
   function applyFilters() {
     setPage(0)
@@ -66,14 +98,16 @@ export default function EventLog() {
     <>
       <div className="topbar">
         <div>
-          <div className="topbar-title">Event Log</div>
+          <div className="topbar-title">
+            {project ? `Event Log — ${project.datasetName}` : 'Global Event Log'}
+          </div>
           <div className="topbar-sub">Immutable, append-only record of every workflow action</div>
         </div>
       </div>
 
       <div className="content">
         <div className="filter-bar" style={{ flexWrap: 'wrap' }}>
-          <select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+          <select className="form-select" value={eventType} onChange={(e) => setEventType(e.target.value)}>
             <option value="">All event types</option>
             {EVENT_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -130,34 +164,34 @@ export default function EventLog() {
               <p>No events found{Object.keys(appliedFilters).length > 0 ? ' matching your filters' : ' yet'}.</p>
             </div>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Description</th>
-                  <th>Dataset Version</th>
-                  <th>Model Version</th>
-                  <th>By</th>
-                  <th>Occurred</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.content.map((e) => (
-                  <tr key={e.id}>
-                    <td>
-                      <span className={`badge ${eventTypeBadge(e.eventType)}`}>
-                        {eventTypeLabel(e.eventType)}
-                      </span>
-                    </td>
-                    <td>{e.description ?? '—'}</td>
-                    <td>{e.datasetVersionId ?? '—'}</td>
-                    <td>{e.modelVersionId ?? '—'}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{e.performedBy}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{formatDate(e.occurredAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div>
+              {data.content.map((e) => (
+                <div className="event-row" key={e.id}>
+                  <div className="event-dot" style={{ background: eventTypeColor(e.eventType) }} />
+                  <div className="event-content">
+                    <div className="event-type">{eventTypeLabel(e.eventType)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                      {e.description ?? '—'}
+                      {e.datasetVersionId != null && (
+                        <>
+                          {' '}
+                          · dataset v<span className="mono">{e.datasetVersionId}</span>
+                        </>
+                      )}
+                      {e.modelVersionId != null && (
+                        <>
+                          {' '}
+                          · model v<span className="mono">{e.modelVersionId}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="event-meta">
+                      {e.performedBy} · {formatDate(e.occurredAt)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {data && data.totalPages > 0 && (

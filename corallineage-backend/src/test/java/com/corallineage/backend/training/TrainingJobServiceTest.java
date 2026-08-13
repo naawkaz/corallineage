@@ -11,7 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -132,5 +137,28 @@ class TrainingJobServiceTest {
 
         assertThatThrownBy(() -> newService().getTrainingJobById(99L))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void getTrainingJobs_noStatusFilter_scopesToDataset() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(trainingJobRepository.findByDatasetVersion_Dataset_IdOrderByInitiatedAtDesc(1L, pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Page<TrainingJobResponse> result = newService().getTrainingJobs(1L, pageable, null);
+
+        assertThat(result.getContent()).isEmpty();
+        verify(trainingJobRepository, never()).findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(any(), any(), any());
+    }
+
+    @Test
+    void getTrainingJobs_withStatusFilter_scopesToDatasetAndStatus() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(trainingJobRepository.findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(1L, "COMPLETED", pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        newService().getTrainingJobs(1L, pageable, "COMPLETED");
+
+        verify(trainingJobRepository).findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(1L, "COMPLETED", pageable);
     }
 }

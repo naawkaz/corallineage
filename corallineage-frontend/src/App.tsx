@@ -1,10 +1,10 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import AnnotationJobs from './pages/AnnotationJobs'
 import AnnotationReview from './pages/AnnotationReview'
 import ComingSoon from './pages/ComingSoon'
 import DatasetDiff from './pages/DatasetDiff'
-import Datasets from './pages/Datasets'
+import Home from './pages/Home'
 import EventLog from './pages/EventLog'
 import Import from './pages/Import'
 import ModelDetail from './pages/ModelDetail'
@@ -22,20 +22,20 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<Navigate to="/datasets" replace />} />
-            <Route path="/datasets" element={<Datasets />} />
-            <Route path="/versions" element={<VersionBrowser />} />
-            <Route path="/import" element={<Import />} />
-            <Route path="/diff" element={<DatasetDiff />} />
-            <Route path="/versions/:id" element={<VersionDetail />} />
-            <Route path="/training" element={<TrainingJobs />} />
-            <Route path="/models" element={<ModelRegistry />} />
-            <Route path="/models/:id" element={<ModelDetail />} />
-            <Route path="/annotation" element={<AnnotationJobs />} />
-            <Route path="/annotation/jobs/:id/review" element={<AnnotationReview />} />
+            <Route index element={<Home />} />
             <Route path="/events" element={<EventLog />} />
-            <Route path="/ontology" element={<OntologyChanges />} />
             <Route path="/report" element={<ReportGenerator />} />
+            <Route path="/projects/:projectId/versions" element={<VersionBrowser />} />
+            <Route path="/projects/:projectId/versions/:id" element={<VersionDetail />} />
+            <Route path="/projects/:projectId/import" element={<Import />} />
+            <Route path="/projects/:projectId/diff" element={<DatasetDiff />} />
+            <Route path="/projects/:projectId/models" element={<ModelRegistry />} />
+            <Route path="/projects/:projectId/models/:id" element={<ModelDetail />} />
+            <Route path="/projects/:projectId/training" element={<TrainingJobs />} />
+            <Route path="/projects/:projectId/annotation" element={<AnnotationJobs />} />
+            <Route path="/projects/:projectId/annotation/jobs/:id/review" element={<AnnotationReview />} />
+            <Route path="/projects/:projectId/events" element={<EventLog />} />
+            <Route path="/projects/:projectId/ontology" element={<OntologyChanges />} />
             <Route path="*" element={<ComingSoon />} />
           </Route>
         </Routes>

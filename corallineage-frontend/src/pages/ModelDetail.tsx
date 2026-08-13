@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   CartesianGrid,
   Line,
@@ -30,8 +30,10 @@ type DiagnosticsState =
   | { kind: 'error'; message: string }
 
 export default function ModelDetail() {
-  const { id } = useParams()
+  const { id, projectId: projectIdParam } = useParams()
+  const navigate = useNavigate()
   const modelId = Number(id)
+  const modelsListPath = `/projects/${projectIdParam}/models`
 
   const [model, setModel] = useState<ModelVersion | null>(null)
   const [loading, setLoading] = useState(true)
@@ -114,7 +116,7 @@ export default function ModelDetail() {
       <div className="topbar">
         <div>
           <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to="/models" style={{ color: 'var(--text-muted)', fontWeight: 400, textDecoration: 'none' }}>
+            <Link to={modelsListPath} style={{ color: 'var(--text-muted)', fontWeight: 400, textDecoration: 'none' }}>
               Model Registry
             </Link>
             <span style={{ color: 'var(--border-md)' }}>/</span>
@@ -124,6 +126,9 @@ export default function ModelDetail() {
             Trained {formatDate(model.trainedAt)} by {model.trainedBy}
           </div>
         </div>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate(modelsListPath)}>
+          ← Back
+        </button>
       </div>
 
       <div className="content">
@@ -155,7 +160,7 @@ export default function ModelDetail() {
                   <div>
                     {model.trainedOnDatasetVersion ? (
                       <Link
-                        to={`/versions/${model.trainedOnDatasetVersion.id}`}
+                        to={`/projects/${projectIdParam}/versions/${model.trainedOnDatasetVersion.id}`}
                         className="mono"
                         style={{ color: 'var(--accent)' }}
                       >

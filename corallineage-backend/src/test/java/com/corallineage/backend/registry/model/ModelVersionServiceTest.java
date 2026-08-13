@@ -55,25 +55,27 @@ class ModelVersionServiceTest {
     }
 
     @Test
-    void getAllModels_noStatusFilter_usesFindAll() {
+    void getAllModels_noStatusFilter_scopesToDataset() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(modelVersionRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(model(1L))));
+        when(modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_Id(7L, pageable))
+                .thenReturn(new PageImpl<>(List.of(model(1L))));
 
-        Page<ModelVersionResponse> result = newService().getAllModels(pageable, null);
+        Page<ModelVersionResponse> result = newService().getAllModels(7L, pageable, null);
 
         assertThat(result.getContent()).hasSize(1);
-        verify(modelVersionRepository, never()).findByStatus(any(), any());
+        verify(modelVersionRepository, never()).findByTrainedOnDatasetVersion_Dataset_IdAndStatus(any(), any(), any());
     }
 
     @Test
-    void getAllModels_withStatusFilter_usesFindByStatus() {
+    void getAllModels_withStatusFilter_scopesToDatasetAndStatus() {
         Pageable pageable = PageRequest.of(0, 20);
-        when(modelVersionRepository.findByStatus("ARCHIVED", pageable)).thenReturn(new PageImpl<>(List.of()));
+        when(modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(7L, "ARCHIVED", pageable))
+                .thenReturn(new PageImpl<>(List.of()));
 
-        newService().getAllModels(pageable, "ARCHIVED");
+        newService().getAllModels(7L, pageable, "ARCHIVED");
 
-        verify(modelVersionRepository).findByStatus("ARCHIVED", pageable);
-        verify(modelVersionRepository, never()).findAll(pageable);
+        verify(modelVersionRepository).findByTrainedOnDatasetVersion_Dataset_IdAndStatus(7L, "ARCHIVED", pageable);
+        verify(modelVersionRepository, never()).findByTrainedOnDatasetVersion_Dataset_Id(any(), any());
     }
 
     @Test

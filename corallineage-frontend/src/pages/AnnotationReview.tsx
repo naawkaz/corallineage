@@ -6,7 +6,6 @@ import { fetchModel } from '../api/models'
 import { fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER } from '../constants'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { AnnotationJob, AnnotationPrediction } from '../types/annotation'
 import type { LabelDefinition } from '../types/version'
 
@@ -18,16 +17,16 @@ function dotColor(predictions: AnnotationPrediction[]): string {
   return 'var(--teal, #0d9488)'
 }
 
-function pointColor(prediction: AnnotationPrediction): string {
-  if (prediction.accepted === null) return '#d97706'
-  return prediction.accepted ? '#0d9488' : '#e05d44'
+function dotStatusClass(prediction: AnnotationPrediction): string {
+  if (prediction.accepted === null) return 'dot-pending'
+  return prediction.accepted ? 'dot-accepted' : 'dot-corrected'
 }
 
 export default function AnnotationReview() {
-  const { id } = useParams<{ id: string }>()
+  const { id, projectId: projectIdParam } = useParams<{ id: string; projectId: string }>()
   const jobId = Number(id)
+  const projectId = Number(projectIdParam)
   const navigate = useNavigate()
-  const { activeDatasetId } = useDatasetContext()
 
   const [job, setJob] = useState<AnnotationJob | null>(null)
   const [predictions, setPredictions] = useState<AnnotationPrediction[]>([])
@@ -54,16 +53,16 @@ export default function AnnotationReview() {
   }, [loadAll])
 
   useEffect(() => {
-    if (!job || !activeDatasetId) return
+    if (!job) return
     fetchModel(job.modelVersionId)
       .then((model) => {
         const versionId = model.trainedOnDatasetVersion?.id
         if (!versionId) return
-        return fetchVersion(activeDatasetId, versionId)
+        return fetchVersion(projectId, versionId)
       })
       .then((version) => setLabelOptions(version?.labelDefinitions ?? []))
       .catch(() => setLabelOptions([]))
-  }, [job, activeDatasetId])
+  }, [job, projectId])
 
   const imageIds = useMemo(() => {
     const seen = new Set<number>()
@@ -164,7 +163,7 @@ export default function AnnotationReview() {
             {job.reviewedPredictions} / {job.totalPredictions} reviewed
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate('/annotation')}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/projects/${projectId}/annotation`)}>
           Back to jobs
         </button>
       </div>
@@ -173,7 +172,7 @@ export default function AnnotationReview() {
         <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
       </div>
 
-      <div className="content" style={{ display: 'grid', gridTemplateColumns: '260px 1fr 280px', gap: 16 }}>
+      <div className="content" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
         {/* Left panel: image list */}
         <div className="card" style={{ padding: 0, maxHeight: '70vh', overflowY: 'auto' }}>
           {imageIds.map((imgId) => {
@@ -210,97 +209,113 @@ export default function AnnotationReview() {
           })}
         </div>
 
-        {/* Center panel: image + point overlay */}
-        <div className="card" style={{ padding: 0, position: 'relative', minHeight: 400 }}>
-          {selectedImageId != null && (
-            <div style={{ position: 'relative', width: '100%' }}>
-              <img
-                src={imageFileUrlById(selectedImageId)}
-                alt={currentFilename}
-                style={{ width: '100%', display: 'block', borderRadius: 6 }}
-              />
-              {currentPrediction && (
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-                >
-                  <circle
-                    cx={50}
-                    cy={50}
-                    r={2.2}
-                    fill={pointColor(currentPrediction)}
-                    stroke="white"
-                    strokeWidth={0.6}
-                  >
-                    <title>
-                      {currentPrediction.predictedLabelCode} — conf {currentPrediction.confidenceScore.toFixed(4)}
-                    </title>
-                  </circle>
-                </svg>
+        <div className="review-layout">
+          {/* Center: image canvas + point overlay */}
+          <div>
+            <div className="image-canvas">
+              {selectedImageId != null ? (
+                <>
+                  <img
+                    src={imageFileUrlById(selectedImageId)}
+                    alt={currentFilename}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {currentPrediction && (
+                    <div
+                      className={`annotation-dot ${dotStatusClass(currentPrediction)}`}
+                      style={{ top: '50%', left: '50%' }}
+                      title={`${currentPrediction.predictedLabelCode} — conf ${currentPrediction.confidenceScore.toFixed(4)}`}
+                    >
+                      {currentPrediction.pointIndex}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="image-placeholder">No image selected</div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Right panel: point detail */}
-        <div className="card" style={{ padding: 16 }}>
-          {currentPrediction ? (
-            <>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                Point #{currentPrediction.pointIndex}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
-                {currentPrediction.accepted === false
-                  ? currentPrediction.correctedLabelCode
-                  : currentPrediction.predictedLabelCode}
-              </div>
-              <div className="mono" style={{ fontSize: 13, marginBottom: 4 }}>
-                Conf: {currentPrediction.confidenceScore.toFixed(4)}
-              </div>
-              {currentPrediction.accepted !== null && (
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  {currentPrediction.accepted ? 'Accepted' : `Overridden: ${currentPrediction.correctedLabelCode}`}
-                  {currentPrediction.reviewedBy ? ` by ${currentPrediction.reviewedBy}` : ''}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button className="btn btn-primary" onClick={() => acceptPrediction(currentPrediction)}>
-                  Accept
-                </button>
-                <button className="btn btn-secondary" onClick={() => setOverrideOpen((prev) => !prev)}>
-                  Override ▾
-                </button>
-              </div>
-
-              {overrideOpen && (
-                <div style={{ marginTop: 12 }}>
-                  <select
-                    onChange={(e) => e.target.value && overridePrediction(currentPrediction, e.target.value)}
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      Select label…
-                    </option>
-                    {labelOptions.map((l) => (
-                      <option key={l.labelCode} value={l.labelCode}>
-                        {l.labelName} ({l.labelCode})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 24 }}>
-                Shortcuts: A accept · O override · ↑↓ navigate images
-              </div>
-            </>
-          ) : (
-            <div className="empty-state">
-              <p>No point selected.</p>
+            <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: 'var(--text-secondary)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+                Accepted
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
+                Pending
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#D97706', display: 'inline-block' }} />
+                Corrected
+              </span>
             </div>
-          )}
+          </div>
+
+          {/* Right: point detail */}
+          <div className="review-panel">
+            <div className="review-point-card">
+              {currentPrediction ? (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    Point #{currentPrediction.pointIndex}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+                    {currentPrediction.accepted === false
+                      ? currentPrediction.correctedLabelCode
+                      : currentPrediction.predictedLabelCode}
+                  </div>
+                  <div className="mono" style={{ fontSize: 13, marginBottom: 4 }}>
+                    Conf: {currentPrediction.confidenceScore.toFixed(4)}
+                  </div>
+                  {currentPrediction.accepted !== null && (
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                      {currentPrediction.accepted ? 'Accepted' : `Overridden: ${currentPrediction.correctedLabelCode}`}
+                      {currentPrediction.reviewedBy ? ` by ${currentPrediction.reviewedBy}` : ''}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ color: 'var(--success)', borderColor: '#86EFAC' }}
+                      onClick={() => acceptPrediction(currentPrediction)}
+                    >
+                      Accept
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setOverrideOpen((prev) => !prev)}>
+                      Override ▾
+                    </button>
+                  </div>
+
+                  {overrideOpen && (
+                    <div style={{ marginTop: 12 }}>
+                      <select
+                        className="form-select"
+                        onChange={(e) => e.target.value && overridePrediction(currentPrediction, e.target.value)}
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Select label…
+                        </option>
+                        {labelOptions.map((l) => (
+                          <option key={l.labelCode} value={l.labelCode}>
+                            {l.labelName} ({l.labelCode})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 24 }}>
+                    Shortcuts: A accept · O override · ↑↓ navigate images
+                  </div>
+                </>
+              ) : (
+                <div className="empty-state">
+                  <p>No point selected.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </>

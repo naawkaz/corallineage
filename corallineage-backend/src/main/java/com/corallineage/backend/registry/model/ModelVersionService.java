@@ -62,10 +62,10 @@ public class ModelVersionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ModelVersionResponse> getAllModels(Pageable pageable, String statusFilter) {
+    public Page<ModelVersionResponse> getAllModels(Long datasetId, Pageable pageable, String statusFilter) {
         Page<ModelVersion> models = statusFilter != null && !statusFilter.isBlank()
-                ? modelVersionRepository.findByStatus(statusFilter, pageable)
-                : modelVersionRepository.findAll(pageable);
+                ? modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(datasetId, statusFilter, pageable)
+                : modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_Id(datasetId, pageable);
         return models.map(modelVersionMapper::toResponse);
     }
 

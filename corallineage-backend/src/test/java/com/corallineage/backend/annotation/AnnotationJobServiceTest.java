@@ -1,17 +1,23 @@
 package com.corallineage.backend.annotation;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.registry.model.ModelVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -52,9 +58,19 @@ class AnnotationJobServiceTest {
     }
 
     private Image image(Long id) {
+        return image(id, 1L);
+    }
+
+    private Image image(Long id, Long datasetId) {
         Image img = new Image();
         img.setId(id);
         img.setFilename("img" + id + ".jpg");
+        Dataset dataset = new Dataset();
+        dataset.setId(datasetId);
+        DatasetVersion version = new DatasetVersion();
+        version.setId(datasetId);
+        version.setDataset(dataset);
+        img.setDatasetVersion(version);
         return img;
     }
 
@@ -113,6 +129,48 @@ class AnnotationJobServiceTest {
         assertThat(response.getImageCount()).isEqualTo(2);
         verify(annotationJobExecutor).executeAnnotationAsync(5L);
         verify(annotationEventLoggerService).log(eq(EventType.ANNOTATION_JOB_STARTED), any(), eq(model), any(), any());
+    }
+
+    @Test
+    void submitAnnotationJob_success_derivesDatasetFromFirstImage() {
+        ModelVersion model = model(1L, "ACTIVE");
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model));
+        when(imageRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(image(1L, 42L), image(2L, 42L)));
+        when(annotationJobRepository.save(any(AnnotationJob.class))).thenAnswer(inv -> {
+            AnnotationJob job = inv.getArgument(0);
+            job.setId(5L);
+            return job;
+        });
+
+        newService().submitAnnotationJob(request(1L, List.of(1L, 2L)));
+
+        org.mockito.ArgumentCaptor<AnnotationJob> captor = org.mockito.ArgumentCaptor.forClass(AnnotationJob.class);
+        verify(annotationJobRepository).save(captor.capture());
+        assertThat(captor.getValue().getDataset().getId()).isEqualTo(42L);
+    }
+
+    @Test
+    void submitAnnotationJob_imagesFromDifferentDatasets_throwsInvalidRequest() {
+        ModelVersion model = model(1L, "ACTIVE");
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model));
+        when(imageRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(image(1L, 42L), image(2L, 43L)));
+
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L, 2L))))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(annotationJobRepository, never()).save(any());
+        verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
+    }
+
+    @Test
+    void getJobs_scopesToDataset() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(annotationJobRepository.findByDataset_IdOrderByInitiatedAtDesc(42L, pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Page<AnnotationJobResponse> result = newService().getJobs(42L, pageable);
+
+        assertThat(result.getContent()).isEmpty();
+        verify(annotationJobRepository).findByDataset_IdOrderByInitiatedAtDesc(42L, pageable);
     }
 
     @Test

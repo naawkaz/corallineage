@@ -40,7 +40,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
       <div className="modal">
         <div className="modal-header">
           <div>
-            <div className="modal-title">Create new dataset</div>
+            <div className="modal-title">Create new project</div>
             <div className="modal-subtitle">
               A named container for versioned snapshots of a coral annotation project
             </div>
@@ -57,7 +57,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
           )}
           <div className="form-row">
             <label className="form-label" htmlFor="datasetName">
-              Dataset name
+              Project name
             </label>
             <input
               id="datasetName"
@@ -66,7 +66,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
               value={datasetName}
               onChange={(e) => setDatasetName(e.target.value)}
             />
-            <div className="form-hint">Must be unique across all datasets.</div>
+            <div className="form-hint">Must be unique across all projects.</div>
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
             <label className="form-label" htmlFor="description">
@@ -90,7 +90,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
             onClick={handleSubmit}
             disabled={submitting || !datasetName.trim()}
           >
-            {submitting ? 'Creating…' : 'Create dataset'}
+            {submitting ? 'Creating…' : 'Create project'}
           </button>
         </div>
       </div>

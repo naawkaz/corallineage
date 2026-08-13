@@ -12,8 +12,8 @@ export async function submitAnnotationJob(request: InitiateAnnotationJobRequest)
   return data
 }
 
-export async function fetchAnnotationJobs(page: number, size: number): Promise<Page<AnnotationJob>> {
-  const { data } = await api.get<Page<AnnotationJob>>('/annotation/jobs', { params: { page, size } })
+export async function fetchAnnotationJobs(datasetId: number, page: number, size: number): Promise<Page<AnnotationJob>> {
+  const { data } = await api.get<Page<AnnotationJob>>('/annotation/jobs', { params: { datasetId, page, size } })
   return data
 }
 

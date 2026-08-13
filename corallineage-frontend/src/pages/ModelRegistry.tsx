@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { fetchModels } from '../api/models'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE } from '../constants'
@@ -15,6 +15,8 @@ const STATUS_BADGE: Record<ModelStatus, string> = {
 
 export default function ModelRegistry() {
   const navigate = useNavigate()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
   const [page, setPage] = useState(0)
   const [status, setStatus] = useState('ALL')
   const [data, setData] = useState<Page<ModelVersion> | null>(null)
@@ -22,14 +24,14 @@ export default function ModelRegistry() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchModels(page, PAGE_SIZE, status === 'ALL' ? undefined : status)
+    fetchModels(projectId, page, PAGE_SIZE, status === 'ALL' ? undefined : status)
       .then((res) => {
         setData(res)
         setError(null)
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [page, status])
+  }, [projectId, page, status])
 
   const pageNumbers = data ? Array.from({ length: data.totalPages }, (_, i) => i) : []
 
@@ -45,6 +47,7 @@ export default function ModelRegistry() {
       <div className="content">
         <div className="filter-bar">
           <select
+            className="form-select"
             value={status}
             onChange={(e) => {
               setLoading(true)
@@ -90,7 +93,7 @@ export default function ModelRegistry() {
               </thead>
               <tbody>
                 {data.content.map((m) => (
-                  <tr key={m.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/models/${m.id}`)}>
+                  <tr key={m.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/projects/${projectId}/models/${m.id}`)}>
                     <td>
                       <span className="mono">{m.modelTag}</span>
                     </td>

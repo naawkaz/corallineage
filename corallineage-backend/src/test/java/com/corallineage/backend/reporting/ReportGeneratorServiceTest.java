@@ -25,6 +25,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -185,7 +187,7 @@ class ReportGeneratorServiceTest {
         when(datasetVersionRepository.findByCreatedAtBetween(t1, t2)).thenReturn(List.of());
         when(modelVersionRepository.findByTrainedAtBetween(t1, t2)).thenReturn(List.of(m));
         when(ontologyChangeRepository.findByChangedAtBetween(t1, t2)).thenReturn(List.of());
-        when(annotationEventRepository.findByFilters(any(), any(), any(), eq(t1), eq(t2), any()))
+        when(annotationEventRepository.findByFilters(any(), any(), any(), any(), eq(t1), eq(t2), any()))
                 .thenReturn(new PageImpl<>(List.of()));
         when(annotationPointRepository.countByLabelBetween(t1, t2)).thenReturn(List.of());
         when(annotationPointRepository.countBySourceBetween(t1, t2)).thenReturn(List.of());
@@ -205,7 +207,7 @@ class ReportGeneratorServiceTest {
         when(datasetVersionRepository.findByCreatedAtBetween(t1, t2)).thenReturn(List.of(version(1L, "v1.0")));
         when(modelVersionRepository.findByTrainedAtBetween(t1, t2)).thenReturn(List.of(model(1L, "model-v1", null)));
         when(ontologyChangeRepository.findByChangedAtBetween(t1, t2)).thenReturn(List.of(ontologyChange(1L)));
-        when(annotationEventRepository.findByFilters(any(), any(), any(), eq(t1), eq(t2), any()))
+        when(annotationEventRepository.findByFilters(any(), any(), any(), any(), eq(t1), eq(t2), any()))
                 .thenReturn(new PageImpl<>(List.of(event(1L))));
         when(reportMetadataRepository.countByReportIdStartingWith(any())).thenReturn(0L);
         when(reportMetadataRepository.save(any(ReportMetadata.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -244,7 +246,7 @@ class ReportGeneratorServiceTest {
         when(datasetVersionRepository.findByCreatedAtBetween(t1, t2)).thenReturn(List.of(version(1L, "v1.0")));
         when(modelVersionRepository.findByTrainedAtBetween(t1, t2)).thenReturn(List.of());
         when(ontologyChangeRepository.findByChangedAtBetween(t1, t2)).thenReturn(List.of());
-        when(annotationEventRepository.findByFilters(any(), any(), any(), eq(t1), eq(t2), any()))
+        when(annotationEventRepository.findByFilters(any(), any(), any(), any(), eq(t1), eq(t2), any()))
                 .thenReturn(new PageImpl<>(List.of()));
 
         ReproducibilityReportResponse response = newService().exportReport("RPT-2026-001");
@@ -255,11 +257,43 @@ class ReportGeneratorServiceTest {
         verify(annotationEventLoggerService, never()).log(any(), any(), any(), any());
     }
 
+    @Test
+    void listReports_returnsMappedSummariesInOrder() {
+        ReportMetadata m1 = new ReportMetadata();
+        m1.setReportId("RPT-2026-002");
+        m1.setGeneratedAt(t2);
+        m1.setRequestedBy("researcher_02");
+        m1.setFromDate(t1);
+        m1.setToDate(t2);
+
+        ReportMetadata m2 = new ReportMetadata();
+        m2.setReportId("RPT-2026-001");
+        m2.setGeneratedAt(t1);
+        m2.setRequestedBy("researcher_01");
+        m2.setFromDate(t1);
+        m2.setToDate(t2);
+
+        Pageable pageable = PageRequest.of(0, 20);
+        when(reportMetadataRepository.findAllByOrderByGeneratedAtDesc(pageable))
+                .thenReturn(new PageImpl<>(List.of(m1, m2)));
+
+        Page<ReportSummaryResponse> result = newService().listReports(pageable);
+
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent().get(0).reportId()).isEqualTo("RPT-2026-002");
+        assertThat(result.getContent().get(0).requestedBy()).isEqualTo("researcher_02");
+        assertThat(result.getContent().get(0).fromDate()).isEqualTo(t1);
+        assertThat(result.getContent().get(0).toDate()).isEqualTo(t2);
+        assertThat(result.getContent().get(0).generatedAt()).isEqualTo(t2);
+        assertThat(result.getContent().get(1).reportId()).isEqualTo("RPT-2026-001");
+        assertThat(result.getContent().get(1).requestedBy()).isEqualTo("researcher_01");
+    }
+
     private void stubEmptyCoreQueries() {
         when(datasetVersionRepository.findByCreatedAtBetween(t1, t2)).thenReturn(List.of());
         when(modelVersionRepository.findByTrainedAtBetween(t1, t2)).thenReturn(List.of());
         when(ontologyChangeRepository.findByChangedAtBetween(t1, t2)).thenReturn(List.of());
         Page<AnnotationEvent> emptyPage = new PageImpl<>(List.of());
-        when(annotationEventRepository.findByFilters(any(), any(), any(), eq(t1), eq(t2), any())).thenReturn(emptyPage);
+        when(annotationEventRepository.findByFilters(any(), any(), any(), any(), eq(t1), eq(t2), any())).thenReturn(emptyPage);
     }
 }

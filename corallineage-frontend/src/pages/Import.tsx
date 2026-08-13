@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { fetchImportJob, submitImport } from '../api/imports'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER } from '../constants'
@@ -18,7 +18,10 @@ function jobNumericId(job: ImportJob): number {
 
 export default function Import() {
   const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [format, setFormat] = useState<ImportFormat>('MLC')
   const [files, setFiles] = useState<File[]>([])
@@ -32,11 +35,11 @@ export default function Import() {
   const pollingRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!job || !activeDatasetId || job.status !== 'PROCESSING') {
+    if (!job || job.status !== 'PROCESSING') {
       return
     }
     const intervalId = window.setInterval(() => {
-      fetchImportJob(activeDatasetId, jobNumericId(job))
+      fetchImportJob(projectId, jobNumericId(job))
         .then((updated) => {
           setJob(updated)
           if (updated.status !== 'PROCESSING' && pollingRef.current !== null) {
@@ -51,31 +54,15 @@ export default function Import() {
       window.clearInterval(intervalId)
       pollingRef.current = null
     }
-  }, [job, activeDatasetId])
-
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  }, [job, projectId])
 
   async function handleSubmit() {
-    if (!activeDatasetId || files.length === 0) return
+    if (files.length === 0) return
     setSubmitting(true)
     setSubmitError(null)
     setPollError(null)
     try {
-      const created = await submitImport(activeDatasetId, files, format, versionTag.trim(), CURRENT_USER, notes)
+      const created = await submitImport(projectId, files, format, versionTag.trim(), CURRENT_USER, notes)
       setJob(created)
     } catch (err) {
       setSubmitError(errorMessage(err))
@@ -97,9 +84,9 @@ export default function Import() {
     <>
       <div className="topbar">
         <div>
-          <div className="topbar-title">Import Dataset</div>
+          <div className="topbar-title">Import Data</div>
           <div className="topbar-sub">
-            {activeDataset ? `Bulk-import images and annotations into ${activeDataset.datasetName}` : 'Bulk-import images and annotations'}
+            {project ? `Bulk-import images and annotations into ${project.datasetName}` : 'Bulk-import images and annotations'}
           </div>
         </div>
       </div>
@@ -228,7 +215,7 @@ export default function Import() {
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button
                 className="btn btn-primary"
-                onClick={() => navigate(`/versions/${job.createdDatasetVersionId}`)}
+                onClick={() => navigate(`/projects/${projectId}/versions/${job.createdDatasetVersionId}`)}
               >
                 View version
               </button>

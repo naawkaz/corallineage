@@ -10,6 +10,7 @@ export interface OntologyChange {
   changedAt: string
   notes: string | null
   dirtyAnnotationsFlagged: number
+  resolvedCount: number
 }
 
 export interface DirtyAnnotation {

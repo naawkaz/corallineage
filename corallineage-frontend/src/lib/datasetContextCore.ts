@@ -3,9 +3,6 @@ import type { Dataset } from '../types/dataset'
 
 export interface DatasetContextValue {
   datasets: Dataset[]
-  activeDataset: Dataset | null
-  activeDatasetId: number | null
-  setActiveDatasetId: (id: number) => void
   loading: boolean
   error: string | null
   refresh: () => void

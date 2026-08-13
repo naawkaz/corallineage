@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   Bar,
   BarChart,
@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import { fetchDatasetDiff } from '../api/diff'
 import { fetchVersions } from '../api/versions'
+import { imageFileUrlById } from '../api/images'
 import { errorMessage } from '../api/client'
 import { formatCount } from '../lib/format'
 import { useDatasetContext } from '../lib/datasetContextCore'
@@ -19,8 +20,10 @@ import type { DatasetDiff } from '../types/diff'
 import type { DatasetVersion } from '../types/version'
 
 export default function DatasetDiffPage() {
-  const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [fromVersionId, setFromVersionId] = useState<number | null>(null)
@@ -31,8 +34,7 @@ export default function DatasetDiffPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!activeDatasetId) return
-    fetchVersions(activeDatasetId, 0, 50)
+    fetchVersions(projectId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length >= 2) {
@@ -43,30 +45,14 @@ export default function DatasetDiffPage() {
         }
       })
       .catch(() => setVersions([]))
-  }, [activeDatasetId])
-
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  }, [projectId])
 
   async function handleCompare() {
-    if (!activeDatasetId || !fromVersionId || !toVersionId) return
+    if (!fromVersionId || !toVersionId) return
     setLoading(true)
     setError(null)
     try {
-      const result = await fetchDatasetDiff(activeDatasetId, fromVersionId, toVersionId)
+      const result = await fetchDatasetDiff(projectId, fromVersionId, toVersionId)
       setDiff(result)
     } catch (err) {
       setDiff(null)
@@ -82,7 +68,7 @@ export default function DatasetDiffPage() {
         <div>
           <div className="topbar-title">Compare Versions</div>
           <div className="topbar-sub">
-            {activeDataset ? `Diff two versions of ${activeDataset.datasetName}` : 'Diff two dataset versions'}
+            {project ? `Diff two versions of ${project.datasetName}` : 'Diff two versions'}
           </div>
         </div>
       </div>
@@ -93,6 +79,7 @@ export default function DatasetDiffPage() {
             <div className="form-row" style={{ marginBottom: 0 }}>
               <label className="form-label">From version</label>
               <select
+                className="form-select"
                 value={fromVersionId ?? ''}
                 onChange={(e) => setFromVersionId(e.target.value ? Number(e.target.value) : null)}
               >
@@ -107,6 +94,7 @@ export default function DatasetDiffPage() {
             <div className="form-row" style={{ marginBottom: 0 }}>
               <label className="form-label">To version</label>
               <select
+                className="form-select"
                 value={toVersionId ?? ''}
                 onChange={(e) => setToVersionId(e.target.value ? Number(e.target.value) : null)}
               >
@@ -175,6 +163,62 @@ export default function DatasetDiffPage() {
                 </div>
               </div>
             )}
+
+            <div style={{ marginBottom: 24 }}>
+              <div className="section-header">
+                <div className="section-title">Image Changes</div>
+              </div>
+              <div className="diff-layout">
+                <div className="diff-side">
+                  <div className="diff-header">
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>Removed</span>
+                    <span className="badge badge-red">{diff.imagesRemoved.length}</span>
+                  </div>
+                  {diff.imagesRemoved.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No images removed between these versions.</p>
+                    </div>
+                  ) : (
+                    <div className="diff-grid">
+                      {diff.imagesRemoved.map((img) => (
+                        <div key={img.imageId} className="diff-thumb removed" title={img.filename}>
+                          <div className="diff-badge">−</div>
+                          <img
+                            src={imageFileUrlById(img.imageId)}
+                            alt={img.filename}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="diff-side">
+                  <div className="diff-header">
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>Added</span>
+                    <span className="badge badge-green">{diff.imagesAdded.length}</span>
+                  </div>
+                  {diff.imagesAdded.length === 0 ? (
+                    <div className="empty-state">
+                      <p>No images added between these versions.</p>
+                    </div>
+                  ) : (
+                    <div className="diff-grid">
+                      {diff.imagesAdded.map((img) => (
+                        <div key={img.imageId} className="diff-thumb added" title={img.filename}>
+                          <div className="diff-badge">＋</div>
+                          <img
+                            src={imageFileUrlById(img.imageId)}
+                            alt={img.filename}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div className="section-header">
               <div className="section-title">Class Distribution Delta</div>

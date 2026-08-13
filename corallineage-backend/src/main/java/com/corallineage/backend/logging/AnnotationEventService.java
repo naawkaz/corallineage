@@ -21,11 +21,11 @@ public class AnnotationEventService {
 
     @Transactional(readOnly = true)
     public Page<AnnotationEventResponse> queryEvents(EventType eventType, Long datasetVersionId,
-                                                      Long modelVersionId, Instant from, Instant to,
+                                                      Long modelVersionId, Long datasetId, Instant from, Instant to,
                                                       Pageable pageable) {
         String eventTypeName = eventType != null ? eventType.name() : null;
         return annotationEventRepository
-                .findByFilters(eventTypeName, datasetVersionId, modelVersionId, from, to, pageable)
+                .findByFilters(eventTypeName, datasetVersionId, modelVersionId, datasetId, from, to, pageable)
                 .map(annotationEventMapper::toResponse);
     }
 }

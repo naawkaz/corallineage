@@ -27,10 +27,11 @@ public class OntologyChangeController {
 
     @GetMapping("/changes")
     public Page<OntologyChangeResponse> getChanges(
+            @RequestParam Long datasetId,
             @RequestParam(required = false) Long datasetVersionId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ontologyChangeService.getChanges(datasetVersionId, PageRequest.of(page, size));
+        return ontologyChangeService.getChanges(datasetId, datasetVersionId, PageRequest.of(page, size));
     }
 
     @PostMapping("/changes")

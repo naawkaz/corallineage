@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { fetchArchitectures, fetchTrainingJob, fetchTrainingJobs, submitTrainingJob } from '../api/training'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
@@ -23,8 +23,10 @@ function statusBadge(status: TrainingJob['status']): string {
 }
 
 export default function TrainingJobs() {
-  const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
@@ -46,7 +48,7 @@ export default function TrainingJobs() {
   const pollingRef = useRef<number | null>(null)
 
   function loadJobs() {
-    fetchTrainingJobs(0, 20)
+    fetchTrainingJobs(projectId, 0, 20)
       .then((res) => {
         setJobs(res.content)
         setJobsError(null)
@@ -57,7 +59,8 @@ export default function TrainingJobs() {
 
   useEffect(() => {
     loadJobs()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   useEffect(() => {
     fetchArchitectures()
@@ -71,11 +74,10 @@ export default function TrainingJobs() {
   }, [])
 
   useEffect(() => {
-    if (!activeDatasetId) return
-    fetchVersions(activeDatasetId, 0, 50)
+    fetchVersions(projectId, 0, 50)
       .then((res) => setVersions(res.content))
       .catch(() => setVersions([]))
-  }, [activeDatasetId])
+  }, [projectId])
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING') {
@@ -100,31 +102,15 @@ export default function TrainingJobs() {
       window.clearInterval(intervalId)
       pollingRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJob])
 
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   async function handleSubmit() {
-    if (!activeDatasetId) return
     setSubmitting(true)
     setSubmitError(null)
     try {
       const created = await submitTrainingJob({
-        datasetId: activeDatasetId,
+        datasetId: projectId,
         datasetVersionId: versionMode === 'specific' && selectedVersionId ? selectedVersionId : undefined,
         architecture,
         learningRate: Number(learningRate),
@@ -147,7 +133,7 @@ export default function TrainingJobs() {
         <div>
           <div className="topbar-title">Training Jobs</div>
           <div className="topbar-sub">
-            {activeDataset ? `Fine-tune a model on ${activeDataset.datasetName}` : 'Fine-tune a model'}
+            {project ? `Fine-tune a model on ${project.datasetName}` : 'Fine-tune a model'}
           </div>
         </div>
       </div>
@@ -161,7 +147,7 @@ export default function TrainingJobs() {
             <div className="card" style={{ padding: 16 }}>
               <div className="form-row">
                 <label className="form-label">Architecture</label>
-                <select value={architecture} onChange={(e) => setArchitecture(e.target.value)}>
+                <select className="form-select" value={architecture} onChange={(e) => setArchitecture(e.target.value)}>
                   {(architectures.length > 0
                     ? architectures
                     : [{ id: 'efficientnet_b0', displayName: 'EfficientNet-B0', description: '' }]
@@ -195,6 +181,7 @@ export default function TrainingJobs() {
                 </label>
                 {versionMode === 'specific' && (
                   <select
+                    className="form-select"
                     style={{ marginTop: 8 }}
                     value={selectedVersionId ?? ''}
                     onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}

@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { fetchImages, imageFileUrl } from '../api/images'
 import { triggerReasonBadge, triggerReasonLabel } from '../constants'
 import { formatCount, formatDate } from '../lib/format'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { DatasetVersion } from '../types/version'
 import type { DatasetImage } from '../types/image'
 
 const IMAGE_PAGE_SIZE = 40
 
 export default function VersionDetail() {
-  const { id } = useParams()
+  const { id, projectId: projectIdParam } = useParams()
+  const navigate = useNavigate()
   const versionId = Number(id)
-  const { activeDatasetId } = useDatasetContext()
+  const datasetId = Number(projectIdParam)
+  const versionsListPath = `/projects/${projectIdParam}/versions`
   const [version, setVersion] = useState<DatasetVersion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,9 +35,9 @@ export default function VersionDetail() {
   const [addLabelError, setAddLabelError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!activeDatasetId) return
+    if (!datasetId) return
     let cancelled = false
-    fetchVersion(activeDatasetId, versionId)
+    fetchVersion(datasetId, versionId)
       .then((res) => {
         if (!cancelled) {
           setVersion(res)
@@ -52,12 +53,12 @@ export default function VersionDetail() {
     return () => {
       cancelled = true
     }
-  }, [activeDatasetId, versionId])
+  }, [datasetId, versionId])
 
   useEffect(() => {
-    if (!activeDatasetId) return
+    if (!datasetId) return
     let cancelled = false
-    fetchImages(activeDatasetId, versionId, imagePage, IMAGE_PAGE_SIZE)
+    fetchImages(datasetId, versionId, imagePage, IMAGE_PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setImages(res.content)
@@ -74,19 +75,19 @@ export default function VersionDetail() {
     return () => {
       cancelled = true
     }
-  }, [activeDatasetId, versionId, imagePage])
+  }, [datasetId, versionId, imagePage])
 
   async function handleAddLabel() {
-    if (!activeDatasetId) return
+    if (!datasetId) return
     setAddLabelSubmitting(true)
     setAddLabelError(null)
     try {
-      await createLabelDefinition(activeDatasetId, versionId, {
+      await createLabelDefinition(datasetId, versionId, {
         labelCode: labelCode.trim(),
         labelName: labelName.trim(),
         labelCategory: labelCategory.trim() === '' ? undefined : labelCategory.trim(),
       })
-      const updated = await fetchVersion(activeDatasetId, versionId)
+      const updated = await fetchVersion(datasetId, versionId)
       setVersion(updated)
       setAddLabelOpen(false)
       setLabelCode('')
@@ -105,7 +106,7 @@ export default function VersionDetail() {
         <div>
           <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Link
-              to="/versions"
+              to={versionsListPath}
               style={{
                 color: 'var(--text-muted)',
                 fontWeight: 400,
@@ -128,6 +129,9 @@ export default function VersionDetail() {
             {version ? `Created ${formatDate(version.createdAt)} by ${version.createdBy}` : ''}
           </div>
         </div>
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate(versionsListPath)}>
+          ← Back
+        </button>
       </div>
 
       <div className="content">

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../constants'
@@ -10,7 +10,10 @@ import type { DatasetVersion, Page } from '../types/version'
 
 export default function VersionBrowser() {
   const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Page<DatasetVersion> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -20,9 +23,8 @@ export default function VersionBrowser() {
   const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
-    if (!activeDatasetId) return
     let cancelled = false
-    fetchVersions(activeDatasetId, page, PAGE_SIZE)
+    fetchVersions(projectId, page, PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setData(res)
@@ -38,7 +40,7 @@ export default function VersionBrowser() {
     return () => {
       cancelled = true
     }
-  }, [activeDatasetId, page])
+  }, [projectId, page])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -56,34 +58,32 @@ export default function VersionBrowser() {
   const latest = data?.content[0] ?? null
   const pageNumbers = data ? Array.from({ length: data.totalPages }, (_, i) => i) : []
 
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <>
       <div className="topbar">
         <div>
-          <div className="topbar-title">Version History</div>
+          <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span
+              style={{ color: 'var(--text-muted)', fontWeight: 400, cursor: 'pointer' }}
+              onClick={() => navigate('/')}
+            >
+              All Projects
+            </span>
+            <span style={{ color: 'var(--border-md)' }}>/</span>
+            <span>Version History</span>
+          </div>
           <div className="topbar-sub">
-            {activeDataset ? `${activeDataset.datasetName} — snapshots tracked by DVC` : 'All dataset snapshots tracked by DVC'}
+            {project ? `${project.datasetName} — snapshots tracked by DVC` : 'Snapshots tracked by DVC'}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          ＋ New Version
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/')}>
+            ← Back
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            ＋ New Version
+          </button>
+        </div>
       </div>
 
       <div className="content">
@@ -121,7 +121,7 @@ export default function VersionBrowser() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select value={trigger} onChange={(e) => setTrigger(e.target.value)}>
+          <select className="form-select" value={trigger} onChange={(e) => setTrigger(e.target.value)}>
             <option value="ALL">All triggers</option>
             {TRIGGER_REASONS.map((t) => (
               <option key={t.value} value={t.value}>
@@ -146,7 +146,7 @@ export default function VersionBrowser() {
             <div className="empty-state">
               <div className="empty-icon">🗂</div>
               <p>
-                No dataset versions found
+                No versions found
                 {search || trigger !== 'ALL' ? ' matching your filters' : ' yet'}.
                 {search || trigger !== 'ALL'
                   ? ''
@@ -172,7 +172,7 @@ export default function VersionBrowser() {
                   <tr
                     key={v.id}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/versions/${v.id}`)}
+                    onClick={() => navigate(`/projects/${projectId}/versions/${v.id}`)}
                   >
                     <td>
                       <span className="mono">{v.versionTag}</span>
@@ -234,17 +234,15 @@ export default function VersionBrowser() {
         </div>
       </div>
 
-      {activeDatasetId && (
-        <CreateVersionModal
-          datasetId={activeDatasetId}
-          open={showCreate}
-          onClose={() => setShowCreate(false)}
-          onCreated={(v) => {
-            setShowCreate(false)
-            navigate(`/versions/${v.id}`)
-          }}
-        />
-      )}
+      <CreateVersionModal
+        datasetId={projectId}
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={(v) => {
+          setShowCreate(false)
+          navigate(`/projects/${projectId}/versions/${v.id}`)
+        }}
+      />
     </>
   )
 }

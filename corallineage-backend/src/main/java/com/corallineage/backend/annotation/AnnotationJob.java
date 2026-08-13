@@ -1,5 +1,6 @@
 package com.corallineage.backend.annotation;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.registry.model.ModelVersion;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -12,7 +13,8 @@ import java.util.List;
        indexes = {
            @Index(name = "idx_annotation_jobs_model_version", columnList = "model_version_id"),
            @Index(name = "idx_annotation_jobs_status", columnList = "status"),
-           @Index(name = "idx_annotation_jobs_initiated_at", columnList = "initiated_at")
+           @Index(name = "idx_annotation_jobs_initiated_at", columnList = "initiated_at"),
+           @Index(name = "idx_annotation_jobs_dataset", columnList = "dataset_id")
        })
 public class AnnotationJob {
 
@@ -23,6 +25,13 @@ public class AnnotationJob {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "model_version_id", nullable = false)
     private ModelVersion modelVersion;
+
+    // Nullable at the JPA level even though it's conceptually required post-backfill:
+    // the dev DB already has rows created before this FK existed (see the one-time
+    // backfill run during this session's implementation).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_id")
+    private Dataset dataset;
 
     @Column(name = "initiated_by", nullable = false, length = 100)
     private String initiatedBy;
@@ -60,6 +69,9 @@ public class AnnotationJob {
 
     public ModelVersion getModelVersion() { return modelVersion; }
     public void setModelVersion(ModelVersion modelVersion) { this.modelVersion = modelVersion; }
+
+    public Dataset getDataset() { return dataset; }
+    public void setDataset(Dataset dataset) { this.dataset = dataset; }
 
     public String getInitiatedBy() { return initiatedBy; }
     public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }

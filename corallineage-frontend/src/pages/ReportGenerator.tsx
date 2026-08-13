@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Bar,
   BarChart,
@@ -14,11 +14,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { exportReportUrl, generateReport } from '../api/reports'
+import { exportReportUrl, fetchReports, generateReport } from '../api/reports'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER, changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../constants'
 import { formatCount, formatDate } from '../lib/format'
-import type { ReproducibilityReport } from '../types/report'
+import type { ReportListItem, ReproducibilityReport } from '../types/report'
 
 const PIE_COLORS = ['#0d9488', '#1e3a5f', '#d97706', '#e05d44', '#7c3aed']
 
@@ -43,7 +43,25 @@ export default function ReportGenerator() {
   const [error, setError] = useState<string | null>(null)
   const [exportingPdf, setExportingPdf] = useState(false)
 
+  const [previousReports, setPreviousReports] = useState<ReportListItem[]>([])
+  const [previousReportsLoading, setPreviousReportsLoading] = useState(true)
+  const [previousReportsError, setPreviousReportsError] = useState<string | null>(null)
+
   const reportRef = useRef<HTMLDivElement>(null)
+
+  function loadPreviousReports() {
+    fetchReports(0, 10)
+      .then((res) => {
+        setPreviousReports(res.content)
+        setPreviousReportsError(null)
+      })
+      .catch((err) => setPreviousReportsError(errorMessage(err)))
+      .finally(() => setPreviousReportsLoading(false))
+  }
+
+  useEffect(() => {
+    loadPreviousReports()
+  }, [])
 
   async function handleGenerate() {
     setLoading(true)
@@ -61,6 +79,8 @@ export default function ReportGenerator() {
         includeMlflowDetails,
       })
       setReport(result)
+      setPreviousReportsLoading(true)
+      loadPreviousReports()
     } catch (err) {
       setReport(null)
       setError(errorMessage(err))
@@ -99,65 +119,139 @@ export default function ReportGenerator() {
       </div>
 
       <div className="content">
-        <div className="card" style={{ padding: 16, marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
-            <div className="form-row" style={{ marginBottom: 0 }}>
-              <label className="form-label">From date</label>
-              <input
-                type="date"
-                className="form-input"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
+        <div className="grid-2" style={{ gap: 24, alignItems: 'start', marginBottom: 24 }}>
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div className="form-row" style={{ marginBottom: 0 }}>
+                <label className="form-label">From date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
+              <div className="form-row" style={{ marginBottom: 0 }}>
+                <label className="form-label">To date</label>
+                <input type="date" className="form-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
             </div>
-            <div className="form-row" style={{ marginBottom: 0 }}>
-              <label className="form-label">To date</label>
-              <input type="date" className="form-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+
+            <div className="form-row">
+              <label className="form-label">Sections to include</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeDatasetVersionHistory}
+                    onChange={(e) => setIncludeDatasetVersionHistory(e.target.checked)} />
+                  Dataset Version History
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeModelRegistry}
+                    onChange={(e) => setIncludeModelRegistry(e.target.checked)} />
+                  Model Registry
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeOntologyChanges}
+                    onChange={(e) => setIncludeOntologyChanges(e.target.checked)} />
+                  Ontology Changes
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeEventLog}
+                    onChange={(e) => setIncludeEventLog(e.target.checked)} />
+                  Event Log
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeAnalytics}
+                    onChange={(e) => setIncludeAnalytics(e.target.checked)} />
+                  Analytics Charts
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" checked={includeMlflowDetails}
+                    onChange={(e) => setIncludeMlflowDetails(e.target.checked)} />
+                  MLflow Details
+                </label>
+              </div>
             </div>
+
+            <button className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
+              {loading ? 'Generating…' : 'Generate Report'}
+            </button>
+
+            {error && (
+              <div className="alert alert-error" style={{ marginTop: 16 }}>
+                {error}
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeDatasetVersionHistory}
-                onChange={(e) => setIncludeDatasetVersionHistory(e.target.checked)} />
-              Dataset Version History
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeModelRegistry}
-                onChange={(e) => setIncludeModelRegistry(e.target.checked)} />
-              Model Registry
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeOntologyChanges}
-                onChange={(e) => setIncludeOntologyChanges(e.target.checked)} />
-              Ontology Changes
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeEventLog}
-                onChange={(e) => setIncludeEventLog(e.target.checked)} />
-              Event Log
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeAnalytics}
-                onChange={(e) => setIncludeAnalytics(e.target.checked)} />
-              Include Analytics Charts
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <input type="checkbox" checked={includeMlflowDetails}
-                onChange={(e) => setIncludeMlflowDetails(e.target.checked)} />
-              Include MLflow Details
-            </label>
-          </div>
-
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
-            {loading ? 'Generating…' : 'Generate Report'}
-          </button>
-
-          {error && (
-            <div className="alert alert-error" style={{ marginTop: 16 }}>
-              {error}
+          <div>
+            <div className="section-header">
+              <div className="section-title">Previous reports</div>
             </div>
-          )}
+            <div className="card" style={{ marginBottom: 16 }}>
+              {previousReportsError && (
+                <div className="alert alert-error" style={{ margin: 16 }}>
+                  {previousReportsError}
+                </div>
+              )}
+              {previousReportsLoading ? (
+                <div className="loading-state">
+                  <span className="spinner" /> Loading reports…
+                </div>
+              ) : previousReports.length === 0 ? (
+                <div className="empty-state">
+                  <p>No reports generated yet.</p>
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Report</th>
+                      <th>Period</th>
+                      <th>Requested by</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previousReports.map((r) => (
+                      <tr key={r.reportId}>
+                        <td>
+                          <span className="mono" style={{ fontSize: 12 }}>{r.reportId}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                          {formatDate(r.fromDate)} – {formatDate(r.toDate)}
+                        </td>
+                        <td>{r.requestedBy}</td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => window.open(exportReportUrl(r.reportId), '_blank')}
+                          >
+                            Re-download
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>What gets included</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                A generated report always includes a summary of dataset versions created, models registered,
+                ontology changes, and total annotation events within the selected date range. Optionally, it can
+                also include the full dataset version history table, the model registry table, the ontology change
+                history table, and the raw event log table for that period. When analytics are enabled, the report
+                adds class distribution and annotation-source-split charts plus a per-class accuracy table computed
+                from the most recently trained model in scope; enabling MLflow details additionally pulls each
+                model's environment fingerprint, loss curve, and confusion matrix directly from MLflow (degrading
+                gracefully if MLflow is unreachable). Every report is saved and can be re-exported as JSON later
+                from the list on the left.
+              </div>
+            </div>
+          </div>
         </div>
 
         {report && (

@@ -2,9 +2,14 @@ import { api } from './client'
 import type { MlflowDetails, ModelVersion } from '../types/model'
 import type { Page } from '../types/version'
 
-export async function fetchModels(page: number, size: number, status?: string): Promise<Page<ModelVersion>> {
+export async function fetchModels(
+  datasetId: number,
+  page: number,
+  size: number,
+  status?: string,
+): Promise<Page<ModelVersion>> {
   const { data } = await api.get<Page<ModelVersion>>('/models', {
-    params: { page, size, status: status || undefined },
+    params: { datasetId, page, size, status: status || undefined },
   })
   return data
 }

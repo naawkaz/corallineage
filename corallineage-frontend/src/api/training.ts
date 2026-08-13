@@ -17,7 +17,7 @@ export async function fetchTrainingJob(jobId: number): Promise<TrainingJob> {
   return data
 }
 
-export async function fetchTrainingJobs(page: number, size: number): Promise<Page<TrainingJob>> {
-  const { data } = await api.get<Page<TrainingJob>>('/training/jobs', { params: { page, size } })
+export async function fetchTrainingJobs(datasetId: number, page: number, size: number): Promise<Page<TrainingJob>> {
+  const { data } = await api.get<Page<TrainingJob>>('/training/jobs', { params: { datasetId, page, size } })
   return data
 }

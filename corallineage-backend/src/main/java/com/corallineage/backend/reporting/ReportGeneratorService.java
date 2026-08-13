@@ -26,6 +26,7 @@ import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -133,6 +134,16 @@ public class ReportGeneratorService {
         return buildReport(request, metadata.getReportId(), metadata.getGeneratedAt());
     }
 
+    @Transactional(readOnly = true)
+    public Page<ReportSummaryResponse> listReports(Pageable pageable) {
+        return reportMetadataRepository.findAllByOrderByGeneratedAtDesc(pageable).map(this::toSummary);
+    }
+
+    private ReportSummaryResponse toSummary(ReportMetadata metadata) {
+        return new ReportSummaryResponse(metadata.getReportId(), metadata.getFromDate(), metadata.getToDate(),
+                metadata.getGeneratedAt(), metadata.getRequestedBy());
+    }
+
     private void validateDateRange(GenerateReportRequest request) {
         if (request.getFromDate().isAfter(request.getToDate())) {
             throw new InvalidRequestException("fromDate must not be after toDate");
@@ -154,7 +165,7 @@ public class ReportGeneratorService {
         List<ModelVersion> models = modelVersionRepository.findByTrainedAtBetween(from, to);
         List<OntologyChange> changes = ontologyChangeRepository.findByChangedAtBetween(from, to);
         List<AnnotationEvent> events = annotationEventRepository
-                .findByFilters(null, null, null, from, to, Pageable.unpaged())
+                .findByFilters(null, null, null, null, from, to, Pageable.unpaged())
                 .getContent();
 
         ReportSummary summary = new ReportSummary(versions.size(), models.size(), changes.size(), events.size());
@@ -167,7 +178,9 @@ public class ReportGeneratorService {
                 : List.of();
         List<OntologyChangeResponse> ontologyChangeResponses = request.isIncludeOntologyChanges()
                 ? changes.stream()
-                        .map(c -> ontologyChangeMapper.toResponse(c, dirtyAnnotationRepository.countByOntologyChangeId(c.getId())))
+                        .map(c -> ontologyChangeMapper.toResponse(c,
+                                dirtyAnnotationRepository.countByOntologyChangeId(c.getId()),
+                                dirtyAnnotationRepository.countByOntologyChangeIdAndResolvedAtIsNotNull(c.getId())))
                         .toList()
                 : List.of();
         List<AnnotationEventResponse> eventLog = request.isIncludeEventLog()

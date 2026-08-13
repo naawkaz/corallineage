@@ -4,44 +4,52 @@ import { useDatasetContext } from '../lib/datasetContextCore'
 import { formatCount, formatDate } from '../lib/format'
 import CreateDatasetModal from '../components/CreateDatasetModal'
 
-export default function Datasets() {
-  const navigate = useNavigate()
-  const { datasets, activeDatasetId, setActiveDatasetId, loading, error, refresh } = useDatasetContext()
+export default function Home() {
+  const { datasets, loading, error, refresh } = useDatasetContext()
   const [showCreate, setShowCreate] = useState(false)
-
-  function selectDataset(id: number) {
-    setActiveDatasetId(id)
-    navigate('/versions')
-  }
+  const navigate = useNavigate()
 
   return (
     <>
       <div className="topbar">
         <div>
-          <div className="topbar-title">Datasets</div>
+          <div className="topbar-title">Home</div>
           <div className="topbar-sub">Named containers for versioned annotation projects</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          ＋ New Dataset
+          ＋ New Project
         </button>
       </div>
 
       <div className="content">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <button className="btn btn-secondary" onClick={() => navigate('/events')}>
+            📋 Global Event Log
+          </button>
+          <button className="btn btn-secondary" onClick={() => navigate('/report')}>
+            📄 Report Generator
+          </button>
+        </div>
+
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             {error}
           </div>
         )}
 
+        <div className="section-header">
+          <div className="section-title">Projects</div>
+        </div>
+
         {loading ? (
           <div className="loading-state">
-            <span className="spinner" /> Loading datasets…
+            <span className="spinner" /> Loading projects…
           </div>
         ) : datasets.length === 0 ? (
           <div className="card">
             <div className="empty-state">
               <div className="empty-icon">🪸</div>
-              <p>No datasets yet. Create your first dataset to get started.</p>
+              <p>No projects yet. Create your first project to get started.</p>
             </div>
           </div>
         ) : (
@@ -50,12 +58,8 @@ export default function Datasets() {
               <div
                 key={d.id}
                 className="card"
-                style={{
-                  padding: 16,
-                  cursor: 'pointer',
-                  outline: d.id === activeDatasetId ? '2px solid var(--accent)' : 'none',
-                }}
-                onClick={() => selectDataset(d.id)}
+                style={{ padding: 16, cursor: 'pointer' }}
+                onClick={() => navigate(`/projects/${d.id}/versions`)}
               >
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
                   {d.datasetName}
@@ -86,7 +90,7 @@ export default function Datasets() {
         onCreated={(d) => {
           setShowCreate(false)
           refresh()
-          selectDataset(d.id)
+          navigate(`/projects/${d.id}/versions`)
         }}
       />
     </>

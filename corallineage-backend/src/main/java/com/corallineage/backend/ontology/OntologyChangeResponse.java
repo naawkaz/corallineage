@@ -14,6 +14,7 @@ public class OntologyChangeResponse {
     private Instant changedAt;
     private String notes;
     private long dirtyAnnotationsFlagged;
+    private long resolvedCount;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -41,4 +42,7 @@ public class OntologyChangeResponse {
 
     public long getDirtyAnnotationsFlagged() { return dirtyAnnotationsFlagged; }
     public void setDirtyAnnotationsFlagged(long dirtyAnnotationsFlagged) { this.dirtyAnnotationsFlagged = dirtyAnnotationsFlagged; }
+
+    public long getResolvedCount() { return resolvedCount; }
+    public void setResolvedCount(long resolvedCount) { this.resolvedCount = resolvedCount; }
 }

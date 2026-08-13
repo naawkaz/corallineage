@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "corallineage-frontend", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "corallineage-backend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "corallineage-backend\\mvnw.cmd", "-f", "corallineage-backend/pom.xml", "spring-boot:run"],
+      "port": 8080
     }
   ]
 }

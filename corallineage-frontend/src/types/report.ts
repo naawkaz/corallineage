@@ -15,6 +15,14 @@ export interface GenerateReportRequest {
   includeMlflowDetails: boolean
 }
 
+export interface ReportListItem {
+  reportId: string
+  fromDate: string
+  toDate: string
+  generatedAt: string
+  requestedBy: string
+}
+
 export interface ReportPeriod {
   from: string
   to: string

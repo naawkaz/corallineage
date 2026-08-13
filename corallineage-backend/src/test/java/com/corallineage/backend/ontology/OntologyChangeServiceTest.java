@@ -16,6 +16,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -164,6 +168,47 @@ class OntologyChangeServiceTest {
         change.setAffectedDatasetVersion(version);
         d.setOntologyChange(change);
         return d;
+    }
+
+    @Test
+    void getChanges_populatesResolvedCount() {
+        OntologyChange change = new OntologyChange();
+        change.setId(5L);
+        change.setChangeType(ChangeType.LABEL_RENAMED.name());
+        change.setOldLabelCode("OLD");
+        change.setChangedBy("researcher_01");
+
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<OntologyChange> page = new PageImpl<>(List.of(change));
+        when(ontologyChangeRepository.findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(9L, pageable)).thenReturn(page);
+        when(dirtyAnnotationRepository.countByOntologyChangeId(5L)).thenReturn(3L);
+        when(dirtyAnnotationRepository.countByOntologyChangeIdAndResolvedAtIsNotNull(5L)).thenReturn(2L);
+
+        Page<OntologyChangeResponse> result = newService().getChanges(9L, null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getDirtyAnnotationsFlagged()).isEqualTo(3);
+        assertThat(result.getContent().get(0).getResolvedCount()).isEqualTo(2);
+    }
+
+    @Test
+    void getChanges_explicitDatasetVersionId_usesLegacyQuery() {
+        OntologyChange change = new OntologyChange();
+        change.setId(5L);
+        change.setChangeType(ChangeType.LABEL_RENAMED.name());
+        change.setOldLabelCode("OLD");
+        change.setChangedBy("researcher_01");
+
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<OntologyChange> page = new PageImpl<>(List.of(change));
+        when(ontologyChangeRepository.findByAffectedDatasetVersionIdOrderByChangedAtDesc(1L, pageable)).thenReturn(page);
+        when(dirtyAnnotationRepository.countByOntologyChangeId(5L)).thenReturn(0L);
+        when(dirtyAnnotationRepository.countByOntologyChangeIdAndResolvedAtIsNotNull(5L)).thenReturn(0L);
+
+        Page<OntologyChangeResponse> result = newService().getChanges(9L, 1L, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        verify(ontologyChangeRepository, never()).findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(any(), any());
     }
 
     @Test

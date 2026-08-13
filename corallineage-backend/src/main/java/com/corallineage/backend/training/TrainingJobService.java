@@ -82,10 +82,10 @@ public class TrainingJobService {
     }
 
     @Transactional(readOnly = true)
-    public Page<TrainingJobResponse> getTrainingJobs(Pageable pageable, String status) {
+    public Page<TrainingJobResponse> getTrainingJobs(Long datasetId, Pageable pageable, String status) {
         Page<TrainingJob> jobs = status != null && !status.isBlank()
-                ? trainingJobRepository.findByStatusOrderByInitiatedAtDesc(status, pageable)
-                : trainingJobRepository.findAllByOrderByInitiatedAtDesc(pageable);
+                ? trainingJobRepository.findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(datasetId, status, pageable)
+                : trainingJobRepository.findByDatasetVersion_Dataset_IdOrderByInitiatedAtDesc(datasetId, pageable);
         return jobs.map(trainingJobMapper::toResponse);
     }
 

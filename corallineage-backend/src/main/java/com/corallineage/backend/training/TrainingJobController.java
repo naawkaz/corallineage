@@ -35,11 +35,12 @@ public class TrainingJobController {
 
     @GetMapping("/jobs")
     public Page<TrainingJobResponse> getTrainingJobs(
+            @RequestParam Long datasetId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status) {
         Pageable pageable = PageRequest.of(page, size);
-        return trainingJobService.getTrainingJobs(pageable, status);
+        return trainingJobService.getTrainingJobs(datasetId, pageable, status);
     }
 
     @GetMapping("/jobs/{id}")

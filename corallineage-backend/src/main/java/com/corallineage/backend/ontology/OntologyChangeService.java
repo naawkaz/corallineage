@@ -94,16 +94,17 @@ public class OntologyChangeService {
                             + savedChange.getId());
         }
 
-        return ontologyChangeMapper.toResponse(savedChange, dirtyAnnotations.size());
+        return ontologyChangeMapper.toResponse(savedChange, dirtyAnnotations.size(), 0);
     }
 
     @Transactional(readOnly = true)
-    public Page<OntologyChangeResponse> getChanges(Long datasetVersionId, Pageable pageable) {
+    public Page<OntologyChangeResponse> getChanges(Long datasetId, Long datasetVersionId, Pageable pageable) {
         Page<OntologyChange> changes = datasetVersionId != null
                 ? ontologyChangeRepository.findByAffectedDatasetVersionIdOrderByChangedAtDesc(datasetVersionId, pageable)
-                : ontologyChangeRepository.findAllByOrderByChangedAtDesc(pageable);
+                : ontologyChangeRepository.findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(datasetId, pageable);
         return changes.map(change -> ontologyChangeMapper.toResponse(change,
-                dirtyAnnotationRepository.countByOntologyChangeId(change.getId())));
+                dirtyAnnotationRepository.countByOntologyChangeId(change.getId()),
+                dirtyAnnotationRepository.countByOntologyChangeIdAndResolvedAtIsNotNull(change.getId())));
     }
 
     @Transactional(readOnly = true)

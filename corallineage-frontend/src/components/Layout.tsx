@@ -1,74 +1,52 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useMatch } from 'react-router-dom'
 import { CURRENT_USER } from '../constants'
 import { useDatasetContext } from '../lib/datasetContextCore'
 
-const sections: { label: string; items: { to: string; icon: string; label: string }[] }[] = [
-  {
-    label: 'Dataset',
-    items: [
-      { to: '/datasets', icon: '🪸', label: 'Datasets' },
-      { to: '/versions', icon: '🗂', label: 'Version History' },
-      { to: '/import', icon: '⬆', label: 'Import Data' },
-      { to: '/diff', icon: '⇄', label: 'Compare Versions' },
-    ],
-  },
-  {
-    label: 'Models',
-    items: [
-      { to: '/models', icon: '📦', label: 'Model Registry' },
-      { to: '/training', icon: '⚙️', label: 'Training Jobs' },
-    ],
-  },
-  {
-    label: 'Annotation',
-    items: [{ to: '/annotation', icon: '🏷', label: 'Annotation Jobs' }],
-  },
-  {
-    label: 'Provenance',
-    items: [
-      { to: '/events', icon: '📋', label: 'Event Log' },
-      { to: '/ontology', icon: '🔖', label: 'Ontology Changes' },
-    ],
-  },
-  {
-    label: 'Reports',
-    items: [{ to: '/report', icon: '📄', label: 'Report Generator' }],
-  },
+const globalLinks: { to: string; icon: string; label: string }[] = [
+  { to: '/', icon: '🏠', label: 'Home' },
+  { to: '/events', icon: '📋', label: 'Global Event Log' },
+  { to: '/report', icon: '📄', label: 'Report Generator' },
 ]
 
-function DatasetSelector() {
-  const { datasets, activeDatasetId, setActiveDatasetId, loading } = useDatasetContext()
-
-  if (loading || datasets.length === 0) return null
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 24px',
-        borderBottom: '1px solid var(--border)',
-      }}
-    >
-      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Active dataset</span>
-      <select
-        className="form-select"
-        style={{ width: 260 }}
-        value={activeDatasetId ?? ''}
-        onChange={(e) => setActiveDatasetId(Number(e.target.value))}
-      >
-        {datasets.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.datasetName}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
+function projectSections(projectId: string): { label: string; items: { to: string; icon: string; label: string }[] }[] {
+  return [
+    {
+      label: 'Project',
+      items: [
+        { to: `/projects/${projectId}/versions`, icon: '🪸', label: 'Version History' },
+        { to: `/projects/${projectId}/import`, icon: '⬆', label: 'Import Data' },
+        { to: `/projects/${projectId}/diff`, icon: '⇄', label: 'Compare Versions' },
+      ],
+    },
+    {
+      label: 'Models',
+      items: [
+        { to: `/projects/${projectId}/models`, icon: '📦', label: 'Model Registry' },
+        { to: `/projects/${projectId}/training`, icon: '⚙️', label: 'Training Jobs' },
+      ],
+    },
+    {
+      label: 'Annotation',
+      items: [{ to: `/projects/${projectId}/annotation`, icon: '🏷', label: 'Annotation Jobs' }],
+    },
+    {
+      label: 'Provenance',
+      items: [
+        { to: `/projects/${projectId}/events`, icon: '📋', label: 'Event Log' },
+        { to: `/projects/${projectId}/ontology`, icon: '🔖', label: 'Ontology Changes' },
+      ],
+    },
+  ]
 }
 
 export default function Layout() {
+  const match = useMatch('/projects/:projectId/*')
+  const projectId = match?.params.projectId
+  const { datasets } = useDatasetContext()
+  const project = projectId ? datasets.find((d) => d.id === Number(projectId)) : null
+
+  const sections = projectId ? projectSections(projectId) : null
+
   return (
     <>
       <nav className="sidebar">
@@ -77,13 +55,48 @@ export default function Layout() {
           <div className="tagline">Annotation reproducibility</div>
         </div>
 
-        {sections.map((section) => (
-          <div className="sidebar-section" key={section.label}>
-            <div className="sidebar-section-label">{section.label}</div>
-            {section.items.map((item) => (
+        {projectId ? (
+          <>
+            <div style={{ padding: '0 24px 12px' }}>
+              <NavLink
+                to="/"
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  textDecoration: 'none',
+                  display: 'inline-block',
+                  marginBottom: 8,
+                }}
+              >
+                ← All Projects
+              </NavLink>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>
+                {project ? project.datasetName : `Project ${projectId}`}
+              </div>
+            </div>
+            {sections!.map((section) => (
+              <div className="sidebar-section" key={section.label}>
+                <div className="sidebar-section-label">{section.label}</div>
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+                  >
+                    <span className="icon">{item.icon}</span>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </>
+        ) : (
+          <div className="sidebar-section">
+            {globalLinks.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === '/'}
                 className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
               >
                 <span className="icon">{item.icon}</span>
@@ -91,7 +104,7 @@ export default function Layout() {
               </NavLink>
             ))}
           </div>
-        ))}
+        )}
 
         <div className="sidebar-footer">
           <div className="user-avatar">R1</div>
@@ -105,7 +118,6 @@ export default function Layout() {
       </nav>
 
       <main className="main">
-        <DatasetSelector />
         <Outlet />
       </main>
     </>

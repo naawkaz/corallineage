@@ -15,18 +15,22 @@ public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent
     // alone (no surrounding type context), which raised "could not determine data type
     // of parameter" for the nullable filters when using an equivalent JPQL query.
     @Query(value = """
-            SELECT * FROM annotation_events e
+            SELECT e.* FROM annotation_events e
+            LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id
             WHERE (CAST(:eventType AS varchar) IS NULL OR e.event_type = CAST(:eventType AS varchar))
               AND (:datasetVersionId IS NULL OR e.dataset_version_id = :datasetVersionId)
               AND (:modelVersionId IS NULL OR e.model_version_id = :modelVersionId)
+              AND (:datasetId IS NULL OR dv.dataset_id = :datasetId)
               AND (CAST(:from AS timestamptz) IS NULL OR e.occurred_at >= CAST(:from AS timestamptz))
               AND (CAST(:to AS timestamptz) IS NULL OR e.occurred_at <= CAST(:to AS timestamptz))
             """,
             countQuery = """
             SELECT count(*) FROM annotation_events e
+            LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id
             WHERE (CAST(:eventType AS varchar) IS NULL OR e.event_type = CAST(:eventType AS varchar))
               AND (:datasetVersionId IS NULL OR e.dataset_version_id = :datasetVersionId)
               AND (:modelVersionId IS NULL OR e.model_version_id = :modelVersionId)
+              AND (:datasetId IS NULL OR dv.dataset_id = :datasetId)
               AND (CAST(:from AS timestamptz) IS NULL OR e.occurred_at >= CAST(:from AS timestamptz))
               AND (CAST(:to AS timestamptz) IS NULL OR e.occurred_at <= CAST(:to AS timestamptz))
             """,
@@ -34,6 +38,7 @@ public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent
     Page<AnnotationEvent> findByFilters(@Param("eventType") String eventType,
                                         @Param("datasetVersionId") Long datasetVersionId,
                                         @Param("modelVersionId") Long modelVersionId,
+                                        @Param("datasetId") Long datasetId,
                                         @Param("from") Instant from,
                                         @Param("to") Instant to,
                                         Pageable pageable);

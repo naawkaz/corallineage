@@ -8,12 +8,13 @@ import type {
 import type { Page } from '../types/version'
 
 export async function fetchOntologyChanges(
+  datasetId: number,
   page: number,
   size: number,
   datasetVersionId?: number,
 ): Promise<Page<OntologyChange>> {
   const { data } = await api.get<Page<OntologyChange>>('/ontology/changes', {
-    params: { page, size, datasetVersionId },
+    params: { datasetId, page, size, datasetVersionId },
   })
   return data
 }

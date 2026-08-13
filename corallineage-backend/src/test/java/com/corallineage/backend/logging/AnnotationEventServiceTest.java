@@ -45,11 +45,11 @@ class AnnotationEventServiceTest {
     @Test
     void queryEvents_noFilters_delegatesWithNullsAndMapsResults() {
         Page<AnnotationEvent> page = new PageImpl<>(List.of(event(EventType.DATASET_VERSION_CREATED, "researcher_01")));
-        when(annotationEventRepository.findByFilters(isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+        when(annotationEventRepository.findByFilters(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
                 .thenReturn(page);
 
         Page<AnnotationEventResponse> result = annotationEventService.queryEvents(
-                null, null, null, null, null, PageRequest.of(0, 50));
+                null, null, null, null, null, null, PageRequest.of(0, 50));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getEventType()).isEqualTo(EventType.DATASET_VERSION_CREATED);
@@ -62,15 +62,15 @@ class AnnotationEventServiceTest {
         Instant to = Instant.now();
         Page<AnnotationEvent> page = new PageImpl<>(List.of(event(EventType.HUMAN_CORRECTION, "researcher_01")));
         when(annotationEventRepository.findByFilters(
-                eq("HUMAN_CORRECTION"), eq(3L), eq(2L), eq(from), eq(to), any()))
+                eq("HUMAN_CORRECTION"), eq(3L), eq(2L), eq(9L), eq(from), eq(to), any()))
                 .thenReturn(page);
 
         Page<AnnotationEventResponse> result = annotationEventService.queryEvents(
-                EventType.HUMAN_CORRECTION, 3L, 2L, from, to, PageRequest.of(0, 50));
+                EventType.HUMAN_CORRECTION, 3L, 2L, 9L, from, to, PageRequest.of(0, 50));
 
         assertThat(result.getContent()).hasSize(1);
         verify(annotationEventRepository).findByFilters(
-                eq("HUMAN_CORRECTION"), eq(3L), eq(2L), eq(from), eq(to), any());
+                eq("HUMAN_CORRECTION"), eq(3L), eq(2L), eq(9L), eq(from), eq(to), any());
     }
 
     @Test
@@ -80,11 +80,11 @@ class AnnotationEventServiceTest {
         AnnotationEvent evt = event(EventType.DATASET_VERSION_CREATED, "researcher_01");
         evt.setDatasetVersion(version);
 
-        when(annotationEventRepository.findByFilters(isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+        when(annotationEventRepository.findByFilters(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
                 .thenReturn(new PageImpl<>(List.of(evt)));
 
         Page<AnnotationEventResponse> result = annotationEventService.queryEvents(
-                null, null, null, null, null, PageRequest.of(0, 50));
+                null, null, null, null, null, null, PageRequest.of(0, 50));
 
         assertThat(result.getContent().get(0).getDatasetVersionId()).isEqualTo(7L);
     }

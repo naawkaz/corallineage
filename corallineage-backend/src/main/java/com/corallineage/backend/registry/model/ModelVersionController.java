@@ -24,11 +24,12 @@ public class ModelVersionController {
 
     @GetMapping
     public Page<ModelVersionResponse> getModels(
+            @RequestParam Long datasetId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status) {
         Pageable pageable = PageRequest.of(page, size);
-        return modelVersionService.getAllModels(pageable, status);
+        return modelVersionService.getAllModels(datasetId, pageable, status);
     }
 
     @GetMapping("/{id}")

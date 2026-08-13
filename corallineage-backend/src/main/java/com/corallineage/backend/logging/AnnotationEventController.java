@@ -27,6 +27,7 @@ public class AnnotationEventController {
             @RequestParam(required = false) EventType eventType,
             @RequestParam(required = false) Long datasetVersionId,
             @RequestParam(required = false) Long modelVersionId,
+            @RequestParam(required = false) Long datasetId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(defaultValue = "0") int page,
@@ -35,6 +36,6 @@ public class AnnotationEventController {
         // property name — findByFilters is a native query, so Spring Data appends
         // the ORDER BY clause using this string verbatim rather than translating it.
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurred_at"));
-        return annotationEventService.queryEvents(eventType, datasetVersionId, modelVersionId, from, to, pageable);
+        return annotationEventService.queryEvents(eventType, datasetVersionId, modelVersionId, datasetId, from, to, pageable);
     }
 }

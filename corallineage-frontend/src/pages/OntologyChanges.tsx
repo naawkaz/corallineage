@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   fetchDirtyAnnotations,
   fetchOntologyChanges,
@@ -15,8 +15,10 @@ import type { ChangeType, DirtyAnnotation, OntologyChange } from '../types/ontol
 import type { DatasetVersion, LabelDefinition } from '../types/version'
 
 export default function OntologyChanges() {
-  const navigate = useNavigate()
-  const { activeDataset, activeDatasetId, loading: datasetsLoading } = useDatasetContext()
+  const { projectId: projectIdParam } = useParams()
+  const projectId = Number(projectIdParam)
+  const { datasets } = useDatasetContext()
+  const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [tab, setTab] = useState<'history' | 'dirty'>('history')
 
@@ -40,7 +42,7 @@ export default function OntologyChanges() {
   const [labelOptions, setLabelOptions] = useState<LabelDefinition[]>([])
 
   function loadChanges() {
-    fetchOntologyChanges(0, 50)
+    fetchOntologyChanges(projectId, 0, 50)
       .then((res) => {
         setChanges(res.content)
         setChangesError(null)
@@ -51,17 +53,17 @@ export default function OntologyChanges() {
 
   useEffect(() => {
     loadChanges()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
 
   useEffect(() => {
-    if (!activeDatasetId) return
-    fetchVersions(activeDatasetId, 0, 50)
+    fetchVersions(projectId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length > 0) setSelectedVersionId(res.content[0].id)
       })
       .catch(() => setVersions([]))
-  }, [activeDatasetId])
+  }, [projectId])
 
   function loadDirty(ontologyChangeId: number) {
     fetchDirtyAnnotations(0, 500, ontologyChangeId)
@@ -79,29 +81,13 @@ export default function OntologyChanges() {
     }
     loadDirty(selectedChangeId)
     const change = changes.find((c) => c.id === selectedChangeId)
-    if (change && activeDatasetId) {
-      fetchVersion(activeDatasetId, change.affectedDatasetVersionId)
+    if (change) {
+      fetchVersion(projectId, change.affectedDatasetVersionId)
         .then((v) => setLabelOptions(v.labelDefinitions ?? []))
         .catch(() => setLabelOptions([]))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChangeId])
-
-  if (!datasetsLoading && !activeDatasetId) {
-    return (
-      <div className="content">
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon">🪸</div>
-            <p>No dataset selected. Create or choose a dataset first.</p>
-            <button className="btn btn-primary" onClick={() => navigate('/datasets')}>
-              Go to Datasets
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   async function handleRecordChange() {
     if (!selectedVersionId) return
@@ -156,7 +142,7 @@ export default function OntologyChanges() {
         <div>
           <div className="topbar-title">Ontology Changes</div>
           <div className="topbar-sub">
-            {activeDataset ? `Label vocabulary changes for ${activeDataset.datasetName}` : 'Label vocabulary changes'}
+            {project ? `Label vocabulary changes for ${project.datasetName}` : 'Label vocabulary changes'}
           </div>
         </div>
       </div>
@@ -178,6 +164,25 @@ export default function OntologyChanges() {
         </div>
 
         {tab === 'history' && (
+          <>
+            <div className="grid-3" style={{ marginBottom: 20 }}>
+              <div className="stat-card">
+                <div className="stat-label">Total Changes</div>
+                <div className="stat-value">{changes.length}</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Annotations Flagged</div>
+                <div className="stat-value">
+                  {changes.reduce((sum, c) => sum + c.dirtyAnnotationsFlagged, 0)}
+                </div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Unresolved Flags</div>
+                <div className="stat-value">
+                  {changes.reduce((sum, c) => sum + (c.dirtyAnnotationsFlagged - c.resolvedCount), 0)}
+                </div>
+              </div>
+            </div>
           <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
             <div>
               <div className="section-header">
@@ -186,7 +191,7 @@ export default function OntologyChanges() {
               <div className="card" style={{ padding: 16 }}>
                 <div className="form-row">
                   <label className="form-label">Change type</label>
-                  <select value={changeType} onChange={(e) => setChangeType(e.target.value as ChangeType)}>
+                  <select className="form-select" value={changeType} onChange={(e) => setChangeType(e.target.value as ChangeType)}>
                     {CHANGE_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>
                         {t.label}
@@ -222,6 +227,7 @@ export default function OntologyChanges() {
                 <div className="form-row">
                   <label className="form-label">Dataset version</label>
                   <select
+                    className="form-select"
                     value={selectedVersionId ?? ''}
                     onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
                   >
@@ -290,39 +296,59 @@ export default function OntologyChanges() {
                         <th>Changed by</th>
                         <th>Changed at</th>
                         <th>Dirty flags</th>
+                        <th>Resolved</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {changes.map((c) => (
-                        <tr
-                          key={c.id}
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => {
-                            selectChange(c.id)
-                            setTab('dirty')
-                          }}
-                        >
-                          <td>
-                            <span className={`badge ${changeTypeBadge(c.changeType)}`}>
-                              {changeTypeLabel(c.changeType)}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="mono" style={{ fontSize: 12 }}>
-                              {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || '—'}
-                            </span>
-                          </td>
-                          <td>{c.changedBy}</td>
-                          <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
-                          <td>{c.dirtyAnnotationsFlagged}</td>
-                        </tr>
-                      ))}
+                      {changes.map((c) => {
+                        const pct = c.dirtyAnnotationsFlagged > 0
+                          ? (c.resolvedCount / c.dirtyAnnotationsFlagged) * 100
+                          : 0
+                        return (
+                          <tr
+                            key={c.id}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                              selectChange(c.id)
+                              setTab('dirty')
+                            }}
+                          >
+                            <td>
+                              <span className={`badge ${changeTypeBadge(c.changeType)}`}>
+                                {changeTypeLabel(c.changeType)}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="mono" style={{ fontSize: 12 }}>
+                                {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || '—'}
+                              </span>
+                            </td>
+                            <td>{c.changedBy}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
+                            <td>{c.dirtyAnnotationsFlagged}</td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div className="progress-bar-bg" style={{ width: 60 }}>
+                                  <div
+                                    className="progress-bar-fill"
+                                    style={{ width: `${pct}%`, background: 'var(--success)' }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                  {c.resolvedCount}/{c.dirtyAnnotationsFlagged}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 )}
               </div>
             </div>
           </div>
+          </>
         )}
 
         {tab === 'dirty' && (
@@ -330,10 +356,21 @@ export default function OntologyChanges() {
             <div className="section-header">
               <div className="section-title">Dirty Annotations Queue</div>
             </div>
+            {selectedChange && (selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount) > 0 && (
+              <div className="impact-box" style={{ marginBottom: 16, marginTop: 0 }}>
+                <span>⚠</span>
+                <span>
+                  {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount} annotation point
+                  {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount === 1 ? '' : 's'} carry a
+                  deprecated label from change #{selectedChange.id} and still need review.
+                </span>
+              </div>
+            )}
             <div className="card" style={{ padding: 16, marginBottom: 16 }}>
               <div className="form-row" style={{ marginBottom: 0 }}>
                 <label className="form-label">Ontology change</label>
                 <select
+                  className="form-select"
                   value={selectedChangeId ?? ''}
                   onChange={(e) => selectChange(e.target.value ? Number(e.target.value) : null)}
                 >
@@ -447,7 +484,7 @@ function DirtyRow({
       <td style={{ color: 'var(--text-secondary)' }}>{formatDate(dirty.flaggedAt)}</td>
       <td>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={selected} onChange={(e) => setSelected(e.target.value)}>
+          <select className="form-select" value={selected} onChange={(e) => setSelected(e.target.value)}>
             <option value="">Select label…</option>
             {labelOptions.map((l) => (
               <option key={l.labelCode} value={l.labelCode}>

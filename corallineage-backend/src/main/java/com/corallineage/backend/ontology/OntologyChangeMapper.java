@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class OntologyChangeMapper {
 
-    public OntologyChangeResponse toResponse(OntologyChange change, long dirtyAnnotationsFlagged) {
+    public OntologyChangeResponse toResponse(OntologyChange change, long dirtyAnnotationsFlagged, long resolvedCount) {
         OntologyChangeResponse response = new OntologyChangeResponse();
         response.setId(change.getId());
         response.setChangeType(ChangeType.valueOf(change.getChangeType()));
@@ -17,6 +17,7 @@ public class OntologyChangeMapper {
         response.setChangedAt(change.getChangedAt());
         response.setNotes(change.getNotes());
         response.setDirtyAnnotationsFlagged(dirtyAnnotationsFlagged);
+        response.setResolvedCount(resolvedCount);
         return response;
     }
 

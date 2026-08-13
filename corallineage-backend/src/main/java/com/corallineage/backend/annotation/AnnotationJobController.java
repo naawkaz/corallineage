@@ -33,9 +33,10 @@ public class AnnotationJobController {
 
     @GetMapping("/jobs")
     public Page<AnnotationJobResponse> getJobs(
+            @RequestParam Long datasetId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return annotationJobService.getJobs(PageRequest.of(page, size));
+        return annotationJobService.getJobs(datasetId, PageRequest.of(page, size));
     }
 
     @GetMapping("/jobs/{id}")

@@ -31,6 +31,7 @@ export interface EventFilters {
   eventType?: EventType
   datasetVersionId?: number
   modelVersionId?: number
+  datasetId?: number
   from?: string
   to?: string
 }

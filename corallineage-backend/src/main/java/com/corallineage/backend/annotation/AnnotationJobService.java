@@ -1,5 +1,6 @@
 package com.corallineage.backend.annotation;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
@@ -59,8 +60,11 @@ public class AnnotationJobService {
             throw new NotFoundException("One or more images not found");
         }
 
+        Dataset dataset = resolveCommonDataset(images);
+
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
+        job.setDataset(dataset);
         job.setInitiatedBy(request.getInitiatedBy());
         job.setStatus("RUNNING");
         job.setImageIds(request.getImageIds());
@@ -80,9 +84,27 @@ public class AnnotationJobService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AnnotationJobResponse> getJobs(Pageable pageable) {
-        return annotationJobRepository.findAllByOrderByInitiatedAtDesc(pageable)
+    public Page<AnnotationJobResponse> getJobs(Long datasetId, Pageable pageable) {
+        return annotationJobRepository.findByDataset_IdOrderByInitiatedAtDesc(datasetId, pageable)
                 .map(job -> annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
+    }
+
+    /**
+     * Derives the job's dataset server-side from the submitted images rather than trusting a
+     * client-supplied dataset id — every image must belong to the same dataset (via its
+     * datasetVersion.dataset), matching the invariant the UI's image picker already enforces.
+     */
+    private Dataset resolveCommonDataset(List<Image> images) {
+        Dataset first = images.get(0).getDatasetVersion().getDataset();
+        for (Image image : images) {
+            Dataset current = image.getDatasetVersion().getDataset();
+            if (!current.getId().equals(first.getId())) {
+                throw new InvalidRequestException(
+                        "All images must belong to the same dataset; image " + image.getId()
+                                + " belongs to dataset " + current.getId() + ", expected " + first.getId());
+            }
+        }
+        return first;
     }
 
     @Transactional(readOnly = true)
