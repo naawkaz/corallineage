@@ -9,6 +9,7 @@ export interface OntologyChange {
   changedBy: string
   changedAt: string
   notes: string | null
+  replacementLabelCode: string | null
   dirtyAnnotationsFlagged: number
   resolvedCount: number
 }
@@ -27,11 +28,18 @@ export interface DirtyAnnotation {
   newLabelCode: string | null
 }
 
+export interface NewLabelSpec {
+  code: string
+  name: string
+  category?: string
+}
+
 export interface RecordOntologyChangeRequest {
   changeType: ChangeType
+  basedOnDatasetVersionId: number
   oldLabelCode?: string
-  newLabelCodes: string[]
-  affectedDatasetVersionId: number
+  newLabels: NewLabelSpec[]
+  replacementLabelCode?: string
   changedBy: string
   notes?: string
 }

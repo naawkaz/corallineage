@@ -170,6 +170,12 @@ export default function TrainingJobs() {
                   />
                   Latest version
                 </label>
+                {versionMode === 'latest' && versions.some((v) => !v.complete) && (
+                  <div className="form-hint" style={{ marginBottom: 6 }}>
+                    Some recent versions have unresolved ontology-change dirty flags and will be skipped —
+                    training will silently fall back to the newest complete version.
+                  </div>
+                )}
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
                     type="radio"
@@ -190,6 +196,7 @@ export default function TrainingJobs() {
                     {versions.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.versionTag}
+                        {!v.complete ? ' (incomplete — training will be rejected)' : ''}
                       </option>
                     ))}
                   </select>

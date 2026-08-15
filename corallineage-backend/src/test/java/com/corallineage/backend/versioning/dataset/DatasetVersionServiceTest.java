@@ -6,6 +6,7 @@ import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.ontology.DirtyAnnotationRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,7 +40,11 @@ class DatasetVersionServiceTest {
     @Mock
     private LabelDefinitionRepository labelDefinitionRepository;
     @Mock
-    private ImageRepository imageRepository;
+    private DatasetVersionImageRepository datasetVersionImageRepository;
+    @Mock
+    private AnnotationPointRepository annotationPointRepository;
+    @Mock
+    private DirtyAnnotationRepository dirtyAnnotationRepository;
     @Mock
     private DvcIntegrationService dvcIntegrationService;
     @Mock
@@ -81,7 +86,7 @@ class DatasetVersionServiceTest {
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
         when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.empty());
         when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L)).thenReturn(Optional.empty());
-        when(imageRepository.countByDatasetVersionDatasetId(1L)).thenReturn(5L);
+        when(annotationPointRepository.countByImageOriginDatasetVersionDatasetId(1L)).thenReturn(0L);
         when(dvcIntegrationService.commitCurrentState("v1.0")).thenReturn("a3f9c21d");
         when(datasetVersionRepository.save(any(DatasetVersion.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -89,13 +94,28 @@ class DatasetVersionServiceTest {
         DatasetVersionResponse response = datasetVersionService.createSnapshot(1L, request());
 
         assertThat(response.getVersionTag()).isEqualTo("v1.0");
-        assertThat(response.getImageCount()).isEqualTo(5);
+        assertThat(response.getImageCount()).isZero();
         assertThat(response.getAnnotationCount()).isZero();
         assertThat(response.getDvcCommitHash()).isEqualTo("a3f9c21d");
         assertThat(response.getLabelDefinitions()).isEmpty();
-        verify(datasetVersionRepository).save(any(DatasetVersion.class));
+        assertThat(response.isComplete()).isTrue();
+        verify(datasetVersionRepository, org.mockito.Mockito.times(2)).save(any(DatasetVersion.class));
         verify(annotationEventLoggerService).log(eq(EventType.DATASET_VERSION_CREATED),
                 any(DatasetVersion.class), eq("researcher_01"), anyString());
+    }
+
+    private Image imageFixture(Long id) {
+        Image image = new Image();
+        image.setId(id);
+        image.setFilename("img" + id + ".jpg");
+        return image;
+    }
+
+    private DatasetVersionImage membershipRow(DatasetVersion version, Image image) {
+        DatasetVersionImage row = new DatasetVersionImage();
+        row.setDatasetVersion(version);
+        row.setImage(image);
+        return row;
     }
 
     @Test
@@ -108,7 +128,7 @@ class DatasetVersionServiceTest {
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
         when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.empty());
         when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L)).thenReturn(Optional.of(previous));
-        when(imageRepository.countByDatasetVersionDatasetId(1L)).thenReturn(5L);
+        when(annotationPointRepository.countByImageOriginDatasetVersionDatasetId(1L)).thenReturn(12L);
         when(dvcIntegrationService.commitCurrentState("v1.0")).thenReturn("a3f9c21d");
         when(datasetVersionRepository.save(any(DatasetVersion.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -116,13 +136,42 @@ class DatasetVersionServiceTest {
                 .thenReturn(List.of(label("ACROPORA"), label("SAND")));
         when(labelDefinitionRepository.save(any(LabelDefinition.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        when(datasetVersionImageRepository.findByDatasetVersionId(1L))
+                .thenReturn(List.of(membershipRow(previous, imageFixture(101L)), membershipRow(previous, imageFixture(102L))));
+        when(datasetVersionImageRepository.save(any(DatasetVersionImage.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
         DatasetVersionResponse response = datasetVersionService.createSnapshot(1L, request());
 
         assertThat(response.getLabelDefinitions()).hasSize(2);
         assertThat(response.getLabelDefinitions().get(0).getLabelCode()).isEqualTo("ACROPORA");
+        assertThat(response.getImageCount()).isEqualTo(2);
+        assertThat(response.getAnnotationCount()).isEqualTo(12);
         verify(labelDefinitionRepository, org.mockito.Mockito.times(2))
                 .save(any(LabelDefinition.class));
+    }
+
+    @Test
+    void createSnapshotBranchedFrom_usesExplicitBranchPoint_notDatasetsActualLatest() {
+        DatasetVersion olderBranchPoint = new DatasetVersion();
+        olderBranchPoint.setId(1L);
+        olderBranchPoint.setVersionTag("v1.0-old");
+
+        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.empty());
+        when(annotationPointRepository.countByImageOriginDatasetVersionDatasetId(1L)).thenReturn(0L);
+        when(dvcIntegrationService.commitCurrentState("v1.0")).thenReturn("a3f9c21d");
+        when(datasetVersionRepository.save(any(DatasetVersion.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(labelDefinitionRepository.findByDatasetVersionId(1L)).thenReturn(List.of(label("OLD_BRANCH_LABEL")));
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(datasetVersionImageRepository.findByDatasetVersionId(1L)).thenReturn(List.of());
+
+        DatasetVersionResponse response =
+                datasetVersionService.createSnapshotBranchedFrom(1L, request(), olderBranchPoint);
+
+        // Must never consult "the dataset's actual latest version" — only the explicit branch point.
+        verify(datasetVersionRepository, never()).findTopByDatasetIdOrderByCreatedAtDesc(any());
+        assertThat(response.getLabelDefinitions()).extracting("labelCode").containsExactly("OLD_BRANCH_LABEL");
     }
 
     @Test

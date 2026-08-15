@@ -95,9 +95,9 @@ public class AnnotationJobService {
      * datasetVersion.dataset), matching the invariant the UI's image picker already enforces.
      */
     private Dataset resolveCommonDataset(List<Image> images) {
-        Dataset first = images.get(0).getDatasetVersion().getDataset();
+        Dataset first = images.get(0).getOriginDatasetVersion().getDataset();
         for (Image image : images) {
-            Dataset current = image.getDatasetVersion().getDataset();
+            Dataset current = image.getOriginDatasetVersion().getDataset();
             if (!current.getId().equals(first.getId())) {
                 throw new InvalidRequestException(
                         "All images must belong to the same dataset; image " + image.getId()

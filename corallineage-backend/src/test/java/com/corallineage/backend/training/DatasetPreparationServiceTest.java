@@ -62,7 +62,7 @@ class DatasetPreparationServiceTest {
                 point(image, 1, 100, 100, "SAND"),
                 point(image, 2, 150, 150, "ACROPORA")
         );
-        when(annotationPointRepository.findByImageDatasetVersionId(3L)).thenReturn(points);
+        when(annotationPointRepository.findByImageOriginDatasetVersionId(3L)).thenReturn(points);
 
         Path preparedDir = newService(workingDirectory, 64).prepareImageFolderDataset(3L, 42L);
 
@@ -76,7 +76,7 @@ class DatasetPreparationServiceTest {
 
     @Test
     void prepareImageFolderDataset_noPoints_throwsDatasetPreparationException(@TempDir Path workingDirectory) {
-        when(annotationPointRepository.findByImageDatasetVersionId(3L)).thenReturn(List.of());
+        when(annotationPointRepository.findByImageOriginDatasetVersionId(3L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> newService(workingDirectory, 64).prepareImageFolderDataset(3L, 42L))
                 .isInstanceOf(DatasetPreparationException.class)
@@ -91,7 +91,7 @@ class DatasetPreparationServiceTest {
         image.setFilePath("dataset/img001.jpg");
 
         List<AnnotationPoint> points = List.of(point(image, 0, 50, 50, "ACROPORA"));
-        when(annotationPointRepository.findByImageDatasetVersionId(3L)).thenReturn(points);
+        when(annotationPointRepository.findByImageOriginDatasetVersionId(3L)).thenReturn(points);
 
         assertThatThrownBy(() -> newService(workingDirectory, 64).prepareImageFolderDataset(3L, 42L))
                 .isInstanceOf(DatasetPreparationException.class)
@@ -110,7 +110,7 @@ class DatasetPreparationServiceTest {
                 point(image, 0, 0, 0, "ACROPORA"),
                 point(image, 1, 99, 99, "SAND")
         );
-        when(annotationPointRepository.findByImageDatasetVersionId(3L)).thenReturn(points);
+        when(annotationPointRepository.findByImageOriginDatasetVersionId(3L)).thenReturn(points);
 
         Path preparedDir = newService(workingDirectory, 64).prepareImageFolderDataset(3L, 42L);
 

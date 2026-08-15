@@ -6,7 +6,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "dirty_annotations",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"image_id", "point_index"}),
+       uniqueConstraints = @UniqueConstraint(columnNames = {"image_id", "point_index", "ontology_change_id"}),
        indexes = {
            @Index(name = "idx_dirty_annotations_image", columnList = "image_id"),
            @Index(name = "idx_dirty_annotations_ontology_change", columnList = "ontology_change_id"),

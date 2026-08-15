@@ -40,7 +40,7 @@ public class DatasetPreparationService {
 
     @Transactional(readOnly = true)
     public Path prepareImageFolderDataset(Long datasetVersionId, Long jobId) {
-        List<AnnotationPoint> points = annotationPointRepository.findByImageDatasetVersionId(datasetVersionId);
+        List<AnnotationPoint> points = annotationPointRepository.findByImageOriginDatasetVersionId(datasetVersionId);
         if (points.isEmpty()) {
             throw new DatasetPreparationException("Dataset version has no annotation points to train on");
         }

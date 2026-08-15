@@ -6,6 +6,7 @@ import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.ontology.DirtyAnnotationRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,9 @@ public class DatasetVersionService {
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository datasetVersionRepository;
     private final LabelDefinitionRepository labelDefinitionRepository;
-    private final ImageRepository imageRepository;
+    private final DatasetVersionImageRepository datasetVersionImageRepository;
+    private final AnnotationPointRepository annotationPointRepository;
+    private final DirtyAnnotationRepository dirtyAnnotationRepository;
     private final DvcIntegrationService dvcIntegrationService;
     private final AnnotationEventLoggerService annotationEventLoggerService;
     private final DatasetVersionMapper datasetVersionMapper;
@@ -30,14 +33,18 @@ public class DatasetVersionService {
     public DatasetVersionService(DatasetRepository datasetRepository,
                                  DatasetVersionRepository datasetVersionRepository,
                                  LabelDefinitionRepository labelDefinitionRepository,
-                                 ImageRepository imageRepository,
+                                 DatasetVersionImageRepository datasetVersionImageRepository,
+                                 AnnotationPointRepository annotationPointRepository,
+                                 DirtyAnnotationRepository dirtyAnnotationRepository,
                                  DvcIntegrationService dvcIntegrationService,
                                  AnnotationEventLoggerService annotationEventLoggerService,
                                  DatasetVersionMapper datasetVersionMapper) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
-        this.imageRepository = imageRepository;
+        this.datasetVersionImageRepository = datasetVersionImageRepository;
+        this.annotationPointRepository = annotationPointRepository;
+        this.dirtyAnnotationRepository = dirtyAnnotationRepository;
         this.dvcIntegrationService = dvcIntegrationService;
         this.annotationEventLoggerService = annotationEventLoggerService;
         this.datasetVersionMapper = datasetVersionMapper;
@@ -45,6 +52,20 @@ public class DatasetVersionService {
 
     @Transactional
     public DatasetVersionResponse createSnapshot(Long datasetId, CreateVersionRequest request) {
+        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        return createSnapshotBranchedFrom(datasetId, request, previousLatest);
+    }
+
+    /**
+     * Like {@link #createSnapshot}, but copies labels + image membership forward from an explicit
+     * {@code branchPoint} rather than always the dataset's overall latest version. Used by ontology
+     * change recording, where the new version must branch from whichever version the user picked
+     * (which may not be the dataset's current latest) — using the plain createSnapshot here would
+     * silently branch from the wrong version instead.
+     */
+    @Transactional
+    public DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
+                                                              DatasetVersion branchPoint) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
@@ -52,8 +73,7 @@ public class DatasetVersionService {
             throw new ConflictException("Dataset version tag already exists in this dataset: " + request.getVersionTag());
         }
 
-        long imageCount = imageRepository.countByDatasetVersionDatasetId(datasetId);
-        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        DatasetVersion previousLatest = branchPoint;
         String dvcCommitHash = dvcIntegrationService.commitCurrentState(request.getVersionTag());
 
         DatasetVersion version = new DatasetVersion();
@@ -61,18 +81,49 @@ public class DatasetVersionService {
         version.setVersionTag(request.getVersionTag());
         version.setCreatedBy(request.getCreatedBy());
         version.setTriggerReason(request.getTriggerReason().name());
-        version.setImageCount((int) imageCount);
+        version.setImageCount(0);
         version.setAnnotationCount(0);
         version.setDvcCommitHash(dvcCommitHash);
         version.setNotes(request.getNotes());
         DatasetVersion savedVersion = datasetVersionRepository.save(version);
 
         List<LabelDefinition> labels = snapshotCurrentLabelDefinitions(savedVersion, previousLatest);
+        List<DatasetVersionImage> membership = snapshotCurrentImageMembership(savedVersion, previousLatest);
+
+        savedVersion.setImageCount(membership.size());
+        savedVersion.setAnnotationCount((int) annotationPointRepository.countByImageOriginDatasetVersionDatasetId(datasetId));
+        savedVersion = datasetVersionRepository.save(savedVersion);
 
         logAfterCommit(EventType.DATASET_VERSION_CREATED, savedVersion,
                 request.getCreatedBy(), "Created dataset version " + request.getVersionTag());
 
-        return datasetVersionMapper.toResponseWithLabels(savedVersion, labels);
+        return attachCompleteness(datasetVersionMapper.toResponseWithLabels(savedVersion, labels));
+    }
+
+    /**
+     * Copies forward the previous version's image membership rows onto {@code version} — cheap
+     * (just new join rows, no Image data duplicated). A dataset's very first version starts with
+     * no membership; the importer adds rows for the freshly-imported images afterward.
+     */
+    List<DatasetVersionImage> snapshotCurrentImageMembership(DatasetVersion version, DatasetVersion previousLatest) {
+        List<DatasetVersionImage> snapshot = new ArrayList<>();
+        if (previousLatest == null) {
+            return snapshot;
+        }
+        for (DatasetVersionImage membershipRow : datasetVersionImageRepository.findByDatasetVersionId(previousLatest.getId())) {
+            DatasetVersionImage copy = new DatasetVersionImage();
+            copy.setDatasetVersion(version);
+            copy.setImage(membershipRow.getImage());
+            snapshot.add(datasetVersionImageRepository.save(copy));
+        }
+        return snapshot;
+    }
+
+    /** {@code true} when every dirty annotation raised against this version has been resolved. */
+    @Transactional(readOnly = true)
+    public boolean isComplete(Long datasetVersionId) {
+        return dirtyAnnotationRepository
+                .countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(datasetVersionId) == 0;
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +134,7 @@ public class DatasetVersionService {
             throw new NotFoundException("Dataset version not found: " + id);
         }
         List<LabelDefinition> labels = labelDefinitionRepository.findByDatasetVersionId(id);
-        return datasetVersionMapper.toResponseWithLabels(version, labels);
+        return attachCompleteness(datasetVersionMapper.toResponseWithLabels(version, labels));
     }
 
     @Transactional
@@ -113,7 +164,19 @@ public class DatasetVersionService {
             throw new NotFoundException("Dataset not found: " + datasetId);
         }
         return datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(datasetId, pageable)
-                .map(datasetVersionMapper::toResponse);
+                .map(version -> attachCompleteness(datasetVersionMapper.toResponse(version)));
+    }
+
+    /**
+     * Populates {@code complete}/{@code unresolvedDirtyCount} with one extra query per version.
+     * Accepted N+1 given current data volumes rather than a bespoke aggregate query — see plan notes.
+     */
+    private DatasetVersionResponse attachCompleteness(DatasetVersionResponse response) {
+        long unresolved = dirtyAnnotationRepository
+                .countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(response.getId());
+        response.setUnresolvedDirtyCount(unresolved);
+        response.setComplete(unresolved == 0);
+        return response;
     }
 
     /**

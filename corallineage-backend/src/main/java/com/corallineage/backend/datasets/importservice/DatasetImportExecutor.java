@@ -7,6 +7,8 @@ import com.corallineage.backend.versioning.dataset.AnnotationPoint;
 import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.CreateVersionRequest;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImage;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
 import com.corallineage.backend.versioning.dataset.DatasetVersionService;
@@ -44,6 +46,7 @@ public class DatasetImportExecutor {
     private final DatasetVersionService datasetVersionService;
     private final LabelDefinitionRepository labelDefinitionRepository;
     private final ImageRepository imageRepository;
+    private final DatasetVersionImageRepository datasetVersionImageRepository;
     private final AnnotationPointRepository annotationPointRepository;
     private final LabelCodeResolver labelCodeResolver;
     private final AnnotationEventLoggerService annotationEventLoggerService;
@@ -58,6 +61,7 @@ public class DatasetImportExecutor {
                                  DatasetVersionService datasetVersionService,
                                  LabelDefinitionRepository labelDefinitionRepository,
                                  ImageRepository imageRepository,
+                                 DatasetVersionImageRepository datasetVersionImageRepository,
                                  AnnotationPointRepository annotationPointRepository,
                                  LabelCodeResolver labelCodeResolver,
                                  AnnotationEventLoggerService annotationEventLoggerService,
@@ -71,6 +75,7 @@ public class DatasetImportExecutor {
         this.datasetVersionService = datasetVersionService;
         this.labelDefinitionRepository = labelDefinitionRepository;
         this.imageRepository = imageRepository;
+        this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.annotationPointRepository = annotationPointRepository;
         this.labelCodeResolver = labelCodeResolver;
         this.annotationEventLoggerService = annotationEventLoggerService;
@@ -130,14 +135,10 @@ public class DatasetImportExecutor {
             }
             Map<String, LabelDefinition> resolvedByCode = labelCodeResolver.resolve(newLabels, requestedCodes);
 
-            // annotationCount, like imageCount, is a running total across the whole dataset's
-            // history, not just this import — must be read before the new points below exist.
-            long existingAnnotationCount = annotationPointRepository.countByImageDatasetVersionDatasetId(datasetId);
-
             List<Image> imageEntities = new ArrayList<>();
             for (ParsedImage parsed : parseResult.images()) {
                 Image image = new Image();
-                image.setDatasetVersion(newVersion);
+                image.setOriginDatasetVersion(newVersion);
                 image.setFilename(parsed.filename());
                 image.setFilePath(dataDir + "/" + parsed.filename());
                 imageEntities.add(image);
@@ -145,6 +146,17 @@ public class DatasetImportExecutor {
             List<Image> savedImages = imageRepository.saveAll(imageEntities);
             Map<String, Image> imagesByFilename = savedImages.stream()
                     .collect(Collectors.toMap(Image::getFilename, img -> img, (a, b) -> a));
+
+            // createSnapshot already copied forward the previous version's membership onto
+            // newVersion; add explicit membership rows for the freshly-imported images on top.
+            List<DatasetVersionImage> newMembership = new ArrayList<>();
+            for (Image savedImage : savedImages) {
+                DatasetVersionImage membership = new DatasetVersionImage();
+                membership.setDatasetVersion(newVersion);
+                membership.setImage(savedImage);
+                newMembership.add(membership);
+            }
+            datasetVersionImageRepository.saveAll(newMembership);
 
             List<AnnotationPoint> pointEntities = new ArrayList<>();
             for (ParsedAnnotationPoint parsed : parseResult.points()) {
@@ -161,7 +173,7 @@ public class DatasetImportExecutor {
             annotationPointRepository.saveAll(pointEntities);
 
             newVersion.setImageCount(newVersion.getImageCount() + savedImages.size());
-            newVersion.setAnnotationCount((int) existingAnnotationCount + pointEntities.size());
+            newVersion.setAnnotationCount(newVersion.getAnnotationCount() + pointEntities.size());
             datasetVersionRepository.save(newVersion);
 
             logImportCompletedAfterCommit(newVersion, importedBy, format, savedImages.size(), pointEntities.size());
@@ -200,7 +212,7 @@ public class DatasetImportExecutor {
         List<LabelDefinition> created = new ArrayList<>();
         for (String code : codes) {
             LabelDefinition label = new LabelDefinition();
-            label.setDatasetVersion(newVersion);
+            label.setDatasetVersion(newVersion); // NOTE: LabelDefinition.datasetVersion is unrelated to Image.originDatasetVersion — not renamed
             label.setLabelCode(code);
             label.setLabelName(code);
             created.add(labelDefinitionRepository.save(label));

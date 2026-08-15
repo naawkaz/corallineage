@@ -1,16 +1,21 @@
 package com.corallineage.backend.ontology;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEvent;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
+import com.corallineage.backend.logging.AnnotationEventRepository;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.versioning.dataset.AnnotationPoint;
 import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
+import com.corallineage.backend.versioning.dataset.LabelDefinition;
 import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,22 +44,32 @@ class OntologyChangeServiceTest {
     @Mock private OntologyChangeRepository ontologyChangeRepository;
     @Mock private DirtyAnnotationRepository dirtyAnnotationRepository;
     @Mock private DatasetVersionRepository datasetVersionRepository;
+    @Mock private DatasetVersionService datasetVersionService;
     @Mock private LabelDefinitionRepository labelDefinitionRepository;
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock private AnnotationEventRepository annotationEventRepository;
 
     private final OntologyChangeMapper ontologyChangeMapper = new OntologyChangeMapper();
 
     private OntologyChangeService newService() {
         return new OntologyChangeService(ontologyChangeRepository, dirtyAnnotationRepository,
-                datasetVersionRepository, labelDefinitionRepository, annotationPointRepository,
-                ontologyChangeMapper, annotationEventLoggerService);
+                datasetVersionRepository, datasetVersionService, labelDefinitionRepository,
+                annotationPointRepository, ontologyChangeMapper, annotationEventLoggerService,
+                annotationEventRepository);
+    }
+
+    private Dataset dataset(Long id) {
+        Dataset d = new Dataset();
+        d.setId(id);
+        return d;
     }
 
     private DatasetVersion version(Long id) {
         DatasetVersion v = new DatasetVersion();
         v.setId(id);
         v.setVersionTag("v1.0");
+        v.setDataset(dataset(1L));
         return v;
     }
 
@@ -72,27 +87,39 @@ class OntologyChangeServiceTest {
         return p;
     }
 
-    private AnnotationEvent event(Long id) {
-        AnnotationEvent e = new AnnotationEvent();
-        e.setId(id);
-        return e;
+    private NewLabelSpec spec(String code, String name, String category) {
+        NewLabelSpec s = new NewLabelSpec();
+        s.setCode(code);
+        s.setName(name);
+        s.setCategory(category);
+        return s;
     }
 
-    private RecordOntologyChangeRequest request(ChangeType type, String oldCode, Long versionId) {
+    private RecordOntologyChangeRequest request(ChangeType type, String oldCode, Long versionId, List<NewLabelSpec> newLabels) {
         RecordOntologyChangeRequest req = new RecordOntologyChangeRequest();
         req.setChangeType(type);
         req.setOldLabelCode(oldCode);
-        req.setNewLabelCodes(oldCode != null ? List.of(oldCode + "_A", oldCode + "_B") : List.of());
-        req.setAffectedDatasetVersionId(versionId);
+        req.setNewLabels(newLabels);
+        req.setBasedOnDatasetVersionId(versionId);
         req.setChangedBy("researcher_01");
         return req;
     }
 
+    /** Stubs the createSnapshot branch-off call and returns the freshly "branched" version. */
+    private DatasetVersion stubBranchedVersion(Long newVersionId) {
+        DatasetVersionResponse response = new DatasetVersionResponse();
+        response.setId(newVersionId);
+        when(datasetVersionService.createSnapshotBranchedFrom(eq(1L), any(), any())).thenReturn(response);
+        DatasetVersion newVersion = version(newVersionId);
+        when(datasetVersionRepository.findById(newVersionId)).thenReturn(Optional.of(newVersion));
+        return newVersion;
+    }
+
     @Test
-    void recordChange_datasetVersionNotFound_throwsNotFound() {
+    void recordChange_basedOnVersionNotFound_throwsNotFound() {
         when(datasetVersionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 99L)))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 99L, List.of(spec("NEW", "New", "CORAL")))))
                 .isInstanceOf(NotFoundException.class);
         verify(ontologyChangeRepository, never()).save(any());
     }
@@ -102,55 +129,189 @@ class OntologyChangeServiceTest {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
         when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(false);
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 1L)))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL")))))
                 .isInstanceOf(InvalidRequestException.class);
         verify(ontologyChangeRepository, never()).save(any());
         verify(annotationEventLoggerService, never()).log(any(), any(), anyString(), anyString());
     }
 
     @Test
-    void recordChange_labelAdded_noOldCode_flagsNothing() {
-        DatasetVersion version = version(1L);
-        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version));
-        when(annotationEventLoggerService.log(eq(EventType.ONTOLOGY_CHANGE_DETECTED), eq(version), anyString(), anyString()))
-                .thenReturn(event(10L));
+    void recordChange_added_withOldCode_throwsInvalidRequest() {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_ADDED, "SHOULD_NOT_BE_SET", 1L, List.of(spec("NEW", "New", "CORAL")))))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void recordChange_deprecated_withNewLabels_throwsInvalidRequest() {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
+
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL")))))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void recordChange_split_withNoNewLabels_throwsInvalidRequest() {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
+
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_SPLIT, "OLD", 1L, List.of())))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void recordChange_added_createsNewVersionAndLabel_flagsNothing() {
+        DatasetVersion basedOn = version(1L);
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(basedOn));
+        DatasetVersion newVersion = stubBranchedVersion(2L);
+        when(annotationEventRepository.save(any(AnnotationEvent.class))).thenAnswer(inv -> {
+            AnnotationEvent e = inv.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
         when(ontologyChangeRepository.save(any(OntologyChange.class))).thenAnswer(inv -> {
             OntologyChange c = inv.getArgument(0);
             c.setId(5L);
             return c;
         });
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(2L, "MACRO")).thenReturn(false);
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        OntologyChangeResponse response = newService().recordChange(request(ChangeType.LABEL_ADDED, null, 1L));
+        OntologyChangeResponse response = newService().recordChange(
+                request(ChangeType.LABEL_ADDED, null, 1L, List.of(spec("MACRO", "Macroalgae", "ALGAE"))));
 
         assertThat(response.getDirtyAnnotationsFlagged()).isZero();
-        verify(annotationPointRepository, never()).findByImageDatasetVersionIdAndLabelDefinitionLabelCode(any(), any());
+        assertThat(response.getAffectedDatasetVersionId()).isEqualTo(2L);
+        verify(annotationPointRepository, never()).findByLabelCodeAndDatasetVersionMembership(any(), any());
         verify(dirtyAnnotationRepository, never()).saveAll(any());
         verify(annotationEventLoggerService, never()).log(eq(EventType.DIRTY_FLAGS_RAISED), any(), anyString(), anyString());
     }
 
     @Test
-    void recordChange_labelRenamed_flagsMatchingPointsAndLogsBothEvents() {
-        DatasetVersion version = version(1L);
-        Image img = image(101L, "moorea_001.jpg");
-        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version));
+    void recordChange_renamed_updatesLabelInPlace_neverFlagsDirty() {
+        DatasetVersion basedOn = version(1L);
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(basedOn));
         when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
-        when(annotationEventLoggerService.log(eq(EventType.ONTOLOGY_CHANGE_DETECTED), eq(version), anyString(), anyString()))
-                .thenReturn(event(10L));
+        DatasetVersion newVersion = stubBranchedVersion(2L);
+        when(annotationEventRepository.save(any(AnnotationEvent.class))).thenAnswer(inv -> {
+            AnnotationEvent e = inv.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
         when(ontologyChangeRepository.save(any(OntologyChange.class))).thenAnswer(inv -> {
             OntologyChange c = inv.getArgument(0);
             c.setId(5L);
             return c;
         });
-        when(annotationPointRepository.findByImageDatasetVersionIdAndLabelDefinitionLabelCode(1L, "OLD"))
+        LabelDefinition copiedOld = new LabelDefinition();
+        copiedOld.setLabelCode("OLD");
+        copiedOld.setLabelName("Old Name");
+        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(2L, "OLD")).thenReturn(Optional.of(copiedOld));
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OntologyChangeResponse response = newService().recordChange(
+                request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New Name", "CORAL"))));
+
+        assertThat(response.getDirtyAnnotationsFlagged()).isZero();
+        assertThat(response.getChangeType()).isEqualTo(ChangeType.LABEL_RENAMED);
+        assertThat(copiedOld.getLabelCode()).isEqualTo("NEW");
+        assertThat(copiedOld.getLabelName()).isEqualTo("New Name");
+        assertThat(copiedOld.getDeprecatedAt()).isNull();
+        verify(annotationPointRepository, never()).findByLabelCodeAndDatasetVersionMembership(any(), any());
+        verify(dirtyAnnotationRepository, never()).saveAll(any());
+        verify(annotationEventLoggerService, never()).log(eq(EventType.DIRTY_FLAGS_RAISED), any(), anyString(), anyString());
+    }
+
+    @Test
+    void recordChange_split_deprecatesOldCreatesNewAndFlagsMembershipPoints() {
+        DatasetVersion basedOn = version(1L);
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(basedOn));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
+        DatasetVersion newVersion = stubBranchedVersion(2L);
+        when(annotationEventRepository.save(any(AnnotationEvent.class))).thenAnswer(inv -> {
+            AnnotationEvent e = inv.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
+        when(ontologyChangeRepository.save(any(OntologyChange.class))).thenAnswer(inv -> {
+            OntologyChange c = inv.getArgument(0);
+            c.setId(5L);
+            return c;
+        });
+        LabelDefinition copiedOld = new LabelDefinition();
+        copiedOld.setLabelCode("OLD");
+        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(2L, "OLD")).thenReturn(Optional.of(copiedOld));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(eq(2L), anyString())).thenReturn(false);
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Image img = image(101L, "moorea_001.jpg");
+        when(annotationPointRepository.findByLabelCodeAndDatasetVersionMembership(2L, "OLD"))
                 .thenReturn(List.of(point(img, 0), point(img, 1), point(img, 2)));
 
-        OntologyChangeResponse response = newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 1L));
+        OntologyChangeResponse response = newService().recordChange(request(ChangeType.LABEL_SPLIT, "OLD", 1L,
+                List.of(spec("OLD_A", "Old A", "CORAL"), spec("OLD_B", "Old B", "CORAL"))));
 
         assertThat(response.getDirtyAnnotationsFlagged()).isEqualTo(3);
-        assertThat(response.getChangeType()).isEqualTo(ChangeType.LABEL_RENAMED);
+        assertThat(copiedOld.getDeprecatedAt()).isNotNull();
         verify(dirtyAnnotationRepository).saveAll(argThatSize(3));
-        verify(annotationEventLoggerService).log(eq(EventType.ONTOLOGY_CHANGE_DETECTED), eq(version), anyString(), anyString());
-        verify(annotationEventLoggerService).log(eq(EventType.DIRTY_FLAGS_RAISED), eq(version), anyString(), anyString());
+        verify(labelDefinitionRepository, org.mockito.Mockito.times(2)).save(org.mockito.ArgumentMatchers.argThat(
+                (LabelDefinition l) -> l.getLabelCode().equals("OLD_A") || l.getLabelCode().equals("OLD_B")));
+        verify(annotationEventLoggerService).log(eq(EventType.DIRTY_FLAGS_RAISED), eq(newVersion), anyString(), anyString());
+    }
+
+    @Test
+    void recordChange_deprecated_withValidReplacement_flagsMembershipPoints() {
+        DatasetVersion basedOn = version(1L);
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(basedOn));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
+        LabelDefinition replacement = new LabelDefinition();
+        replacement.setLabelCode("REPLACEMENT");
+        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(1L, "REPLACEMENT")).thenReturn(Optional.of(replacement));
+        DatasetVersion newVersion = stubBranchedVersion(2L);
+        when(annotationEventRepository.save(any(AnnotationEvent.class))).thenAnswer(inv -> {
+            AnnotationEvent e = inv.getArgument(0);
+            e.setId(10L);
+            return e;
+        });
+        when(ontologyChangeRepository.save(any(OntologyChange.class))).thenAnswer(inv -> {
+            OntologyChange c = inv.getArgument(0);
+            c.setId(5L);
+            return c;
+        });
+        LabelDefinition copiedOld = new LabelDefinition();
+        copiedOld.setLabelCode("OLD");
+        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(2L, "OLD")).thenReturn(Optional.of(copiedOld));
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Image img = image(101L, "moorea_001.jpg");
+        when(annotationPointRepository.findByLabelCodeAndDatasetVersionMembership(2L, "OLD"))
+                .thenReturn(List.of(point(img, 0)));
+
+        RecordOntologyChangeRequest req = request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of());
+        req.setReplacementLabelCode("REPLACEMENT");
+
+        OntologyChangeResponse response = newService().recordChange(req);
+
+        assertThat(response.getDirtyAnnotationsFlagged()).isEqualTo(1);
+        assertThat(response.getReplacementLabelCode()).isEqualTo("REPLACEMENT");
+        assertThat(copiedOld.getDeprecatedAt()).isNotNull();
+    }
+
+    @Test
+    void recordChange_deprecated_replacementNotOnBasedOnVersion_throwsInvalidRequest() {
+        DatasetVersion basedOn = version(1L);
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(basedOn));
+        when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
+        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(1L, "MISSING")).thenReturn(Optional.empty());
+
+        RecordOntologyChangeRequest req = request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of());
+        req.setReplacementLabelCode("MISSING");
+
+        assertThatThrownBy(() -> newService().recordChange(req))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(ontologyChangeRepository, never()).save(any());
     }
 
     private static List<DirtyAnnotation> argThatSize(int size) {

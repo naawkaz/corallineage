@@ -7,6 +7,7 @@ import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -22,6 +23,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,6 +33,7 @@ class TrainingJobServiceTest {
 
     @Mock private DatasetRepository datasetRepository;
     @Mock private DatasetVersionRepository datasetVersionRepository;
+    @Mock private DatasetVersionService datasetVersionService;
     @Mock private TrainingJobRepository trainingJobRepository;
     @Mock private ArchitectureRegistry architectureRegistry;
     @Mock private TrainingJobExecutor trainingJobExecutor;
@@ -39,8 +42,9 @@ class TrainingJobServiceTest {
     private final TrainingJobMapper trainingJobMapper = new TrainingJobMapper();
 
     private TrainingJobService newService() {
-        return new TrainingJobService(datasetRepository, datasetVersionRepository, trainingJobRepository,
-                trainingJobMapper, architectureRegistry, trainingJobExecutor, annotationEventLoggerService);
+        return new TrainingJobService(datasetRepository, datasetVersionRepository, datasetVersionService,
+                trainingJobRepository, trainingJobMapper, architectureRegistry, trainingJobExecutor,
+                annotationEventLoggerService);
     }
 
     private Dataset dataset(Long id) {
@@ -78,7 +82,8 @@ class TrainingJobServiceTest {
     @Test
     void initiateTrainingJob_noDatasetVersions_throwsInvalidRequest() {
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset(1L)));
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L)).thenReturn(Optional.empty());
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of()));
 
         assertThatThrownBy(() -> newService().initiateTrainingJob(request(1L, null, null)))
                 .isInstanceOf(InvalidRequestException.class);
@@ -98,11 +103,46 @@ class TrainingJobServiceTest {
     }
 
     @Test
+    void initiateTrainingJob_explicitVersionIncomplete_throwsInvalidRequest() {
+        Dataset dataset = dataset(1L);
+        DatasetVersion targetVersion = version(5L, dataset, "v1.0");
+        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset));
+        when(datasetVersionRepository.findById(5L)).thenReturn(Optional.of(targetVersion));
+        when(datasetVersionService.isComplete(5L)).thenReturn(false);
+
+        assertThatThrownBy(() -> newService().initiateTrainingJob(request(1L, 5L, null)))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(trainingJobExecutor, never()).executeTrainingAsync(any());
+    }
+
+    @Test
+    void initiateTrainingJob_latestVersionIncomplete_fallsBackToNewestCompleteVersion() {
+        Dataset dataset = dataset(1L);
+        DatasetVersion incompleteLatest = version(4L, dataset, "v1.2");
+        DatasetVersion completeOlder = version(3L, dataset, "v1.1");
+        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset));
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(incompleteLatest, completeOlder)));
+        when(datasetVersionService.isComplete(4L)).thenReturn(false);
+        when(datasetVersionService.isComplete(3L)).thenReturn(true);
+        when(trainingJobRepository.save(any(TrainingJob.class))).thenAnswer(inv -> {
+            TrainingJob job = inv.getArgument(0);
+            job.setId(11L);
+            return job;
+        });
+
+        TrainingJobResponse response = newService().initiateTrainingJob(request(1L, null, null));
+
+        assertThat(response.getDatasetVersionTag()).isEqualTo("v1.1");
+    }
+
+    @Test
     void initiateTrainingJob_unsupportedArchitecture_throwsInvalidRequest() {
         Dataset dataset = dataset(1L);
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset));
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L))
-                .thenReturn(Optional.of(version(3L, dataset, "v1.0")));
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(version(3L, dataset, "v1.0"))));
+        when(datasetVersionService.isComplete(3L)).thenReturn(true);
         when(architectureRegistry.isSupported("bogus_arch")).thenReturn(false);
 
         assertThatThrownBy(() -> newService().initiateTrainingJob(request(1L, null, "bogus_arch")))
@@ -115,7 +155,9 @@ class TrainingJobServiceTest {
         Dataset dataset = dataset(1L);
         DatasetVersion latest = version(3L, dataset, "v1.1");
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset));
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L)).thenReturn(Optional.of(latest));
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any()))
+                .thenReturn(new PageImpl<>(List.of(latest)));
+        when(datasetVersionService.isComplete(3L)).thenReturn(true);
         when(trainingJobRepository.save(any(TrainingJob.class))).thenAnswer(inv -> {
             TrainingJob job = inv.getArgument(0);
             job.setId(7L);

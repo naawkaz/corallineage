@@ -3,6 +3,7 @@ package com.corallineage.backend.datasets.importservice;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
 import com.corallineage.backend.versioning.dataset.DatasetVersionService;
@@ -37,6 +38,7 @@ class DatasetImportExecutorTest {
     @Mock private DatasetVersionService datasetVersionService;
     @Mock private LabelDefinitionRepository labelDefinitionRepository;
     @Mock private ImageRepository imageRepository;
+    @Mock private DatasetVersionImageRepository datasetVersionImageRepository;
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
 
@@ -50,6 +52,7 @@ class DatasetImportExecutorTest {
                 datasetVersionService,
                 labelDefinitionRepository,
                 imageRepository,
+                datasetVersionImageRepository,
                 annotationPointRepository,
                 new LabelCodeResolver(),
                 annotationEventLoggerService,
@@ -84,6 +87,7 @@ class DatasetImportExecutorTest {
         DatasetVersion newVersion = new DatasetVersion();
         newVersion.setId(100L);
         newVersion.setImageCount(0);
+        newVersion.setAnnotationCount(0);
         when(datasetVersionRepository.findById(100L)).thenReturn(Optional.of(newVersion));
 
         // Fresh version has no labels yet — bootstrapLabelDefinitions is expected to create them.
@@ -95,7 +99,6 @@ class DatasetImportExecutorTest {
             for (Image image : images) image.setId(1L);
             return images;
         });
-        when(annotationPointRepository.countByImageDatasetVersionDatasetId(10L)).thenReturn(0L);
 
         executor.executeImportAsync(1L, 10L, uploadDir, ImportFormat.MLC, "v1.0", "researcher_01");
 

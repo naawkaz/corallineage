@@ -8,6 +8,7 @@ import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,7 @@ public class TrainingJobService {
 
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository datasetVersionRepository;
+    private final DatasetVersionService datasetVersionService;
     private final TrainingJobRepository trainingJobRepository;
     private final TrainingJobMapper trainingJobMapper;
     private final ArchitectureRegistry architectureRegistry;
@@ -36,6 +38,7 @@ public class TrainingJobService {
 
     public TrainingJobService(DatasetRepository datasetRepository,
                               DatasetVersionRepository datasetVersionRepository,
+                              DatasetVersionService datasetVersionService,
                               TrainingJobRepository trainingJobRepository,
                               TrainingJobMapper trainingJobMapper,
                               ArchitectureRegistry architectureRegistry,
@@ -43,6 +46,7 @@ public class TrainingJobService {
                               AnnotationEventLoggerService annotationEventLoggerService) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
+        this.datasetVersionService = datasetVersionService;
         this.trainingJobRepository = trainingJobRepository;
         this.trainingJobMapper = trainingJobMapper;
         this.architectureRegistry = architectureRegistry;
@@ -101,10 +105,23 @@ public class TrainingJobService {
             if (!version.getDataset().getId().equals(datasetId)) {
                 throw new InvalidRequestException("Dataset version " + requestedVersionId + " does not belong to dataset " + datasetId);
             }
+            if (!datasetVersionService.isComplete(version.getId())) {
+                throw new InvalidRequestException("Dataset version " + version.getVersionTag()
+                        + " has unresolved dirty annotations from an ontology change and cannot be trained on until resolved");
+            }
             return version;
         }
-        return datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId)
-                .orElseThrow(() -> new InvalidRequestException("Dataset has no versions to train on: " + datasetId));
+        // "Latest version" mode skips incomplete versions and falls back to the newest complete one,
+        // rather than blocking outright — an incomplete label-only version shouldn't stall training
+        // against the dataset's otherwise-usable history.
+        List<DatasetVersion> versions = datasetVersionRepository
+                .findAllByDatasetIdOrderByCreatedAtDesc(datasetId, Pageable.unpaged())
+                .getContent();
+        return versions.stream()
+                .filter(v -> datasetVersionService.isComplete(v.getId()))
+                .findFirst()
+                .orElseThrow(() -> new InvalidRequestException(
+                        "Dataset has no complete versions to train on: " + datasetId));
     }
 
     private String resolveArchitecture(String requested) {

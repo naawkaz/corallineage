@@ -124,6 +124,16 @@ export default function VersionDetail() {
             ) : (
               <span>…</span>
             )}
+            {version && !version.complete && (
+              <Link
+                to={`/projects/${projectIdParam}/ontology?datasetVersionId=${version.id}`}
+                className="badge badge-amber"
+                style={{ textDecoration: 'none' }}
+                title={`${version.unresolvedDirtyCount} unresolved dirty annotation(s)`}
+              >
+                Incomplete
+              </Link>
+            )}
           </div>
           <div className="topbar-sub">
             {version ? `Created ${formatDate(version.createdAt)} by ${version.createdBy}` : ''}

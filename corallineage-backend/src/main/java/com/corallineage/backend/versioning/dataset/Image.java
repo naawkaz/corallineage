@@ -7,7 +7,7 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "images",
        indexes = {
-           @Index(name = "idx_images_dataset_version", columnList = "dataset_version_id"),
+           @Index(name = "idx_images_dataset_version", columnList = "origin_dataset_version_id"),
            @Index(name = "idx_images_filename", columnList = "filename")
        })
 public class Image {
@@ -16,9 +16,14 @@ public class Image {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * The version this image was first imported under — a permanent, one-time "origin" fact,
+     * never updated after insert. Does NOT represent which version(s) currently include this
+     * image; that's tracked separately by {@link DatasetVersionImage} membership rows.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dataset_version_id", nullable = false)
-    private DatasetVersion datasetVersion;
+    @JoinColumn(name = "origin_dataset_version_id", nullable = false)
+    private DatasetVersion originDatasetVersion;
 
     @Column(name = "filename", nullable = false, length = 500)
     private String filename;
@@ -48,8 +53,8 @@ public class Image {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public DatasetVersion getDatasetVersion() { return datasetVersion; }
-    public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
+    public DatasetVersion getOriginDatasetVersion() { return originDatasetVersion; }
+    public void setOriginDatasetVersion(DatasetVersion originDatasetVersion) { this.originDatasetVersion = originDatasetVersion; }
 
     public String getFilename() { return filename; }
     public void setFilename(String filename) { this.filename = filename; }

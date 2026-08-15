@@ -15,4 +15,7 @@ public interface DirtyAnnotationRepository extends JpaRepository<DirtyAnnotation
     long countByOntologyChangeId(Long ontologyChangeId);
 
     long countByOntologyChangeIdAndResolvedAtIsNotNull(Long ontologyChangeId);
+
+    /** Unresolved dirty-annotation count for a dataset version — backs DatasetVersionService.isComplete. */
+    long countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(Long datasetVersionId);
 }

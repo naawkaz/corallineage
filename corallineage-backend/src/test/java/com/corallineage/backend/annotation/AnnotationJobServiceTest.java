@@ -70,7 +70,7 @@ class AnnotationJobServiceTest {
         DatasetVersion version = new DatasetVersion();
         version.setId(datasetId);
         version.setDataset(dataset);
-        img.setDatasetVersion(version);
+        img.setOriginDatasetVersion(version);
         return img;
     }
 

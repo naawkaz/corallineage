@@ -49,6 +49,10 @@ public class OntologyChange {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    /** DEPRECATED only: an existing, non-deprecated label code offered as a replacement (informational). */
+    @Column(name = "replacement_label_code", length = 100)
+    private String replacementLabelCode;
+
     @PrePersist
     protected void onCreate() {
         if (changedAt == null) changedAt = Instant.now();
@@ -82,4 +86,7 @@ public class OntologyChange {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getReplacementLabelCode() { return replacementLabelCode; }
+    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
 }

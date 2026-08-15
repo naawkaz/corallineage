@@ -3,6 +3,7 @@ package com.corallineage.backend.versioning.diff;
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,11 +30,12 @@ class DatasetDiffServiceTest {
     @Mock private DatasetVersionRepository datasetVersionRepository;
     @Mock private LabelDefinitionRepository labelDefinitionRepository;
     @Mock private ImageRepository imageRepository;
+    @Mock private DatasetVersionImageRepository datasetVersionImageRepository;
     @Mock private ClassDistributionService classDistributionService;
 
     private DatasetDiffService newService() {
         return new DatasetDiffService(datasetVersionRepository, labelDefinitionRepository, imageRepository,
-                classDistributionService);
+                datasetVersionImageRepository, classDistributionService);
     }
 
     private Dataset dataset(Long id) {
@@ -106,10 +109,12 @@ class DatasetDiffServiceTest {
         Image img1 = image(101L, "img1.jpg");
         Image img2 = image(102L, "img2.jpg");
         Image img3 = image(103L, "img3.jpg");
-        when(imageRepository.findByDatasetVersionDatasetIdAndDatasetVersionCreatedAtLessThanEqual(1L, t1))
-                .thenReturn(List.of(img1, img2));
-        when(imageRepository.findByDatasetVersionDatasetIdAndDatasetVersionCreatedAtLessThanEqual(1L, t2))
-                .thenReturn(List.of(img1, img2, img3));
+        when(datasetVersionImageRepository.findImageIdsByDatasetVersionId(1L))
+                .thenReturn(Set.of(101L, 102L));
+        when(datasetVersionImageRepository.findImageIdsByDatasetVersionId(2L))
+                .thenReturn(Set.of(101L, 102L, 103L));
+        when(imageRepository.findAllById(Set.of(103L))).thenReturn(List.of(img3));
+        when(imageRepository.findAllById(Set.<Long>of())).thenReturn(List.of());
 
         when(classDistributionService.countByLabelUpToVersion(1L, v1)).thenReturn(Map.of(
                 "A", new ClassCount("A", "Label A", 5),

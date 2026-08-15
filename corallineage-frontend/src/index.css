@@ -220,6 +220,24 @@ tr:hover td { background: var(--canvas); }
 .form-textarea { resize: vertical; min-height: 80px; }
 .field-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
 
+.combobox { position: relative; }
+.combobox-input:disabled { background: var(--canvas); color: var(--text-muted); cursor: not-allowed; }
+.combobox-list {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  max-height: 220px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 4px;
+}
+.combobox-option {
+  padding: 7px 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  display: flex; justify-content: space-between; gap: 8px; align-items: baseline;
+}
+.combobox-option-name { color: var(--text-primary); }
+.combobox-option-code { color: var(--text-muted); font-family: var(--mono, monospace); font-size: 11px; }
+.combobox-option:hover, .combobox-option.active { background: var(--canvas); }
+.combobox-empty { padding: 10px; font-size: 12px; color: var(--text-muted); }
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }

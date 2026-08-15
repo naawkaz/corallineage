@@ -16,6 +16,7 @@ public class OntologyChangeMapper {
         response.setChangedBy(change.getChangedBy());
         response.setChangedAt(change.getChangedAt());
         response.setNotes(change.getNotes());
+        response.setReplacementLabelCode(change.getReplacementLabelCode());
         response.setDirtyAnnotationsFlagged(dirtyAnnotationsFlagged);
         response.setResolvedCount(resolvedCount);
         return response;

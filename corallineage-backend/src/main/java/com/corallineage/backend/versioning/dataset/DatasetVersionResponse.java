@@ -16,6 +16,8 @@ public class DatasetVersionResponse {
     private String dvcCommitHash;
     private String notes;
     private List<LabelDefinitionResponse> labelDefinitions;
+    private boolean complete;
+    private long unresolvedDirtyCount;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -49,4 +51,10 @@ public class DatasetVersionResponse {
 
     public List<LabelDefinitionResponse> getLabelDefinitions() { return labelDefinitions; }
     public void setLabelDefinitions(List<LabelDefinitionResponse> labelDefinitions) { this.labelDefinitions = labelDefinitions; }
+
+    public boolean isComplete() { return complete; }
+    public void setComplete(boolean complete) { this.complete = complete; }
+
+    public long getUnresolvedDirtyCount() { return unresolvedDirtyCount; }
+    public void setUnresolvedDirtyCount(long unresolvedDirtyCount) { this.unresolvedDirtyCount = unresolvedDirtyCount; }
 }

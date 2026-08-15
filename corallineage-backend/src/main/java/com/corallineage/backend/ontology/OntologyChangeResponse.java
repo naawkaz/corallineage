@@ -13,6 +13,7 @@ public class OntologyChangeResponse {
     private String changedBy;
     private Instant changedAt;
     private String notes;
+    private String replacementLabelCode;
     private long dirtyAnnotationsFlagged;
     private long resolvedCount;
 
@@ -39,6 +40,9 @@ public class OntologyChangeResponse {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public String getReplacementLabelCode() { return replacementLabelCode; }
+    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
 
     public long getDirtyAnnotationsFlagged() { return dirtyAnnotationsFlagged; }
     public void setDirtyAnnotationsFlagged(long dirtyAnnotationsFlagged) { this.dirtyAnnotationsFlagged = dirtyAnnotationsFlagged; }

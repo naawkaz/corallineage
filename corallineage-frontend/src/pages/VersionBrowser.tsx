@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../constants'
@@ -181,6 +181,17 @@ export default function VersionBrowser() {
                       <span className={`badge ${triggerReasonBadge(v.triggerReason)}`}>
                         {triggerReasonLabel(v.triggerReason)}
                       </span>
+                      {!v.complete && (
+                        <Link
+                          to={`/projects/${projectId}/ontology?datasetVersionId=${v.id}`}
+                          className="badge badge-amber"
+                          style={{ marginLeft: 6, textDecoration: 'none' }}
+                          onClick={(e) => e.stopPropagation()}
+                          title={`${v.unresolvedDirtyCount} unresolved dirty annotation(s)`}
+                        >
+                          Incomplete
+                        </Link>
+                      )}
                     </td>
                     <td>{formatCount(v.imageCount)}</td>
                     <td>{formatCount(v.annotationCount)}</td>

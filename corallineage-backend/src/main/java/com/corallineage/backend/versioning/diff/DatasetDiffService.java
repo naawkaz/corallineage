@@ -2,6 +2,7 @@ package com.corallineage.backend.versioning.diff;
 
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
@@ -24,15 +25,18 @@ public class DatasetDiffService {
     private final DatasetVersionRepository datasetVersionRepository;
     private final LabelDefinitionRepository labelDefinitionRepository;
     private final ImageRepository imageRepository;
+    private final DatasetVersionImageRepository datasetVersionImageRepository;
     private final ClassDistributionService classDistributionService;
 
     public DatasetDiffService(DatasetVersionRepository datasetVersionRepository,
                               LabelDefinitionRepository labelDefinitionRepository,
                               ImageRepository imageRepository,
+                              DatasetVersionImageRepository datasetVersionImageRepository,
                               ClassDistributionService classDistributionService) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
         this.imageRepository = imageRepository;
+        this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.classDistributionService = classDistributionService;
     }
 
@@ -95,19 +99,25 @@ public class DatasetDiffService {
     }
 
     private ImageDiff diffImages(Long datasetId, DatasetVersion v1, DatasetVersion v2) {
-        List<Image> v1Images = imageRepository
-                .findByDatasetVersionDatasetIdAndDatasetVersionCreatedAtLessThanEqual(datasetId, v1.getCreatedAt());
-        List<Image> v2Images = imageRepository
-                .findByDatasetVersionDatasetIdAndDatasetVersionCreatedAtLessThanEqual(datasetId, v2.getCreatedAt());
-        Set<Long> v1Ids = v1Images.stream().map(Image::getId).collect(Collectors.toSet());
-        Set<Long> v2Ids = v2Images.stream().map(Image::getId).collect(Collectors.toSet());
+        Set<Long> v1Ids = datasetVersionImageRepository.findImageIdsByDatasetVersionId(v1.getId());
+        Set<Long> v2Ids = datasetVersionImageRepository.findImageIdsByDatasetVersionId(v2.getId());
 
-        List<ImageRef> added = v2Images.stream()
-                .filter(i -> !v1Ids.contains(i.getId()))
+        Set<Long> addedIds = v2Ids.stream().filter(id -> !v1Ids.contains(id)).collect(Collectors.toSet());
+        Set<Long> removedIds = v1Ids.stream().filter(id -> !v2Ids.contains(id)).collect(Collectors.toSet());
+
+        Map<Long, Image> addedImages = imageRepository.findAllById(addedIds).stream()
+                .collect(Collectors.toMap(Image::getId, i -> i));
+        Map<Long, Image> removedImages = imageRepository.findAllById(removedIds).stream()
+                .collect(Collectors.toMap(Image::getId, i -> i));
+
+        List<ImageRef> added = addedIds.stream()
+                .map(id -> addedImages.get(id))
+                .filter(i -> i != null)
                 .map(i -> new ImageRef(i.getId(), i.getFilename()))
                 .toList();
-        List<ImageRef> removed = v1Images.stream()
-                .filter(i -> !v2Ids.contains(i.getId()))
+        List<ImageRef> removed = removedIds.stream()
+                .map(id -> removedImages.get(id))
+                .filter(i -> i != null)
                 .map(i -> new ImageRef(i.getId(), i.getFilename()))
                 .toList();
         return new ImageDiff(added, removed);

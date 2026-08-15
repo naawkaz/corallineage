@@ -20,7 +20,7 @@ public class ClassDistributionService {
     public Map<String, ClassCount> countByLabelUpToVersion(Long datasetId, DatasetVersion cutoffVersion) {
         Map<String, ClassCount> counts = new LinkedHashMap<>();
         for (AnnotationPointRepository.LabelCountRow row
-                : annotationPointRepository.countByLabelUpToVersion(datasetId, cutoffVersion.getCreatedAt())) {
+                : annotationPointRepository.countByLabelForVersionMembership(cutoffVersion.getId())) {
             counts.put(row.getLabelCode(), new ClassCount(row.getLabelCode(), row.getLabelName(), row.getPointCount()));
         }
         return counts;

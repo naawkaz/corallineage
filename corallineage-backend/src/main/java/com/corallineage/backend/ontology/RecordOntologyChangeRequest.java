@@ -1,5 +1,6 @@
 package com.corallineage.backend.ontology;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -10,12 +11,17 @@ public class RecordOntologyChangeRequest {
     @NotNull(message = "changeType is required")
     private ChangeType changeType;
 
+    /** The version being branched from — the change creates a new DatasetVersion on top of it. */
+    @NotNull(message = "basedOnDatasetVersionId is required")
+    private Long basedOnDatasetVersionId;
+
     private String oldLabelCode;
 
-    private List<String> newLabelCodes;
+    @Valid
+    private List<NewLabelSpec> newLabels;
 
-    @NotNull(message = "affectedDatasetVersionId is required")
-    private Long affectedDatasetVersionId;
+    /** DEPRECATED only: an existing, non-deprecated label code offered as a replacement. */
+    private String replacementLabelCode;
 
     @NotBlank(message = "changedBy is required")
     private String changedBy;
@@ -25,14 +31,17 @@ public class RecordOntologyChangeRequest {
     public ChangeType getChangeType() { return changeType; }
     public void setChangeType(ChangeType changeType) { this.changeType = changeType; }
 
+    public Long getBasedOnDatasetVersionId() { return basedOnDatasetVersionId; }
+    public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) { this.basedOnDatasetVersionId = basedOnDatasetVersionId; }
+
     public String getOldLabelCode() { return oldLabelCode; }
     public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }
 
-    public List<String> getNewLabelCodes() { return newLabelCodes; }
-    public void setNewLabelCodes(List<String> newLabelCodes) { this.newLabelCodes = newLabelCodes; }
+    public List<NewLabelSpec> getNewLabels() { return newLabels; }
+    public void setNewLabels(List<NewLabelSpec> newLabels) { this.newLabels = newLabels; }
 
-    public Long getAffectedDatasetVersionId() { return affectedDatasetVersionId; }
-    public void setAffectedDatasetVersionId(Long affectedDatasetVersionId) { this.affectedDatasetVersionId = affectedDatasetVersionId; }
+    public String getReplacementLabelCode() { return replacementLabelCode; }
+    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
 
     public String getChangedBy() { return changedBy; }
     public void setChangedBy(String changedBy) { this.changedBy = changedBy; }

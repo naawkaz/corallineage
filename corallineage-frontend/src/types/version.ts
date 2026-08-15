@@ -24,6 +24,8 @@ export interface DatasetVersion {
   dvcCommitHash: string
   notes: string | null
   labelDefinitions?: LabelDefinition[]
+  complete: boolean
+  unresolvedDirtyCount: number
 }
 
 export interface CreateVersionRequest {

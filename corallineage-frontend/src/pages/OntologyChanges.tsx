@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import {
   fetchDirtyAnnotations,
   fetchOntologyChanges,
@@ -11,8 +11,17 @@ import { errorMessage } from '../api/client'
 import { CHANGE_TYPES, CURRENT_USER, changeTypeBadge, changeTypeLabel } from '../constants'
 import { formatDate } from '../lib/format'
 import { useDatasetContext } from '../lib/datasetContextCore'
-import type { ChangeType, DirtyAnnotation, OntologyChange } from '../types/ontology'
+import LabelCombobox from '../components/LabelCombobox'
+import type { ChangeType, DirtyAnnotation, NewLabelSpec, OntologyChange } from '../types/ontology'
 import type { DatasetVersion, LabelDefinition } from '../types/version'
+
+interface NewLabelRow extends NewLabelSpec {
+  key: string
+}
+
+function emptyRow(): NewLabelRow {
+  return { key: Math.random().toString(36).slice(2), code: '', name: '', category: '' }
+}
 
 export default function OntologyChanges() {
   const { projectId: projectIdParam } = useParams()
@@ -20,13 +29,21 @@ export default function OntologyChanges() {
   const { datasets } = useDatasetContext()
   const project = datasets.find((d) => d.id === projectId) ?? null
 
+  const [searchParams] = useSearchParams()
+  const filterVersionId = searchParams.get('datasetVersionId')
+    ? Number(searchParams.get('datasetVersionId'))
+    : null
+
   const [tab, setTab] = useState<'history' | 'dirty'>('history')
 
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [changeType, setChangeType] = useState<ChangeType>('LABEL_RENAMED')
-  const [oldLabelCode, setOldLabelCode] = useState('')
-  const [newLabelCodes, setNewLabelCodes] = useState('')
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
+  const [basedOnVersionLabels, setBasedOnVersionLabels] = useState<LabelDefinition[]>([])
+
+  const [oldLabelCode, setOldLabelCode] = useState('')
+  const [newLabelRows, setNewLabelRows] = useState<NewLabelRow[]>([emptyRow()])
+  const [replacementLabelCode, setReplacementLabelCode] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -42,7 +59,7 @@ export default function OntologyChanges() {
   const [labelOptions, setLabelOptions] = useState<LabelDefinition[]>([])
 
   function loadChanges() {
-    fetchOntologyChanges(projectId, 0, 50)
+    fetchOntologyChanges(projectId, 0, 50, filterVersionId ?? undefined)
       .then((res) => {
         setChanges(res.content)
         setChangesError(null)
@@ -54,7 +71,7 @@ export default function OntologyChanges() {
   useEffect(() => {
     loadChanges()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [projectId, filterVersionId])
 
   useEffect(() => {
     fetchVersions(projectId, 0, 50)
@@ -64,6 +81,43 @@ export default function OntologyChanges() {
       })
       .catch(() => setVersions([]))
   }, [projectId])
+
+  // The old-label combobox and the replacement-label combobox are both fed from the selected
+  // dataset version's active (non-deprecated) label definitions.
+  useEffect(() => {
+    let cancelled = false
+    if (!selectedVersionId) {
+      // Deferred via .then so the reset isn't a synchronous setState call in the effect body.
+      Promise.resolve().then(() => {
+        if (!cancelled) setBasedOnVersionLabels([])
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    fetchVersion(projectId, selectedVersionId)
+      .then((v) => {
+        if (!cancelled) setBasedOnVersionLabels((v.labelDefinitions ?? []).filter((l) => !l.deprecated))
+      })
+      .catch(() => {
+        if (!cancelled) setBasedOnVersionLabels([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, selectedVersionId])
+
+  // Resetting the change type clears fields whose meaning differs across types, so a stale
+  // oldLabelCode / newLabels combination from a previous type never gets submitted by accident.
+  // Done during render (React's "adjusting state when a prop changes" pattern) rather than in a
+  // useEffect, since this is pure state derivation with no external system involved.
+  const [syncedChangeType, setSyncedChangeType] = useState(changeType)
+  if (changeType !== syncedChangeType) {
+    setSyncedChangeType(changeType)
+    setOldLabelCode('')
+    setReplacementLabelCode('')
+    setNewLabelRows([emptyRow()])
+  }
 
   function loadDirty(ontologyChangeId: number) {
     fetchDirtyAnnotations(0, 500, ontologyChangeId)
@@ -89,24 +143,66 @@ export default function OntologyChanges() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChangeId])
 
+  // RENAMED auto-fills the fixed row's category from the selected old label — still editable afterward.
+  function handleOldLabelChange(code: string) {
+    setOldLabelCode(code)
+    if (changeType === 'LABEL_RENAMED') {
+      const label = basedOnVersionLabels.find((l) => l.labelCode === code)
+      setNewLabelRows((rows) => {
+        const [first, ...rest] = rows
+        return [{ ...first, category: label?.labelCategory ?? first.category }, ...rest]
+      })
+    }
+  }
+
+  function updateRow(key: string, field: keyof NewLabelSpec, value: string) {
+    setNewLabelRows((rows) => rows.map((r) => (r.key === key ? { ...r, [field]: value } : r)))
+  }
+
+  function addRow() {
+    setNewLabelRows((rows) => [...rows, emptyRow()])
+  }
+
+  function removeRow(key: string) {
+    setNewLabelRows((rows) => (rows.length > 1 ? rows.filter((r) => r.key !== key) : rows))
+  }
+
+  const canSubmit = useMemo(() => {
+    if (!selectedVersionId) return false
+    if (changeType !== 'LABEL_ADDED' && oldLabelCode.trim() === '') return false
+    if (changeType === 'LABEL_DEPRECATED') return true
+    // ADDED/RENAMED/SPLIT all require every visible new-label row fully filled in.
+    return newLabelRows.every((r) => r.code.trim() !== '' && r.name.trim() !== '')
+  }, [selectedVersionId, changeType, oldLabelCode, newLabelRows])
+
   async function handleRecordChange() {
-    if (!selectedVersionId) return
+    if (!selectedVersionId || !canSubmit) return
     setSubmitting(true)
     setSubmitError(null)
     try {
+      const newLabels: NewLabelSpec[] =
+        changeType === 'LABEL_DEPRECATED'
+          ? []
+          : newLabelRows.map((r) => ({
+              code: r.code.trim(),
+              name: r.name.trim(),
+              category: (r.category ?? '').trim() === '' ? undefined : (r.category ?? '').trim(),
+            }))
       await recordOntologyChange({
         changeType,
-        oldLabelCode: oldLabelCode.trim() === '' ? undefined : oldLabelCode.trim(),
-        newLabelCodes: newLabelCodes
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
-        affectedDatasetVersionId: selectedVersionId,
+        basedOnDatasetVersionId: selectedVersionId,
+        oldLabelCode: changeType === 'LABEL_ADDED' || oldLabelCode.trim() === '' ? undefined : oldLabelCode.trim(),
+        newLabels,
+        replacementLabelCode:
+          changeType === 'LABEL_DEPRECATED' && replacementLabelCode.trim() !== ''
+            ? replacementLabelCode.trim()
+            : undefined,
         changedBy: CURRENT_USER,
         notes: notes.trim() === '' ? undefined : notes.trim(),
       })
       setOldLabelCode('')
-      setNewLabelCodes('')
+      setReplacementLabelCode('')
+      setNewLabelRows([emptyRow()])
       setNotes('')
       loadChanges()
     } catch (err) {
@@ -143,6 +239,7 @@ export default function OntologyChanges() {
           <div className="topbar-title">Ontology Changes</div>
           <div className="topbar-sub">
             {project ? `Label vocabulary changes for ${project.datasetName}` : 'Label vocabulary changes'}
+            {filterVersionId != null ? ` — filtered to dataset version #${filterVersionId}` : ''}
           </div>
         </div>
       </div>
@@ -199,31 +296,7 @@ export default function OntologyChanges() {
                     ))}
                   </select>
                 </div>
-                <div className="form-row">
-                  <label className="form-label" htmlFor="oldLabelCode">
-                    Old label code {changeType === 'LABEL_ADDED' ? '(leave blank)' : ''}
-                  </label>
-                  <input
-                    id="oldLabelCode"
-                    className="form-input"
-                    placeholder="e.g. BLEACHED_CORAL"
-                    value={oldLabelCode}
-                    onChange={(e) => setOldLabelCode(e.target.value)}
-                  />
-                  <div className="form-hint">Must already exist on the selected dataset version.</div>
-                </div>
-                <div className="form-row">
-                  <label className="form-label" htmlFor="newLabelCodes">
-                    New label code(s)
-                  </label>
-                  <input
-                    id="newLabelCodes"
-                    className="form-input"
-                    placeholder="comma-separated, e.g. BLEACHED_ACROPORA, BLEACHED_PORITES"
-                    value={newLabelCodes}
-                    onChange={(e) => setNewLabelCodes(e.target.value)}
-                  />
-                </div>
+
                 <div className="form-row">
                   <label className="form-label">Dataset version</label>
                   <select
@@ -237,7 +310,78 @@ export default function OntologyChanges() {
                       </option>
                     ))}
                   </select>
+                  <div className="form-hint">
+                    Branches a new version from this one. Its label set and image membership are copied
+                    forward, then the mutation below is applied.
+                  </div>
                 </div>
+
+                {changeType !== 'LABEL_ADDED' && (
+                  <div className="form-row">
+                    <label className="form-label" htmlFor="oldLabelCode">
+                      Old label code
+                    </label>
+                    <LabelCombobox
+                      id="oldLabelCode"
+                      options={basedOnVersionLabels}
+                      value={oldLabelCode}
+                      onChange={handleOldLabelChange}
+                      placeholder="Search existing labels…"
+                    />
+                    <div className="form-hint">Must already exist (and be active) on the selected dataset version.</div>
+                  </div>
+                )}
+
+                {(changeType === 'LABEL_ADDED' || changeType === 'LABEL_RENAMED') && (
+                  <NewLabelRowFields
+                    row={newLabelRows[0]}
+                    onChange={(field, value) => updateRow(newLabelRows[0].key, field, value)}
+                    removable={false}
+                  />
+                )}
+
+                {changeType === 'LABEL_SPLIT' && (
+                  <div className="form-row">
+                    <label className="form-label">New labels (split from old)</label>
+                    {newLabelRows.map((row) => (
+                      <div
+                        key={row.key}
+                        className="card"
+                        style={{ padding: 12, marginBottom: 8, background: 'var(--canvas)' }}
+                      >
+                        <NewLabelRowFields
+                          row={row}
+                          onChange={(field, value) => updateRow(row.key, field, value)}
+                          removable={newLabelRows.length > 1}
+                          onRemove={() => removeRow(row.key)}
+                          compact
+                        />
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addRow}>
+                      + Add another new label
+                    </button>
+                  </div>
+                )}
+
+                {changeType === 'LABEL_DEPRECATED' && (
+                  <div className="form-row">
+                    <label className="form-label" htmlFor="replacementLabelCode">
+                      Replacement label (optional)
+                    </label>
+                    <LabelCombobox
+                      id="replacementLabelCode"
+                      options={basedOnVersionLabels.filter((l) => l.labelCode !== oldLabelCode)}
+                      value={replacementLabelCode}
+                      onChange={setReplacementLabelCode}
+                      placeholder="Search existing labels…"
+                    />
+                    <div className="form-hint">
+                      Informational only — points on the deprecated label are still flagged dirty for review.
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-row" style={{ marginBottom: 0 }}>
                   <label className="form-label" htmlFor="ontologyNotes">
                     Notes
@@ -261,7 +405,7 @@ export default function OntologyChanges() {
                   <button
                     className="btn btn-primary"
                     onClick={handleRecordChange}
-                    disabled={submitting || !selectedVersionId}
+                    disabled={submitting || !canSubmit}
                   >
                     {submitting ? 'Recording…' : 'Record Change'}
                   </button>
@@ -320,7 +464,7 @@ export default function OntologyChanges() {
                             </td>
                             <td>
                               <span className="mono" style={{ fontSize: 12 }}>
-                                {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || '—'}
+                                {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '—')}
                               </span>
                             </td>
                             <td>{c.changedBy}</td>
@@ -438,6 +582,51 @@ export default function OntologyChanges() {
         )}
       </div>
     </>
+  )
+}
+
+function NewLabelRowFields({
+  row,
+  onChange,
+  removable,
+  onRemove,
+  compact,
+}: {
+  row: NewLabelRow
+  onChange: (field: keyof NewLabelSpec, value: string) => void
+  removable: boolean
+  onRemove?: () => void
+  compact?: boolean
+}) {
+  return (
+    <div>
+      {!compact && <label className="form-label">New label</label>}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
+        <input
+          className="form-input"
+          placeholder="Code, e.g. BLEACHED_ACROPORA"
+          value={row.code}
+          onChange={(e) => onChange('code', e.target.value)}
+        />
+        <input
+          className="form-input"
+          placeholder="Name, e.g. Bleached Acropora"
+          value={row.name}
+          onChange={(e) => onChange('name', e.target.value)}
+        />
+        <input
+          className="form-input"
+          placeholder="Category (optional)"
+          value={row.category ?? ''}
+          onChange={(e) => onChange('category', e.target.value)}
+        />
+        {removable && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onRemove} title="Remove">
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 

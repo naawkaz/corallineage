@@ -18,15 +18,18 @@ public class ImageService {
 
     private final DatasetVersionRepository datasetVersionRepository;
     private final ImageRepository imageRepository;
+    private final DatasetVersionImageRepository datasetVersionImageRepository;
     private final ImageMapper imageMapper;
     private final Path workingDirectory;
 
     public ImageService(DatasetVersionRepository datasetVersionRepository,
                         ImageRepository imageRepository,
+                        DatasetVersionImageRepository datasetVersionImageRepository,
                         ImageMapper imageMapper,
                         @Value("${app.dvc.working-directory}") Path workingDirectory) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.imageRepository = imageRepository;
+        this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.imageMapper = imageMapper;
         this.workingDirectory = workingDirectory;
     }
@@ -38,7 +41,8 @@ public class ImageService {
         if (!version.getDataset().getId().equals(datasetId)) {
             throw new NotFoundException("Dataset version not found: " + versionId);
         }
-        return imageRepository.findByDatasetVersionId(versionId, pageable).map(imageMapper::toResponse);
+        return datasetVersionImageRepository.findByDatasetVersionId(versionId, pageable)
+                .map(membership -> imageMapper.toResponse(membership.getImage()));
     }
 
     @Transactional(readOnly = true)
