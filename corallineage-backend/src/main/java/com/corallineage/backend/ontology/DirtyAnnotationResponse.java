@@ -15,6 +15,8 @@ public class DirtyAnnotationResponse {
     private Instant resolvedAt;
     private String resolvedBy;
     private String newLabelCode;
+    private Integer rowPosition;
+    private Integer colPosition;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -48,4 +50,10 @@ public class DirtyAnnotationResponse {
 
     public String getNewLabelCode() { return newLabelCode; }
     public void setNewLabelCode(String newLabelCode) { this.newLabelCode = newLabelCode; }
+
+    public Integer getRowPosition() { return rowPosition; }
+    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+
+    public Integer getColPosition() { return colPosition; }
+    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
 }

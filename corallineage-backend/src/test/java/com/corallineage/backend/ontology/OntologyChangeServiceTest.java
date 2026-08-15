@@ -50,13 +50,11 @@ class OntologyChangeServiceTest {
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
     @Mock private AnnotationEventRepository annotationEventRepository;
 
-    private final OntologyChangeMapper ontologyChangeMapper = new OntologyChangeMapper();
-
     private OntologyChangeService newService() {
         return new OntologyChangeService(ontologyChangeRepository, dirtyAnnotationRepository,
                 datasetVersionRepository, datasetVersionService, labelDefinitionRepository,
-                annotationPointRepository, ontologyChangeMapper, annotationEventLoggerService,
-                annotationEventRepository);
+                annotationPointRepository, new OntologyChangeMapper(annotationPointRepository),
+                annotationEventLoggerService, annotationEventRepository);
     }
 
     private Dataset dataset(Long id) {
@@ -405,6 +403,32 @@ class OntologyChangeServiceTest {
         assertThat(response.isResolved()).isTrue();
         assertThat(response.getNewLabelCode()).isEqualTo("NEW");
         verify(annotationEventLoggerService).log(eq(EventType.DIRTY_FLAGS_RESOLVED), eq(version), anyString(), anyString());
+    }
+
+    @Test
+    void toDirtyResponse_populatesRowAndColPositionFromMatchingAnnotationPoint() {
+        DatasetVersion version = version(1L);
+        DirtyAnnotation resolved = dirty(1L, 5L, version);
+        resolved.setResolvedAt(java.time.Instant.now());
+        resolved.setNewLabelCode("NEW");
+        DirtyAnnotation unresolved = dirty(2L, 5L, version);
+
+        Image sharedImage = image(101L, "moorea_001.jpg");
+        AnnotationPoint matchingPoint = point(sharedImage, 0);
+        matchingPoint.setRowPosition(120);
+        matchingPoint.setColPosition(340);
+        when(annotationPointRepository.findByImageIdAndPointIndex(101L, 0)).thenReturn(Optional.of(matchingPoint));
+
+        when(dirtyAnnotationRepository.findByOntologyChangeId(eq(5L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(resolved, unresolved)));
+
+        Page<DirtyAnnotationResponse> result = newService().getDirtyAnnotations(5L, null, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).hasSize(2);
+        for (DirtyAnnotationResponse response : result.getContent()) {
+            assertThat(response.getRowPosition()).isEqualTo(120);
+            assertThat(response.getColPosition()).isEqualTo(340);
+        }
     }
 
     @Test

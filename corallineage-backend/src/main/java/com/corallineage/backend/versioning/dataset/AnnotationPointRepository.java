@@ -6,12 +6,16 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint, Long> {
 
     long countByImageOriginDatasetVersionDatasetId(Long datasetId);
 
     List<AnnotationPoint> findByImageOriginDatasetVersionId(Long datasetVersionId);
+
+    /** Looks up a specific point's real coordinates for dot placement — used by the dirty-annotation queue. */
+    Optional<AnnotationPoint> findByImageIdAndPointIndex(Long imageId, Integer pointIndex);
 
     /**
      * Points on images whose ORIGIN version is {@code datasetVersionId} with a given label code.

@@ -1,9 +1,17 @@
 package com.corallineage.backend.ontology;
 
+import com.corallineage.backend.versioning.dataset.AnnotationPoint;
+import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import org.springframework.stereotype.Component;
 
 @Component
 public class OntologyChangeMapper {
+
+    private final AnnotationPointRepository annotationPointRepository;
+
+    public OntologyChangeMapper(AnnotationPointRepository annotationPointRepository) {
+        this.annotationPointRepository = annotationPointRepository;
+    }
 
     public OntologyChangeResponse toResponse(OntologyChange change, long dirtyAnnotationsFlagged, long resolvedCount) {
         OntologyChangeResponse response = new OntologyChangeResponse();
@@ -35,6 +43,14 @@ public class OntologyChangeMapper {
         response.setResolvedAt(dirty.getResolvedAt());
         response.setResolvedBy(dirty.getResolvedBy());
         response.setNewLabelCode(dirty.getNewLabelCode());
+        if (dirty.getImage() != null && dirty.getPointIndex() != null) {
+            annotationPointRepository
+                    .findByImageIdAndPointIndex(dirty.getImage().getId(), dirty.getPointIndex())
+                    .ifPresent((AnnotationPoint point) -> {
+                        response.setRowPosition(point.getRowPosition());
+                        response.setColPosition(point.getColPosition());
+                    });
+        }
         return response;
     }
 }

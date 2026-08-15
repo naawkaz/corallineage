@@ -56,7 +56,6 @@ class ReportGeneratorServiceTest {
 
     private final DatasetVersionMapper datasetVersionMapper = new DatasetVersionMapper();
     private final ModelVersionMapper modelVersionMapper = new ModelVersionMapper();
-    private final OntologyChangeMapper ontologyChangeMapper = new OntologyChangeMapper();
     private final AnnotationEventMapper annotationEventMapper = new AnnotationEventMapper();
 
     private final Instant t1 = Instant.parse("2026-01-01T00:00:00Z");
@@ -64,7 +63,8 @@ class ReportGeneratorServiceTest {
 
     private ReportGeneratorService newService() {
         return new ReportGeneratorService(reportMetadataRepository, datasetVersionRepository, datasetVersionMapper,
-                modelVersionRepository, modelVersionMapper, ontologyChangeRepository, ontologyChangeMapper,
+                modelVersionRepository, modelVersionMapper, ontologyChangeRepository,
+                new OntologyChangeMapper(annotationPointRepository),
                 dirtyAnnotationRepository, annotationEventRepository, annotationEventMapper,
                 annotationEventLoggerService, annotationPointRepository, mlflowIntegrationService);
     }

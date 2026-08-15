@@ -26,6 +26,8 @@ export interface DirtyAnnotation {
   resolvedAt: string | null
   resolvedBy: string | null
   newLabelCode: string | null
+  rowPosition: number | null
+  colPosition: number | null
 }
 
 export interface NewLabelSpec {
