@@ -14,6 +14,7 @@ import {
   Layers,
   Waves,
   ArrowLeft,
+  LayoutDashboard,
 } from 'lucide-react'
 import { CURRENT_USER } from '../constants'
 import { useDatasetContext } from '../lib/datasetContextCore'
@@ -24,12 +25,25 @@ const globalLinks: { to: string; icon: LucideIcon; label: string }[] = [
   { to: '/report', icon: FileText, label: 'Report Generator' },
 ]
 
-function projectSections(projectId: string): { label: string; items: { to: string; icon: LucideIcon; label: string }[] }[] {
+interface ProjectNavItem {
+  to: string
+  icon: LucideIcon
+  label: string
+  exact?: boolean
+}
+
+function projectSections(projectId: string): { label: string; items: ProjectNavItem[] }[] {
   return [
+    {
+      label: 'Overview',
+      items: [
+        { to: `/projects/${projectId}`, icon: LayoutDashboard, label: 'Dashboard', exact: true },
+      ],
+    },
     {
       label: 'Project',
       items: [
-        { to: `/projects/${projectId}/versions`, icon: GitBranch, label: 'Version History' },
+        { to: `/projects/${projectId}/versions`, icon: GitBranch, label: 'Dataset Versions' },
         { to: `/projects/${projectId}/import`, icon: Upload, label: 'Import Data' },
         { to: `/projects/${projectId}/diff`, icon: GitCompare, label: 'Compare Versions' },
       ],
@@ -108,6 +122,7 @@ export default function Layout() {
                     <NavLink
                       key={item.to}
                       to={item.to}
+                      end={item.exact}
                       className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
                     >
                       <Icon className="icon" strokeWidth={1.5} />

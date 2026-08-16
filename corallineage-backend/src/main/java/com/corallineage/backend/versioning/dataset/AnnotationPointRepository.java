@@ -67,6 +67,17 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
                                                                       @Param("labelCode") String labelCode);
 
     /**
+     * Every point on every image that is a current MEMBER of {@code datasetVersionId} (via
+     * {@link DatasetVersionImage}), regardless of label. Backs the Dataset Versions image grid's
+     * optional annotation-point overlay (grid dot-count badges plus the real overlay inside the
+     * lightbox), same membership-scoping approach as {@link #findByLabelCodeAndDatasetVersionMembership}.
+     */
+    @Query("select ap from AnnotationPoint ap "
+            + "join DatasetVersionImage dvi on dvi.image = ap.image "
+            + "where dvi.datasetVersion.id = :datasetVersionId")
+    List<AnnotationPoint> findByDatasetVersionMembership(@Param("datasetVersionId") Long datasetVersionId);
+
+    /**
      * Per-label annotation point counts across every image that is a current member of
      * {@code datasetVersionId} (via {@link DatasetVersionImage}) — the "class distribution as of
      * version X" query used by Dataset Diffing. Grouped by labelCode/labelName (strings) rather than

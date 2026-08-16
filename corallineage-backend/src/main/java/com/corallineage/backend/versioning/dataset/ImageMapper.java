@@ -16,4 +16,15 @@ public class ImageMapper {
         response.setAddedAt(image.getAddedAt());
         return response;
     }
+
+    public AnnotationPointSummaryResponse toPointSummary(AnnotationPoint point) {
+        AnnotationPointSummaryResponse response = new AnnotationPointSummaryResponse();
+        response.setId(point.getId());
+        response.setImageId(point.getImage().getId());
+        response.setPointIndex(point.getPointIndex());
+        response.setRowPosition(point.getRowPosition());
+        response.setColPosition(point.getColPosition());
+        response.setLabelCode(point.getLabelDefinition().getLabelCode());
+        return response;
+    }
 }

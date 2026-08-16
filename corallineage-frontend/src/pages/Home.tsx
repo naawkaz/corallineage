@@ -64,7 +64,7 @@ export default function Home() {
                 key={d.id}
                 className="card"
                 style={{ padding: 16, cursor: 'pointer' }}
-                onClick={() => navigate(`/projects/${d.id}/versions`)}
+                onClick={() => navigate(`/projects/${d.id}`)}
               >
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
                   {d.datasetName}
@@ -95,7 +95,7 @@ export default function Home() {
         onCreated={(d) => {
           setShowCreate(false)
           refresh()
-          navigate(`/projects/${d.id}/versions`)
+          navigate(`/projects/${d.id}`)
         }}
       />
     </>

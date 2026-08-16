@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import AnnotationJobs from './pages/AnnotationJobs'
 import AnnotationReview from './pages/AnnotationReview'
 import ComingSoon from './pages/ComingSoon'
+import DatasetDashboard from './pages/DatasetDashboard'
 import DatasetDiff from './pages/DatasetDiff'
 import Home from './pages/Home'
 import EventLog from './pages/EventLog'
@@ -28,6 +29,7 @@ function App() {
             <Route index element={<Home />} />
             <Route path="/events" element={<EventLog />} />
             <Route path="/report" element={<ReportGenerator />} />
+            <Route path="/projects/:projectId" element={<DatasetDashboard />} />
             <Route path="/projects/:projectId/versions" element={<VersionBrowser />} />
             <Route path="/projects/:projectId/versions/:id" element={<VersionDetail />} />
             <Route path="/projects/:projectId/import" element={<Import />} />

@@ -71,7 +71,7 @@ export default function VersionBrowser() {
               All Projects
             </span>
             <span style={{ color: 'var(--border-md)' }}>/</span>
-            <span>Version History</span>
+            <span>Dataset Versions</span>
           </div>
           <div className="topbar-sub">
             {project ? `${project.datasetName} — snapshots tracked by DVC` : 'Snapshots tracked by DVC'}

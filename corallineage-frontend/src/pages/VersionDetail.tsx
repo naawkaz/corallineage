@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Crosshair, X } from 'lucide-react'
+import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { fetchImages, imageFileUrl } from '../api/images'
+import { fetchAnnotationPoints, fetchImages, imageFileUrl, imageFileUrlById } from '../api/images'
 import { triggerReasonBadge, triggerReasonLabel } from '../constants'
 import { formatCount, formatDate } from '../lib/format'
 import type { DatasetVersion } from '../types/version'
-import type { DatasetImage } from '../types/image'
+import type { AnnotationPointSummary, DatasetImage } from '../types/image'
 
 const IMAGE_PAGE_SIZE = 40
 
@@ -27,6 +28,13 @@ export default function VersionDetail() {
   const [imagesLoading, setImagesLoading] = useState(true)
   const [imagesError, setImagesError] = useState<string | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  // Points overlay toggle for the image grid. Plain local state, deliberately not persisted
+  // anywhere, resets whenever this page unmounts/remounts (e.g. navigating away and back).
+  const [pointsToggle, setPointsToggle] = useState(false)
+  const [points, setPoints] = useState<AnnotationPointSummary[] | null>(null)
+  const [pointsLoading, setPointsLoading] = useState(false)
+  const [pointsError, setPointsError] = useState<string | null>(null)
 
   const [addLabelOpen, setAddLabelOpen] = useState(false)
   const [labelCode, setLabelCode] = useState('')
@@ -78,6 +86,42 @@ export default function VersionDetail() {
     }
   }, [datasetId, versionId, imagePage])
 
+  useEffect(() => {
+    if (!datasetId || !pointsToggle || !version?.complete || points != null) return
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) setPointsLoading(true)
+    })
+    fetchAnnotationPoints(datasetId, versionId)
+      .then((res) => {
+        if (!cancelled) {
+          setPoints(res)
+          setPointsError(null)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setPointsError(errorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setPointsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [datasetId, versionId, pointsToggle, version?.complete, points])
+
+  const pointsByImage = useMemo(() => {
+    const map = new Map<number, AnnotationPointSummary[]>()
+    for (const p of points ?? []) {
+      const list = map.get(p.imageId) ?? []
+      list.push(p)
+      map.set(p.imageId, list)
+    }
+    return map
+  }, [points])
+
+  const overlayActive = pointsToggle && Boolean(version?.complete)
+
   async function handleAddLabel() {
     if (!datasetId) return
     setAddLabelSubmitting(true)
@@ -115,7 +159,7 @@ export default function VersionDetail() {
                 cursor: 'pointer',
               }}
             >
-              Version History
+              Dataset Versions
             </Link>
             <span style={{ color: 'var(--border-md)' }}>/</span>
             {version ? (
@@ -332,7 +376,26 @@ export default function VersionDetail() {
           <div style={{ marginTop: 24 }}>
             <div className="section-header">
               <div className="section-title">Images ({formatCount(version.imageCount)})</div>
+              <button
+                className={`btn btn-sm ${overlayActive ? 'btn-primary' : 'btn-secondary'}`}
+                disabled={!version.complete}
+                onClick={() => setPointsToggle((v) => !v)}
+                title={
+                  version.complete
+                    ? 'Show a dot-count badge on each image and overlay real annotation points in the zoomed view'
+                    : 'Points can only be shown once this version has no unresolved dirty annotations'
+                }
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Crosshair size={14} strokeWidth={1.5} />
+                {overlayActive ? 'Points on' : 'Show points'}
+              </button>
             </div>
+            {pointsError && (
+              <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                {pointsError}
+              </div>
+            )}
             <div className="card" style={{ padding: 16 }}>
               {imagesError && <div className="alert alert-error">{imagesError}</div>}
               {imagesLoading && images.length === 0 && (
@@ -354,28 +417,49 @@ export default function VersionDetail() {
                       gap: 8,
                     }}
                   >
-                    {images.map((image, idx) => (
-                      <button
-                        key={image.id}
-                        onClick={() => setLightboxIndex(idx)}
-                        style={{
-                          padding: 0,
-                          border: '1px solid var(--border-md)',
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          cursor: 'pointer',
-                          aspectRatio: '1 / 1',
-                          background: 'var(--bg-secondary)',
-                        }}
-                        title={image.filename}
-                      >
-                        <img
-                          src={imageFileUrl(image)}
-                          alt={image.filename}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        />
-                      </button>
-                    ))}
+                    {images.map((image, idx) => {
+                      const imagePoints = pointsByImage.get(image.id) ?? []
+                      return (
+                        <button
+                          key={image.id}
+                          onClick={() => setLightboxIndex(idx)}
+                          style={{
+                            position: 'relative',
+                            padding: 0,
+                            border: '1px solid var(--border-md)',
+                            borderRadius: 6,
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            aspectRatio: '1 / 1',
+                            background: 'var(--bg-secondary)',
+                          }}
+                          title={image.filename}
+                        >
+                          <img
+                            src={imageFileUrl(image)}
+                            alt={image.filename}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
+                          {overlayActive && !pointsLoading && (
+                            <span
+                              className="mono"
+                              style={{
+                                position: 'absolute',
+                                top: 4,
+                                right: 4,
+                                fontSize: 10,
+                                padding: '1px 6px',
+                                background: 'rgba(20,24,30,0.75)',
+                                color: '#fff',
+                                border: 'none',
+                              }}
+                            >
+                              {imagePoints.length} pt{imagePoints.length === 1 ? '' : 's'}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                   {imageTotalPages > 1 && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
@@ -411,59 +495,173 @@ export default function VersionDetail() {
         )}
 
         {lightboxIndex !== null && images[lightboxIndex] && (
-          <div
-            onClick={() => setLightboxIndex(null)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i))
-              }}
-              disabled={lightboxIndex === 0}
-              className="btn btn-secondary"
-              style={{ position: 'absolute', left: 24 }}
-            >
-              ‹ Prev
-            </button>
-            <img
-              src={imageFileUrl(images[lightboxIndex])}
-              alt={images[lightboxIndex].filename}
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxWidth: '80vw', maxHeight: '80vh', objectFit: 'contain' }}
-            />
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setLightboxIndex((i) => (i !== null && i < images.length - 1 ? i + 1 : i))
-              }}
-              disabled={lightboxIndex >= images.length - 1}
-              className="btn btn-secondary"
-              style={{ position: 'absolute', right: 24 }}
-            >
-              Next ›
-            </button>
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 24,
-                color: '#fff',
-                fontSize: 13,
-              }}
-            >
-              {images[lightboxIndex].filename} ({lightboxIndex + 1} / {images.length})
-            </div>
-          </div>
+          <Lightbox
+            image={images[lightboxIndex]}
+            index={lightboxIndex}
+            total={images.length}
+            points={overlayActive ? pointsByImage.get(images[lightboxIndex].id) ?? [] : null}
+            onClose={() => setLightboxIndex(null)}
+            onPrev={() => setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : i))}
+            onNext={() => setLightboxIndex((i) => (i !== null && i < images.length - 1 ? i + 1 : i))}
+          />
         )}
       </div>
     </>
+  )
+}
+
+/**
+ * The zoomed single-image view. A dedicated component (rather than inline JSX in VersionDetail)
+ * so its label-toggle state is truly local, it unmounts (and resets) whenever the lightbox
+ * closes, independently of the outer grid's points toggle in the parent.
+ */
+function Lightbox({
+  image,
+  index,
+  total,
+  points,
+  onClose,
+  onPrev,
+  onNext,
+}: {
+  image: DatasetImage
+  index: number
+  total: number
+  points: AnnotationPointSummary[] | null
+  onClose: () => void
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const [labelsVisible, setLabelsVisible] = useState(false)
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onPrev()
+        }}
+        disabled={index === 0}
+        className="btn btn-secondary"
+        style={{ position: 'absolute', left: 24 }}
+      >
+        ‹ Prev
+      </button>
+
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: '80vw', height: '80vh', display: 'flex', flexDirection: 'column', gap: 8 }}
+      >
+        {points != null && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              className={`btn btn-sm ${labelsVisible ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setLabelsVisible((v) => !v)}
+            >
+              {labelsVisible ? 'Hide labels' : 'Show labels'}
+            </button>
+          </div>
+        )}
+        <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+          {points != null ? (
+            <TransformWrapper key={image.id} initialScale={1} minScale={1} maxScale={4} centerOnInit>
+              <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <img
+                    src={imageFileUrlById(image.id)}
+                    alt={image.filename}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                    onLoad={(e) => {
+                      const img = e.currentTarget
+                      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
+                    }}
+                  />
+                  {naturalSize &&
+                    points.map((p) => (
+                      <div
+                        key={p.id}
+                        className="annotation-dot dot-pending"
+                        style={{
+                          top: `${(p.rowPosition / naturalSize.height) * 100}%`,
+                          left: `${(p.colPosition / naturalSize.width) * 100}%`,
+                        }}
+                        title={p.labelCode}
+                      >
+                        {labelsVisible && (
+                          <span
+                            className="mono"
+                            style={{
+                              position: 'absolute',
+                              top: -22,
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              whiteSpace: 'nowrap',
+                              fontSize: 10,
+                              padding: '1px 5px',
+                            }}
+                          >
+                            {p.labelCode}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </TransformComponent>
+            </TransformWrapper>
+          ) : (
+            <img
+              src={imageFileUrl(image)}
+              alt={image.filename}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onNext()
+        }}
+        disabled={index >= total - 1}
+        className="btn btn-secondary"
+        style={{ position: 'absolute', right: 24 }}
+      >
+        Next ›
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+        className="btn btn-secondary"
+        style={{ position: 'absolute', top: 24, right: 24, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      >
+        <X size={14} strokeWidth={1.5} />
+        Close
+      </button>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 24,
+          color: '#fff',
+          fontSize: 13,
+        }}
+      >
+        {image.filename} ({index + 1} / {total})
+      </div>
+    </div>
   )
 }

@@ -7,3 +7,12 @@ export interface DatasetImage {
   surveyDate: string | null
   addedAt: string
 }
+
+export interface AnnotationPointSummary {
+  id: number
+  imageId: number
+  pointIndex: number
+  rowPosition: number
+  colPosition: number
+  labelCode: string
+}

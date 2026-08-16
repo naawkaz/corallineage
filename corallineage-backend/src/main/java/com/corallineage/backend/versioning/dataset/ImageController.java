@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 public class ImageController {
 
@@ -24,10 +26,18 @@ public class ImageController {
     public Page<ImageResponse> getImages(
             @PathVariable Long datasetId,
             @PathVariable Long versionId,
+            @RequestParam(defaultValue = "false") boolean humanLabeled,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "40") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return imageService.listImages(datasetId, versionId, pageable);
+        return imageService.listImages(datasetId, versionId, humanLabeled, pageable);
+    }
+
+    @GetMapping("/api/v1/datasets/{datasetId}/versions/{versionId}/points")
+    public List<AnnotationPointSummaryResponse> getAnnotationPoints(
+            @PathVariable Long datasetId,
+            @PathVariable Long versionId) {
+        return imageService.listAnnotationPoints(datasetId, versionId);
     }
 
     @GetMapping("/api/v1/images/{imageId}/file")
