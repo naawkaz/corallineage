@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,7 +25,12 @@ import java.util.TreeSet;
 public class MlflowIntegrationService {
 
     private static final Logger log = LoggerFactory.getLogger(MlflowIntegrationService.class);
-    private static final List<String> TRACKED_METRIC_KEYS = List.of("loss", "accuracy");
+    // train_loss/val_loss/val_accuracy are logged by the real held-out validation split added to
+    // the training loop; loss/accuracy are the older pre-validation-split keys, kept here so runs
+    // trained before that change still resolve a metric history (single-line fallback in
+    // getEpochMetrics / the frontend chart) instead of an empty series.
+    private static final List<String> TRACKED_METRIC_KEYS =
+            List.of("train_loss", "val_loss", "val_accuracy", "loss", "accuracy");
 
     private final RestClient restClient;
     private final String mlflowUrl;
@@ -51,15 +57,35 @@ public class MlflowIntegrationService {
     /** Merges the per-step history of every tracked metric into one ordered epoch series, or null if unreachable. */
     public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(String mlflowRunId) {
         try {
-            Map<Integer, Double> loss = fetchMetricHistory(mlflowRunId, "loss");
-            Map<Integer, Double> accuracy = fetchMetricHistory(mlflowRunId, "accuracy");
+            Map<String, Map<Integer, Double>> historyByKey = new LinkedHashMap<>();
             Set<Integer> steps = new TreeSet<>();
-            steps.addAll(loss.keySet());
-            steps.addAll(accuracy.keySet());
+            for (String key : TRACKED_METRIC_KEYS) {
+                Map<Integer, Double> history;
+                try {
+                    history = fetchMetricHistory(mlflowRunId, key);
+                } catch (RestClientResponseException ex) {
+                    // MLflow was reached but returned an HTTP error for this specific key, e.g. a
+                    // key this run never logged (train_loss/val_loss/val_accuracy on a model
+                    // trained before the validation split was added). Skip only this key rather
+                    // than failing the whole call. A connectivity failure (ResourceAccessException,
+                    // a RestClientException but not this subtype) is intentionally NOT caught here
+                    // so it still propagates to the outer catch and the whole method returns null.
+                    log.debug("Metric key {} not available for run {}: {}", key, mlflowRunId, ex.getMessage());
+                    history = Map.of();
+                }
+                historyByKey.put(key, history);
+                steps.addAll(history.keySet());
+            }
 
             List<MlflowDetailsResponse.EpochMetricPoint> points = new ArrayList<>();
             for (Integer step : steps) {
-                points.add(new MlflowDetailsResponse.EpochMetricPoint(step, loss.get(step), accuracy.get(step)));
+                points.add(new MlflowDetailsResponse.EpochMetricPoint(
+                        step,
+                        historyByKey.get("train_loss").get(step),
+                        historyByKey.get("val_loss").get(step),
+                        historyByKey.get("val_accuracy").get(step),
+                        historyByKey.get("loss").get(step),
+                        historyByKey.get("accuracy").get(step)));
             }
             return points;
         } catch (RestClientException ex) {

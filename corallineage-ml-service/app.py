@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 from flask import Flask, jsonify, request
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, random_split
 
 app = Flask(__name__)
 
@@ -47,6 +47,7 @@ IMAGE_SIZE = 224
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 RANDOM_SEED = 42
+VALIDATION_SPLIT = 0.2
 
 
 @app.route("/health", methods=["GET"])
@@ -139,6 +140,23 @@ def log_confusion_matrix(y_true: list, y_pred: list, class_names: list):
         mlflow.log_artifact(str(image_path))
 
 
+def split_train_val(dataset: "ImageFolderDataset"):
+    """Splits the dataset into a train subset and a held-out validation subset.
+
+    Uses a fixed-seed generator so the split is reproducible across runs of the
+    same dataset (same RANDOM_SEED already used for weight init). Guards the
+    tiny-dataset edge case (this is a research prototype, datasets can be a
+    handful of images) so both subsets always have at least one sample.
+    """
+    total = len(dataset)
+    val_size = max(1, round(total * VALIDATION_SPLIT))
+    if val_size >= total:
+        val_size = total - 1
+    train_size = total - val_size
+    generator = torch.Generator().manual_seed(RANDOM_SEED)
+    return random_split(dataset, [train_size, val_size], generator=generator)
+
+
 def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
     learning_rate = float(hyperparameters.get("learningRate", 0.001))
     batch_size = int(hyperparameters.get("batchSize", 32))
@@ -148,10 +166,16 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
 
     dataset = ImageFolderDataset(dataset_path)
     class_mappings = {str(i): name for name, i in dataset.class_to_idx.items()}
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    train_subset, val_subset = split_train_val(dataset)
+    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
+    # Full-dataset loader, unchanged from before the validation split: the final
+    # per-class confusion matrix and reported accuracy still summarize the whole
+    # dataset rather than shrinking to only the validation slice.
+    full_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     model = load_model(architecture, num_classes=len(dataset.classes))
-    model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
@@ -170,33 +194,52 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
         mlflow.log_param("pytorchVersion", torch.__version__)
         mlflow.log_param("cudaVersion", "cpu")
         mlflow.log_param("randomSeed", str(RANDOM_SEED))
+        mlflow.log_param("validationSplit", str(VALIDATION_SPLIT))
         for epoch in range(epochs):
-            epoch_loss = 0.0
-            correct = 0
-            total = 0
-            for images, labels in loader:
+            model.train()
+            train_loss_total = 0.0
+            train_total = 0
+            for images, labels in train_loader:
                 optimizer.zero_grad()
                 outputs = model(images)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
-                epoch_loss += loss.item() * images.size(0)
-                predicted = outputs.argmax(dim=1)
-                correct += (predicted == labels).sum().item()
-                total += labels.size(0)
+                train_loss_total += loss.item() * images.size(0)
+                train_total += labels.size(0)
 
-            epoch_accuracy = correct / total if total else 0.0
-            mlflow.log_metric("loss", epoch_loss / total if total else 0.0, step=epoch)
-            mlflow.log_metric("accuracy", epoch_accuracy, step=epoch)
+            train_loss = train_loss_total / train_total if train_total else 0.0
 
-        # Final pass to build per-class metrics on the training set (no held-out
-        # split — dataset is typically tiny for this prototype; C-07 explicitly
-        # notes accuracy is not an evaluation criterion here).
+            # Real held-out validation pass, standard eval-mode/no-grad loop.
+            model.eval()
+            val_loss_total = 0.0
+            val_correct = 0
+            val_total = 0
+            with torch.no_grad():
+                for images, labels in val_loader:
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    val_loss_total += loss.item() * images.size(0)
+                    predicted = outputs.argmax(dim=1)
+                    val_correct += (predicted == labels).sum().item()
+                    val_total += labels.size(0)
+
+            val_loss = val_loss_total / val_total if val_total else 0.0
+            val_accuracy = val_correct / val_total if val_total else 0.0
+
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+            mlflow.log_metric("val_loss", val_loss, step=epoch)
+            mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
+
+        # Final pass to build per-class metrics over the full dataset (train and
+        # validation combined), same scope as before the validation split was
+        # added, so the reported overall accuracy and confusion matrix keep the
+        # same meaning for existing callers.
         model.eval()
         y_true, y_pred = [], []
         with torch.no_grad():
-            for images, labels in loader:
+            for images, labels in full_loader:
                 outputs = model(images)
                 predicted = outputs.argmax(dim=1)
                 for label, pred in zip(labels.tolist(), predicted.tolist()):

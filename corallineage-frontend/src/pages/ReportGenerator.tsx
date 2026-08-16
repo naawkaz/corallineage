@@ -408,7 +408,15 @@ export default function ReportGenerator() {
                                 <XAxis dataKey="epoch" />
                                 <YAxis />
                                 <Tooltip />
-                                <Line type="monotone" dataKey="loss" stroke="var(--navy, #1e3a5f)" name="Loss" />
+                                <Legend />
+                                {entry.epochMetrics.some((p) => p.trainLoss != null || p.valLoss != null) ? (
+                                  <>
+                                    <Line type="monotone" dataKey="trainLoss" stroke="var(--navy, #1e3a5f)" name="Train loss" />
+                                    <Line type="monotone" dataKey="valLoss" stroke="var(--warning, #d97706)" name="Validation loss" />
+                                  </>
+                                ) : (
+                                  <Line type="monotone" dataKey="loss" stroke="var(--navy, #1e3a5f)" name="Loss" />
+                                )}
                               </LineChart>
                             </ResponsiveContainer>
                           </div>

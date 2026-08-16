@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -111,6 +112,10 @@ export default function ModelDetail() {
   const chartData = diagnostics.kind === 'ready'
     ? diagnostics.details.epochMetrics.map((p) => ({ ...p, epochLabel: `Epoch ${p.epoch + 1}` }))
     : []
+  // Models trained before the train/val split feature only have the old single loss
+  // series (trainLoss/valLoss are null for every point), fall back to that series
+  // instead of rendering a blank chart.
+  const hasValidationSplit = chartData.some((p) => p.trainLoss != null || p.valLoss != null)
 
   return (
     <>
@@ -343,9 +348,22 @@ export default function ModelDetail() {
                         <XAxis dataKey="epochLabel" />
                         <YAxis />
                         <Tooltip />
-                        <Line type="monotone" dataKey="loss" stroke="var(--navy, #1e3a5f)" name="Loss" />
+                        <Legend />
+                        {hasValidationSplit ? (
+                          <>
+                            <Line type="monotone" dataKey="trainLoss" stroke="var(--navy, #1e3a5f)" name="Train loss" />
+                            <Line type="monotone" dataKey="valLoss" stroke="var(--warning, #d97706)" name="Validation loss" />
+                          </>
+                        ) : (
+                          <Line type="monotone" dataKey="loss" stroke="var(--navy, #1e3a5f)" name="Loss" />
+                        )}
                       </LineChart>
                     </ResponsiveContainer>
+                  </div>
+                )}
+                {chartData.length > 0 && !hasValidationSplit && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
+                    This model was trained before the validation split feature, showing training loss only.
                   </div>
                 )}
 

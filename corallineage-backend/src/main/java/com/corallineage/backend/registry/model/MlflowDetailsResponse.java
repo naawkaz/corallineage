@@ -9,12 +9,15 @@ public class MlflowDetailsResponse {
     }
 
     /**
-     * A single loss/accuracy line, not the spec's separate trainLoss/valLoss pair — this training
-     * loop has no held-out validation split (consistent with the Feature 6 simplification, C-07:
-     * "model accuracy is not an evaluation criterion" for this prototype), so there is no second
-     * series to plot honestly.
+     * One epoch's worth of training metrics. trainLoss/valLoss/valAccuracy come from a real
+     * held-out validation split added to the training loop (see MlflowIntegrationService and
+     * app.py's run_training/split_train_val); they are null for runs trained before that change.
+     * loss/accuracy are the pre-validation-split metric keys, kept so models trained before this
+     * change still render a single-line loss chart instead of a blank one, see
+     * MlflowIntegrationService.getEpochMetrics for how the two are merged.
      */
-    public record EpochMetricPoint(int epoch, Double loss, Double accuracy) {
+    public record EpochMetricPoint(int epoch, Double trainLoss, Double valLoss, Double valAccuracy,
+                                    Double loss, Double accuracy) {
     }
 
     public record ArtifactUrls(String confusionMatrixPng, String weightsFile) {
