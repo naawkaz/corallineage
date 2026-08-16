@@ -1,4 +1,4 @@
-package com.corallineage.backend.datasets;
+package com.corallineage.backend.projects;
 
 import com.corallineage.backend.auth.User;
 import com.corallineage.backend.auth.UserRepository;
@@ -15,53 +15,53 @@ import java.util.List;
 public class ProjectMemberService {
 
     private final ProjectMemberRepository projectMemberRepository;
-    private final DatasetRepository datasetRepository;
+    private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final ProjectMemberMapper projectMemberMapper;
 
     public ProjectMemberService(ProjectMemberRepository projectMemberRepository,
-                                 DatasetRepository datasetRepository,
+                                 ProjectRepository projectRepository,
                                  UserRepository userRepository,
                                  ProjectMemberMapper projectMemberMapper) {
         this.projectMemberRepository = projectMemberRepository;
-        this.datasetRepository = datasetRepository;
+        this.projectRepository = projectRepository;
         this.userRepository = userRepository;
         this.projectMemberMapper = projectMemberMapper;
     }
 
     @Transactional
-    public ProjectMember addOwner(Dataset dataset, User user) {
+    public ProjectMember addOwner(Project project, User user) {
         ProjectMember member = new ProjectMember();
-        member.setDataset(dataset);
+        member.setProject(project);
         member.setUser(user);
         member.setRole(ProjectRole.OWNER);
         return projectMemberRepository.save(member);
     }
 
     @Transactional(readOnly = true)
-    public List<ProjectMemberResponse> listMembers(Long datasetId, String actingUsername) {
-        requireDataset(datasetId);
-        requireMember(datasetId, actingUsername);
+    public List<ProjectMemberResponse> listMembers(Long projectId, String actingUsername) {
+        requireProject(projectId);
+        requireMember(projectId, actingUsername);
 
-        return projectMemberRepository.findByDatasetId(datasetId).stream()
+        return projectMemberRepository.findByProjectId(projectId).stream()
                 .map(projectMemberMapper::toResponse)
                 .toList();
     }
 
     @Transactional
-    public ProjectMemberResponse addMember(Long datasetId, AddMemberRequest request, String actingUsername) {
-        Dataset dataset = requireDataset(datasetId);
-        requireOwner(datasetId, actingUsername);
+    public ProjectMemberResponse addMember(Long projectId, AddMemberRequest request, String actingUsername) {
+        Project project = requireProject(projectId);
+        requireOwner(projectId, actingUsername);
 
         User target = userRepository.findByUsername(request.getUsername().trim())
                 .orElseThrow(() -> new NotFoundException("User not found: " + request.getUsername()));
 
-        if (projectMemberRepository.existsByDatasetIdAndUserId(datasetId, target.getId())) {
+        if (projectMemberRepository.existsByProjectIdAndUserId(projectId, target.getId())) {
             throw new ConflictException(target.getUsername() + " is already a member of this project");
         }
 
         ProjectMember member = new ProjectMember();
-        member.setDataset(dataset);
+        member.setProject(project);
         member.setUser(target);
         member.setRole(request.getRole());
         ProjectMember saved = projectMemberRepository.save(member);
@@ -70,35 +70,41 @@ public class ProjectMemberService {
     }
 
     @Transactional
-    public void removeMember(Long datasetId, Long userId, String actingUsername) {
-        requireDataset(datasetId);
-        requireOwner(datasetId, actingUsername);
+    public void removeMember(Long projectId, Long userId, String actingUsername) {
+        requireProject(projectId);
+        requireOwner(projectId, actingUsername);
 
-        ProjectMember member = projectMemberRepository.findByDatasetIdAndUserId(datasetId, userId)
+        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new NotFoundException("This user is not a member of this project"));
 
         if (member.getRole() == ProjectRole.OWNER
-                && projectMemberRepository.countByDatasetIdAndRole(datasetId, ProjectRole.OWNER) <= 1) {
+                && projectMemberRepository.countByProjectIdAndRole(projectId, ProjectRole.OWNER) <= 1) {
             throw new ConflictException("Cannot remove the last remaining owner of a project");
         }
 
         projectMemberRepository.delete(member);
     }
 
-    private Dataset requireDataset(Long datasetId) {
-        return datasetRepository.findById(datasetId)
-                .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
+    public boolean isMember(Long projectId, String actingUsername) {
+        User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
+        if (actingUser == null) return false;
+        return projectMemberRepository.existsByProjectIdAndUserId(projectId, actingUser.getId());
     }
 
-    private ProjectMember requireMember(Long datasetId, String actingUsername) {
+    private Project requireProject(Long projectId) {
+        return projectRepository.findById(projectId)
+                .orElseThrow(() -> new NotFoundException("Project not found: " + projectId));
+    }
+
+    private ProjectMember requireMember(Long projectId, String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername)
                 .orElseThrow(() -> new UnauthorizedException("Unknown user"));
-        return projectMemberRepository.findByDatasetIdAndUserId(datasetId, actingUser.getId())
+        return projectMemberRepository.findByProjectIdAndUserId(projectId, actingUser.getId())
                 .orElseThrow(() -> new UnauthorizedException("You are not a member of this project"));
     }
 
-    private void requireOwner(Long datasetId, String actingUsername) {
-        ProjectMember member = requireMember(datasetId, actingUsername);
+    private void requireOwner(Long projectId, String actingUsername) {
+        ProjectMember member = requireMember(projectId, actingUsername);
         if (member.getRole() != ProjectRole.OWNER) {
             throw new ForbiddenException("Only a project owner can manage collaborators");
         }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Crosshair, X } from 'lucide-react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
@@ -13,11 +13,11 @@ import type { AnnotationPointSummary, DatasetImage } from '../types/image'
 const IMAGE_PAGE_SIZE = 40
 
 export default function VersionDetail() {
-  const { id, projectId: projectIdParam } = useParams()
+  const { id, sourceId: sourceIdParam } = useParams()
   const navigate = useNavigate()
   const versionId = Number(id)
-  const datasetId = Number(projectIdParam)
-  const versionsListPath = `/projects/${projectIdParam}/versions`
+  const datasetId = Number(sourceIdParam)
+  const versionsListPath = `/sources/${sourceIdParam}/versions`
   const [version, setVersion] = useState<DatasetVersion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -171,7 +171,7 @@ export default function VersionDetail() {
             )}
             {version && !version.complete && (
               <Link
-                to={`/projects/${projectIdParam}/ontology?datasetVersionId=${version.id}`}
+                to={`/sources/${sourceIdParam}/ontology?datasetVersionId=${version.id}`}
                 className="badge badge-amber"
                 style={{ textDecoration: 'none' }}
                 title={`${version.unresolvedDirtyCount} unresolved dirty annotation(s)`}

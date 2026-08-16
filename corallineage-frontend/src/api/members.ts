@@ -1,16 +1,16 @@
 import { api } from './client'
 import type { AddMemberRequest, ProjectMember } from '../types/member'
 
-export async function fetchProjectMembers(datasetId: number): Promise<ProjectMember[]> {
-  const { data } = await api.get<ProjectMember[]>(`/datasets/${datasetId}/members`)
+export async function fetchProjectMembers(projectId: number): Promise<ProjectMember[]> {
+  const { data } = await api.get<ProjectMember[]>(`/projects/${projectId}/members`)
   return data
 }
 
-export async function addProjectMember(datasetId: number, request: AddMemberRequest): Promise<ProjectMember> {
-  const { data } = await api.post<ProjectMember>(`/datasets/${datasetId}/members`, request)
+export async function addProjectMember(projectId: number, request: AddMemberRequest): Promise<ProjectMember> {
+  const { data } = await api.post<ProjectMember>(`/projects/${projectId}/members`, request)
   return data
 }
 
-export async function removeProjectMember(datasetId: number, userId: number): Promise<void> {
-  await api.delete(`/datasets/${datasetId}/members/${userId}`)
+export async function removeProjectMember(projectId: number, userId: number): Promise<void> {
+  await api.delete(`/projects/${projectId}/members/${userId}`)
 }

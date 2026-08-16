@@ -7,11 +7,12 @@ import type { CreateDatasetRequest, Dataset } from '../types/dataset'
 
 interface CreateDatasetModalProps {
   open: boolean
+  projectId: number
   onClose: () => void
   onCreated: (dataset: Dataset) => void
 }
 
-export default function CreateDatasetModal({ open, onClose, onCreated }: CreateDatasetModalProps) {
+export default function CreateDatasetModal({ open, projectId, onClose, onCreated }: CreateDatasetModalProps) {
   const { user } = useAuthContext()
   const [datasetName, setDatasetName] = useState('')
   const [description, setDescription] = useState('')
@@ -29,7 +30,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
       createdBy: user?.username ?? '',
     }
     try {
-      const created = await createDataset(request)
+      const created = await createDataset(projectId, request)
       onCreated(created)
     } catch (err) {
       setError(errorMessage(err))
@@ -42,9 +43,9 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
       <div className="modal">
         <div className="modal-header">
           <div>
-            <div className="modal-title">Create new project</div>
+            <div className="modal-title">Create new source</div>
             <div className="modal-subtitle">
-              A named container for versioned snapshots of a coral annotation project
+              A named container for versioned snapshots of a coral annotation dataset
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
@@ -59,7 +60,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
           )}
           <div className="form-row">
             <label className="form-label" htmlFor="datasetName">
-              Project name
+              Source name
             </label>
             <input
               id="datasetName"
@@ -68,7 +69,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
               value={datasetName}
               onChange={(e) => setDatasetName(e.target.value)}
             />
-            <div className="form-hint">Must be unique across all projects.</div>
+            <div className="form-hint">Must be unique across all sources.</div>
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
             <label className="form-label" htmlFor="description">
@@ -92,7 +93,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
             onClick={handleSubmit}
             disabled={submitting || !datasetName.trim()}
           >
-            {submitting ? 'Creating…' : 'Create project'}
+            {submitting ? 'Creating…' : 'Create source'}
           </button>
         </div>
       </div>

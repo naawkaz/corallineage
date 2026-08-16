@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -27,9 +27,9 @@ function dotClassFor(job: AnnotationJob, prediction: AnnotationPrediction, isSel
 }
 
 export default function AnnotationReview() {
-  const { id, projectId: projectIdParam } = useParams<{ id: string; projectId: string }>()
+  const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
-  const projectId = Number(projectIdParam)
+  const sourceId = Number(sourceIdParam)
   const navigate = useNavigate()
   const { user } = useAuthContext()
 
@@ -71,10 +71,10 @@ export default function AnnotationReview() {
 
   useEffect(() => {
     if (!job || !job.datasetVersionId) return
-    fetchVersion(projectId, job.datasetVersionId)
+    fetchVersion(sourceId, job.datasetVersionId)
       .then((version) => setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
       .catch(() => setLabelOptions([]))
-  }, [job, projectId])
+  }, [job, sourceId])
 
   const imageIds = useMemo(() => {
     const seen = new Set<number>()
@@ -200,7 +200,7 @@ export default function AnnotationReview() {
               : `${job.reviewedPredictions} / ${job.totalPredictions} reviewed`}
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate(`/projects/${projectId}/annotation`)}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/annotation`)}>
           Back to jobs
         </button>
       </div>
@@ -243,11 +243,11 @@ export default function AnnotationReview() {
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 2 }}>All points reviewed</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  Add these images and their final labels to the project as a new dataset version.
+                  Add these images and their final labels to the source as a new dataset version.
                 </div>
               </div>
               <button className="btn btn-primary" onClick={() => setAddOpen((v) => !v)}>
-                Add to Project
+                Add to Source
               </button>
             </div>
             {addOpen && (
@@ -277,7 +277,7 @@ export default function AnnotationReview() {
           <div className="impact-box safe" style={{ marginBottom: 16 }}>
             <span><Check size={16} strokeWidth={1.5} /></span>
             <span>
-              Added to the project as dataset version #{job.addedToProjectVersionId}.
+              Added to the source as dataset version #{job.addedToProjectVersionId}.
             </span>
           </div>
         )}

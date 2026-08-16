@@ -1,5 +1,6 @@
 package com.corallineage.backend.datasets;
 
+import com.corallineage.backend.projects.Project;
 import jakarta.persistence.*;
 import java.time.Instant;
 
@@ -13,6 +14,10 @@ public class Dataset {
 
     @Column(name = "dataset_name", nullable = false, unique = true, length = 255)
     private String datasetName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = true)
+    private Project project;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -35,6 +40,9 @@ public class Dataset {
 
     public String getDatasetName() { return datasetName; }
     public void setDatasetName(String datasetName) { this.datasetName = datasetName; }
+
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

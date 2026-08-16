@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, FolderOpen } from 'lucide-react'
 import { fetchVersions } from '../api/versions'
@@ -11,10 +11,10 @@ import type { DatasetVersion, Page } from '../types/version'
 
 export default function VersionBrowser() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Page<DatasetVersion> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,7 +25,7 @@ export default function VersionBrowser() {
 
   useEffect(() => {
     let cancelled = false
-    fetchVersions(projectId, page, PAGE_SIZE)
+    fetchVersions(sourceId, page, PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setData(res)
@@ -41,7 +41,7 @@ export default function VersionBrowser() {
     return () => {
       cancelled = true
     }
-  }, [projectId, page])
+  }, [sourceId, page])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -66,19 +66,19 @@ export default function VersionBrowser() {
           <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span
               style={{ color: 'var(--text-muted)', fontWeight: 400, cursor: 'pointer' }}
-              onClick={() => navigate('/')}
+              onClick={() => navigate(`/sources/${sourceId}`)}
             >
-              All Projects
+              {source ? source.datasetName : 'Source'}
             </span>
             <span style={{ color: 'var(--border-md)' }}>/</span>
             <span>Dataset Versions</span>
           </div>
           <div className="topbar-sub">
-            {project ? `${project.datasetName} — snapshots tracked by DVC` : 'Snapshots tracked by DVC'}
+            {source ? `${source.datasetName} — snapshots tracked by DVC` : 'Snapshots tracked by DVC'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/sources/${sourceId}`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <ArrowLeft size={14} strokeWidth={1.5} />
             Back
           </button>
@@ -176,7 +176,7 @@ export default function VersionBrowser() {
                   <tr
                     key={v.id}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/projects/${projectId}/versions/${v.id}`)}
+                    onClick={() => navigate(`/sources/${sourceId}/versions/${v.id}`)}
                   >
                     <td>
                       <span className="mono">{v.versionTag}</span>
@@ -187,7 +187,7 @@ export default function VersionBrowser() {
                       </span>
                       {!v.complete && (
                         <Link
-                          to={`/projects/${projectId}/ontology?datasetVersionId=${v.id}`}
+                          to={`/sources/${sourceId}/ontology?datasetVersionId=${v.id}`}
                           className="badge badge-amber"
                           style={{ marginLeft: 6, textDecoration: 'none' }}
                           onClick={(e) => e.stopPropagation()}
@@ -252,12 +252,12 @@ export default function VersionBrowser() {
       </div>
 
       <CreateVersionModal
-        datasetId={projectId}
+        datasetId={sourceId}
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={(v) => {
           setShowCreate(false)
-          navigate(`/projects/${projectId}/versions/${v.id}`)
+          navigate(`/sources/${sourceId}/versions/${v.id}`)
         }}
       />
     </>

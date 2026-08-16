@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -21,9 +21,9 @@ import type { TrainingJobStatus } from '../types/training'
 import type { LabelDefinition } from '../types/version'
 
 export default function SeedLabeling() {
-  const { id, projectId: projectIdParam } = useParams<{ id: string; projectId: string }>()
+  const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
-  const projectId = Number(projectIdParam)
+  const sourceId = Number(sourceIdParam)
   const navigate = useNavigate()
   const { user } = useAuthContext()
 
@@ -58,12 +58,12 @@ export default function SeedLabeling() {
       .then(([jobRes]) => {
         setJob(jobRes)
         setError(null)
-        return fetchVersion(projectId, jobRes.datasetVersionId)
+        return fetchVersion(sourceId, jobRes.datasetVersionId)
       })
       .then((version) => setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [jobId, projectId, loadPoints])
+  }, [jobId, sourceId, loadPoints])
 
   const imageIds = useMemo(() => {
     const seen = new Set<number>()
@@ -129,7 +129,7 @@ export default function SeedLabeling() {
     setAddingLabel(true)
     setAddLabelError(null)
     try {
-      const created = await createLabelDefinition(projectId, job.datasetVersionId, {
+      const created = await createLabelDefinition(sourceId, job.datasetVersionId, {
         labelCode: newLabelCode.trim(),
         labelName: newLabelName.trim(),
         labelCategory: newLabelCategory.trim() === '' ? undefined : newLabelCategory.trim(),
@@ -186,7 +186,7 @@ export default function SeedLabeling() {
       const updated = await autoAnnotatePointAnnotationJob(jobId)
       setJob(updated)
       if (updated.status === 'REVIEW') {
-        navigate(`/projects/${projectId}/point-annotation/jobs/${jobId}/review`)
+        navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)
       }
     } catch (err) {
       setError(errorMessage(err))
@@ -229,7 +229,7 @@ export default function SeedLabeling() {
             points/image)
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate(`/projects/${projectId}/point-annotation`)}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
           Back
         </button>
       </div>
@@ -271,7 +271,7 @@ export default function SeedLabeling() {
             {job.status === 'REVIEW' && (
               <button
                 className="btn btn-primary"
-                onClick={() => navigate(`/projects/${projectId}/point-annotation/jobs/${jobId}/review`)}
+                onClick={() => navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)}
               >
                 Go to Review Queue
               </button>

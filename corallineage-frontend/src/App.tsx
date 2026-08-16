@@ -15,6 +15,7 @@ import ModelRegistry from './pages/ModelRegistry'
 import OntologyChanges from './pages/OntologyChanges'
 import PointAnnotationJobs from './pages/PointAnnotationJobs'
 import PointAnnotationReview from './pages/PointAnnotationReview'
+import ProjectDetail from './pages/ProjectDetail'
 import Register from './pages/Register'
 import ReportGenerator from './pages/ReportGenerator'
 import SeedLabeling from './pages/SeedLabeling'
@@ -35,21 +36,22 @@ function App() {
               <Route index element={<Home />} />
               <Route path="/events" element={<EventLog />} />
               <Route path="/report" element={<ReportGenerator />} />
-              <Route path="/projects/:projectId" element={<DatasetDashboard />} />
-              <Route path="/projects/:projectId/versions" element={<VersionBrowser />} />
-              <Route path="/projects/:projectId/versions/:id" element={<VersionDetail />} />
-              <Route path="/projects/:projectId/import" element={<Import />} />
-              <Route path="/projects/:projectId/diff" element={<DatasetDiff />} />
-              <Route path="/projects/:projectId/models" element={<ModelRegistry />} />
-              <Route path="/projects/:projectId/models/:id" element={<ModelDetail />} />
-              <Route path="/projects/:projectId/training" element={<TrainingJobs />} />
-              <Route path="/projects/:projectId/annotation" element={<AnnotationJobs />} />
-              <Route path="/projects/:projectId/annotation/jobs/:id/review" element={<AnnotationReview />} />
-              <Route path="/projects/:projectId/point-annotation" element={<PointAnnotationJobs />} />
-              <Route path="/projects/:projectId/point-annotation/jobs/:id/label" element={<SeedLabeling />} />
-              <Route path="/projects/:projectId/point-annotation/jobs/:id/review" element={<PointAnnotationReview />} />
-              <Route path="/projects/:projectId/events" element={<EventLog />} />
-              <Route path="/projects/:projectId/ontology" element={<OntologyChanges />} />
+              <Route path="/projects/:projectId" element={<ProjectDetail />} />
+              <Route path="/sources/:sourceId" element={<DatasetDashboard />} />
+              <Route path="/sources/:sourceId/versions" element={<VersionBrowser />} />
+              <Route path="/sources/:sourceId/versions/:id" element={<VersionDetail />} />
+              <Route path="/sources/:sourceId/import" element={<Import />} />
+              <Route path="/sources/:sourceId/diff" element={<DatasetDiff />} />
+              <Route path="/sources/:sourceId/models" element={<ModelRegistry />} />
+              <Route path="/sources/:sourceId/models/:id" element={<ModelDetail />} />
+              <Route path="/sources/:sourceId/training" element={<TrainingJobs />} />
+              <Route path="/sources/:sourceId/annotation" element={<AnnotationJobs />} />
+              <Route path="/sources/:sourceId/annotation/jobs/:id/review" element={<AnnotationReview />} />
+              <Route path="/sources/:sourceId/point-annotation" element={<PointAnnotationJobs />} />
+              <Route path="/sources/:sourceId/point-annotation/jobs/:id/label" element={<SeedLabeling />} />
+              <Route path="/sources/:sourceId/point-annotation/jobs/:id/review" element={<PointAnnotationReview />} />
+              <Route path="/sources/:sourceId/events" element={<EventLog />} />
+              <Route path="/sources/:sourceId/ontology" element={<OntologyChanges />} />
               <Route path="*" element={<ComingSoon />} />
             </Route>
           </Route>

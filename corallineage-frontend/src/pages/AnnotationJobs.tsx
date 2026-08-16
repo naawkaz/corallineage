@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { fetchAnnotationJob, fetchAnnotationJobs, submitNewImagesJob, submitValidationJob } from '../api/annotations'
 import { fetchImages, imageFileUrlById } from '../api/images'
@@ -45,11 +45,11 @@ function jobTypeLabel(jobType: AnnotationJob['jobType']): string {
 
 export default function AnnotationJobs() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [tab, setTab] = useState<'submit' | 'review'>('submit')
   const [mode, setMode] = useState<'validate' | 'new-images'>('validate')
@@ -79,7 +79,7 @@ export default function AnnotationJobs() {
   const pollingRef = useRef<number | null>(null)
 
   function loadJobs() {
-    fetchAnnotationJobs(projectId, 0, 20)
+    fetchAnnotationJobs(sourceId, 0, 20)
       .then((res) => {
         setJobs(res.content)
         setJobsError(null)
@@ -91,30 +91,30 @@ export default function AnnotationJobs() {
   useEffect(() => {
     loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [sourceId])
 
   useEffect(() => {
-    fetchModels(projectId, 0, 50, 'ACTIVE')
+    fetchModels(sourceId, 0, 50, 'ACTIVE')
       .then((res) => {
         setModels(res.content)
         if (res.content.length > 0) setSelectedModelId(res.content[0].id)
       })
       .catch(() => setModels([]))
-  }, [projectId])
+  }, [sourceId])
 
   useEffect(() => {
     if (mode !== 'validate') return
-    fetchVersions(projectId, 0, 50)
+    fetchVersions(sourceId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length > 0) setSelectedVersionId(res.content[0].id)
       })
       .catch(() => setVersions([]))
-  }, [projectId, mode])
+  }, [sourceId, mode])
 
   useEffect(() => {
     if (mode !== 'validate' || !selectedVersionId) return
-    fetchImages(projectId, selectedVersionId, 0, 200, true)
+    fetchImages(sourceId, selectedVersionId, 0, 200, true)
       .then((res) => {
         setImages(res.content)
         // Filtered images (human-labeled points) are selected by default; user can deselect.
@@ -125,7 +125,7 @@ export default function AnnotationJobs() {
         setSelectedImageIds([])
       })
       .finally(() => setImagesLoading(false))
-  }, [projectId, selectedVersionId, mode])
+  }, [sourceId, selectedVersionId, mode])
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
@@ -180,7 +180,7 @@ export default function AnnotationJobs() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const created = await submitNewImagesJob(selectedModelId, projectId, user?.username ?? '', pointsPerImage, uploadFiles)
+      const created = await submitNewImagesJob(selectedModelId, sourceId, user?.username ?? '', pointsPerImage, uploadFiles)
       setActiveJob(created)
       setUploadFiles([])
       loadJobs()
@@ -197,7 +197,7 @@ export default function AnnotationJobs() {
         <div>
           <div className="topbar-title">Annotation Jobs</div>
           <div className="topbar-sub">
-            {project ? `Run model inference on ${project.datasetName}` : 'Run model inference'}
+            {source ? `Run model inference on ${source.datasetName}` : 'Run model inference'}
           </div>
         </div>
       </div>
@@ -242,7 +242,7 @@ export default function AnnotationJobs() {
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
                 {mode === 'validate'
                   ? 'Recheck a model\'s accuracy against real human-given labels already in a dataset version, no correction step, just a comparison.'
-                  : 'Upload brand-new images that are not yet part of any dataset version, generate points, run inference, then review each prediction before adding it to a project.'}
+                  : 'Upload brand-new images that are not yet part of any dataset version, generate points, run inference, then review each prediction before adding it to a source.'}
               </p>
 
               <div className="card" style={{ padding: 16 }}>
@@ -387,7 +387,7 @@ export default function AnnotationJobs() {
                         {activeJob.totalPredictions} point(s) ready.{' '}
                         <button
                           className="btn btn-secondary"
-                          onClick={() => navigate(`/projects/${projectId}/annotation/jobs/${activeJob.jobId}/review`)}
+                          onClick={() => navigate(`/sources/${sourceId}/annotation/jobs/${activeJob.jobId}/review`)}
                         >
                           {activeJob.jobType === 'VALIDATION' ? 'View results' : 'Review now'}
                         </button>
@@ -405,7 +405,7 @@ export default function AnnotationJobs() {
               <div className="section-header">
                 <div className="section-title">Recent Jobs</div>
               </div>
-              <JobsTable jobs={jobs.slice(0, 5)} loading={jobsLoading} error={jobsError} navigate={navigate} projectId={projectId} />
+              <JobsTable jobs={jobs.slice(0, 5)} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
             </div>
           </div>
         )}
@@ -415,7 +415,7 @@ export default function AnnotationJobs() {
             <div className="section-header">
               <div className="section-title">All Annotation Jobs</div>
             </div>
-            <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} projectId={projectId} />
+            <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
           </div>
         )}
       </div>
@@ -428,13 +428,13 @@ function JobsTable({
   loading,
   error,
   navigate,
-  projectId,
+  sourceId,
 }: {
   jobs: AnnotationJob[]
   loading: boolean
   error: string | null
   navigate: (path: string) => void
-  projectId: number
+  sourceId: number
 }) {
   return (
     <div className="card">
@@ -468,7 +468,7 @@ function JobsTable({
               <tr
                 key={job.jobId}
                 style={{ cursor: job.status === 'COMPLETED' ? 'pointer' : 'default' }}
-                onClick={() => job.status === 'COMPLETED' && navigate(`/projects/${projectId}/annotation/jobs/${job.jobId}/review`)}
+                onClick={() => job.status === 'COMPLETED' && navigate(`/sources/${sourceId}/annotation/jobs/${job.jobId}/review`)}
               >
                 <td>
                   <span className="badge badge-gray">{jobTypeLabel(job.jobType)}</span>

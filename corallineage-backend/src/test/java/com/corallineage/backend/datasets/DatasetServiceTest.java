@@ -1,9 +1,11 @@
 package com.corallineage.backend.datasets;
 
-import com.corallineage.backend.auth.User;
-import com.corallineage.backend.auth.UserRepository;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
+import com.corallineage.backend.exception.UnauthorizedException;
+import com.corallineage.backend.projects.Project;
+import com.corallineage.backend.projects.ProjectMemberService;
+import com.corallineage.backend.projects.ProjectRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import org.junit.jupiter.api.Test;
@@ -31,9 +33,7 @@ class DatasetServiceTest {
     @Mock
     private DatasetVersionRepository datasetVersionRepository;
     @Mock
-    private UserRepository userRepository;
-    @Mock
-    private ProjectMemberRepository projectMemberRepository;
+    private ProjectRepository projectRepository;
     @Mock
     private ProjectMemberService projectMemberService;
 
@@ -57,29 +57,29 @@ class DatasetServiceTest {
         dataset.setDatasetName("Moorea Labeled Corals");
         dataset.setDescription("Point-annotation survey images from the Moorea LTER site");
         dataset.setCreatedBy("researcher_01");
+        dataset.setProject(project());
         return dataset;
     }
 
-    private User user() {
-        User user = new User();
-        user.setId(10L);
-        user.setUsername("researcher_01");
-        user.setDisplayName("researcher_01");
-        return user;
+    private Project project() {
+        Project project = new Project();
+        project.setId(5L);
+        project.setProjectName("Moorea 2010 Survey");
+        return project;
     }
 
     @Test
-    void createDataset_success_savesDatasetAndAddsOwner() {
+    void createDataset_success_savesDatasetScopedToProject() {
         when(datasetRepository.findByDatasetName("Moorea Labeled Corals")).thenReturn(Optional.empty());
-        when(userRepository.findByUsername("researcher_01")).thenReturn(Optional.of(user()));
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project()));
+        when(projectMemberService.isMember(5L, "researcher_01")).thenReturn(true);
         when(datasetRepository.save(any(Dataset.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        DatasetResponse response = datasetService.createDataset(request(), "researcher_01");
+        DatasetResponse response = datasetService.createDataset(request(), 5L, "researcher_01");
 
         assertThat(response.getDatasetName()).isEqualTo("Moorea Labeled Corals");
         assertThat(response.getCreatedBy()).isEqualTo("researcher_01");
         verify(datasetRepository).save(any(Dataset.class));
-        verify(projectMemberService).addOwner(any(Dataset.class), any(User.class));
     }
 
     @Test
@@ -87,8 +87,29 @@ class DatasetServiceTest {
         when(datasetRepository.findByDatasetName("Moorea Labeled Corals"))
                 .thenReturn(Optional.of(dataset()));
 
-        assertThatThrownBy(() -> datasetService.createDataset(request(), "researcher_01"))
+        assertThatThrownBy(() -> datasetService.createDataset(request(), 5L, "researcher_01"))
                 .isInstanceOf(ConflictException.class);
+        verify(datasetRepository, never()).save(any(Dataset.class));
+    }
+
+    @Test
+    void createDataset_projectNotFound_throwsNotFound() {
+        when(datasetRepository.findByDatasetName("Moorea Labeled Corals")).thenReturn(Optional.empty());
+        when(projectRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> datasetService.createDataset(request(), 99L, "researcher_01"))
+                .isInstanceOf(NotFoundException.class);
+        verify(datasetRepository, never()).save(any(Dataset.class));
+    }
+
+    @Test
+    void createDataset_actingUserNotAProjectMember_throwsUnauthorized() {
+        when(datasetRepository.findByDatasetName("Moorea Labeled Corals")).thenReturn(Optional.empty());
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project()));
+        when(projectMemberService.isMember(5L, "stranger")).thenReturn(false);
+
+        assertThatThrownBy(() -> datasetService.createDataset(request(), 5L, "stranger"))
+                .isInstanceOf(UnauthorizedException.class);
         verify(datasetRepository, never()).save(any(Dataset.class));
     }
 
@@ -97,20 +118,14 @@ class DatasetServiceTest {
         DatasetVersion latest = new DatasetVersion();
         latest.setVersionTag("v1.2");
 
-        User user = user();
-        ProjectMember membership = new ProjectMember();
-        membership.setDataset(dataset());
-        membership.setUser(user);
-        membership.setRole(ProjectRole.OWNER);
-
-        when(userRepository.findByUsername("researcher_01")).thenReturn(Optional.of(user));
-        when(projectMemberRepository.findByUserId(10L)).thenReturn(List.of(membership));
-        when(datasetRepository.findAllByIdInOrderByCreatedAtDesc(List.of(1L))).thenReturn(List.of(dataset()));
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project()));
+        when(projectMemberService.isMember(5L, "researcher_01")).thenReturn(true);
+        when(datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(dataset()));
         when(datasetVersionRepository.countByDatasetId(1L)).thenReturn(3L);
         when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L))
                 .thenReturn(Optional.of(latest));
 
-        List<DatasetResponse> result = datasetService.getAllDatasets("researcher_01");
+        List<DatasetResponse> result = datasetService.getAllDatasets(5L, "researcher_01");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getVersionCount()).isEqualTo(3L);
@@ -118,14 +133,12 @@ class DatasetServiceTest {
     }
 
     @Test
-    void getAllDatasets_noMemberships_returnsEmptyList() {
-        User user = user();
-        when(userRepository.findByUsername("researcher_01")).thenReturn(Optional.of(user));
-        when(projectMemberRepository.findByUserId(10L)).thenReturn(List.of());
+    void getAllDatasets_notAMember_throwsUnauthorized() {
+        when(projectRepository.findById(5L)).thenReturn(Optional.of(project()));
+        when(projectMemberService.isMember(5L, "stranger")).thenReturn(false);
 
-        List<DatasetResponse> result = datasetService.getAllDatasets("researcher_01");
-
-        assertThat(result).isEmpty();
+        assertThatThrownBy(() -> datasetService.getAllDatasets(5L, "stranger"))
+                .isInstanceOf(UnauthorizedException.class);
     }
 
     @Test
@@ -144,6 +157,7 @@ class DatasetServiceTest {
 
         assertThat(response.getImageCount()).isEqualTo(250);
         assertThat(response.getAnnotationCount()).isEqualTo(50000);
+        assertThat(response.getProjectId()).isEqualTo(5L);
     }
 
     @Test

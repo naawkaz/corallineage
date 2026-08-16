@@ -5,6 +5,7 @@ import java.time.Instant;
 public class DatasetResponse {
 
     private Long id;
+    private Long projectId;
     private String datasetName;
     private String description;
     private String createdBy;
@@ -16,6 +17,9 @@ public class DatasetResponse {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
 
     public String getDatasetName() { return datasetName; }
     public void setDatasetName(String datasetName) { this.datasetName = datasetName; }

@@ -12,4 +12,8 @@ public interface DatasetRepository extends JpaRepository<Dataset, Long> {
     List<Dataset> findAllByOrderByCreatedAtDesc();
 
     List<Dataset> findAllByIdInOrderByCreatedAtDesc(List<Long> ids);
+
+    List<Dataset> findAllByProjectIdOrderByCreatedAtDesc(Long projectId);
+
+    long countByProjectId(Long projectId);
 }

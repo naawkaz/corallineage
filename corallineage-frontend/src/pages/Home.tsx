@@ -1,21 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ClipboardList, FileText, Shell } from 'lucide-react'
-import { useDatasetContext } from '../lib/datasetContextCore'
+import { fetchProjects } from '../api/projects'
+import { errorMessage } from '../api/client'
 import { formatCount, formatDate } from '../lib/format'
-import CreateDatasetModal from '../components/CreateDatasetModal'
+import CreateProjectModal from '../components/CreateProjectModal'
+import type { Project } from '../types/project'
 
 export default function Home() {
-  const { datasets, loading, error, refresh } = useDatasetContext()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const navigate = useNavigate()
+
+  function load() {
+    setLoading(true)
+    fetchProjects()
+      .then((result) => {
+        setProjects(result)
+        setError(null)
+      })
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    Promise.resolve().then(() => load())
+  }, [])
 
   return (
     <>
       <div className="topbar">
         <div>
           <div className="topbar-title">Home</div>
-          <div className="topbar-sub">Named containers for versioned annotation projects</div>
+          <div className="topbar-sub">Named containers that group Sources and manage collaborator access</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
           ＋ New Project
@@ -48,7 +67,7 @@ export default function Home() {
           <div className="loading-state">
             <span className="spinner" /> Loading projects…
           </div>
-        ) : datasets.length === 0 ? (
+        ) : projects.length === 0 ? (
           <div className="card">
             <div className="empty-state">
               <div className="empty-icon">
@@ -59,29 +78,29 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid-3" style={{ gap: 16 }}>
-            {datasets.map((d) => (
+            {projects.map((p) => (
               <div
-                key={d.id}
+                key={p.id}
                 className="card"
                 style={{ padding: 16, cursor: 'pointer' }}
-                onClick={() => navigate(`/projects/${d.id}`)}
+                onClick={() => navigate(`/projects/${p.id}`)}
               >
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
-                  {d.datasetName}
+                  {p.projectName}
                 </div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 12 }}>
-                  {d.description || 'No description'}
+                  {p.description || 'No description'}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span className="mono">
-                    {d.latestVersionTag ?? 'no versions'}
+                  <span className={`badge ${p.callerRole === 'OWNER' ? 'badge-blue' : 'badge-gray'}`}>
+                    {p.callerRole === 'OWNER' ? 'Owner' : 'Collaborator'}
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>
-                    {formatCount(d.versionCount)} version{d.versionCount === 1 ? '' : 's'}
+                    {formatCount(p.sourceCount)} source{p.sourceCount === 1 ? '' : 's'}
                   </span>
                 </div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>
-                  Created {formatDate(d.createdAt)} by {d.createdBy}
+                  Created {formatDate(p.createdAt)} by {p.createdBy}
                 </div>
               </div>
             ))}
@@ -89,13 +108,13 @@ export default function Home() {
         )}
       </div>
 
-      <CreateDatasetModal
+      <CreateProjectModal
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(d) => {
+        onCreated={(p) => {
           setShowCreate(false)
-          refresh()
-          navigate(`/projects/${d.id}`)
+          load()
+          navigate(`/projects/${p.id}`)
         }}
       />
     </>

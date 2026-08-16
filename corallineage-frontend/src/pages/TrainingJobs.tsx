@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { fetchArchitectures, fetchTrainingJob, fetchTrainingJobs, submitTrainingJob } from '../api/training'
 import { fetchVersions } from '../api/versions'
@@ -23,11 +23,11 @@ function statusBadge(status: TrainingJob['status']): string {
 }
 
 export default function TrainingJobs() {
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
@@ -49,7 +49,7 @@ export default function TrainingJobs() {
   const pollingRef = useRef<number | null>(null)
 
   function loadJobs() {
-    fetchTrainingJobs(projectId, 0, 20)
+    fetchTrainingJobs(sourceId, 0, 20)
       .then((res) => {
         setJobs(res.content)
         setJobsError(null)
@@ -61,7 +61,7 @@ export default function TrainingJobs() {
   useEffect(() => {
     loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
+  }, [sourceId])
 
   useEffect(() => {
     fetchArchitectures()
@@ -75,10 +75,10 @@ export default function TrainingJobs() {
   }, [])
 
   useEffect(() => {
-    fetchVersions(projectId, 0, 50)
+    fetchVersions(sourceId, 0, 50)
       .then((res) => setVersions(res.content))
       .catch(() => setVersions([]))
-  }, [projectId])
+  }, [sourceId])
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING') {
@@ -111,7 +111,7 @@ export default function TrainingJobs() {
     setSubmitError(null)
     try {
       const created = await submitTrainingJob({
-        datasetId: projectId,
+        datasetId: sourceId,
         datasetVersionId: versionMode === 'specific' && selectedVersionId ? selectedVersionId : undefined,
         architecture,
         learningRate: Number(learningRate),
@@ -134,7 +134,7 @@ export default function TrainingJobs() {
         <div>
           <div className="topbar-title">Training Jobs</div>
           <div className="topbar-sub">
-            {project ? `Fine-tune a model on ${project.datasetName}` : 'Fine-tune a model'}
+            {source ? `Fine-tune a model on ${source.datasetName}` : 'Fine-tune a model'}
           </div>
         </div>
       </div>

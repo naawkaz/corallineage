@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { fetchImportJob, submitImport } from '../api/imports'
@@ -23,11 +23,11 @@ function jobNumericId(job: ImportJob): number {
 
 export default function Import() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [format, setFormat] = useState<ImportFormat>('MLC')
   const [files, setFiles] = useState<File[]>([])
@@ -39,10 +39,11 @@ export default function Import() {
   const [job, setJob] = useState<ImportJob | null>(null)
   const [pollError, setPollError] = useState<string | null>(null)
 
-  // "Reuse labels from <project> <version>", a two-dropdown sentence rather than a free-text
+  // "Reuse labels from <source> <version>", a two-dropdown sentence rather than a free-text
   // vocabulary field, since the label set is structural (code, name, optional category), not
-  // prose. Global scope is intentional: any project's version can be reused, not just this one's.
-  const [reuseProjectId, setReuseProjectId] = useState<number | ''>('')
+  // prose. Scoped to sibling Sources within the same Project as this one, since that's the level
+  // at which a controlled vocabulary is expected to be shared and comparable.
+  const [reuseSourceId, setReuseSourceId] = useState<number | ''>('')
   const [reuseVersions, setReuseVersions] = useState<DatasetVersion[]>([])
   const [reuseVersionId, setReuseVersionId] = useState<number | ''>('')
   const [reuseVersionsLoading, setReuseVersionsLoading] = useState(false)
@@ -65,7 +66,7 @@ export default function Import() {
       return
     }
     const intervalId = window.setInterval(() => {
-      fetchImportJob(projectId, jobNumericId(job))
+      fetchImportJob(sourceId, jobNumericId(job))
         .then((updated) => {
           setJob(updated)
           if (updated.status !== 'PROCESSING' && pollingRef.current !== null) {
@@ -80,13 +81,13 @@ export default function Import() {
       window.clearInterval(intervalId)
       pollingRef.current = null
     }
-  }, [job, projectId])
+  }, [job, sourceId])
 
-  // When a project is picked in the "Reuse labels from" sentence, load its versions and default
+  // When a source is picked in the "Reuse labels from" sentence, load its versions and default
   // to the latest one (versions.content[0], same "most recent first" ordering the rest of the
-  // app already relies on for a project's version list).
+  // app already relies on for a source's version list).
   useEffect(() => {
-    if (reuseProjectId === '') {
+    if (reuseSourceId === '') {
       setReuseVersions([])
       setReuseVersionId('')
       return
@@ -94,7 +95,7 @@ export default function Import() {
     let cancelled = false
     setReuseVersionsLoading(true)
     setReuseError(null)
-    fetchVersions(reuseProjectId, 0, 100)
+    fetchVersions(reuseSourceId, 0, 100)
       .then((page) => {
         if (cancelled) return
         setReuseVersions(page.content)
@@ -109,17 +110,17 @@ export default function Import() {
     return () => {
       cancelled = true
     }
-  }, [reuseProjectId])
+  }, [reuseSourceId])
 
-  // Once both a project and a version are picked, pull that version's full label definitions
+  // Once both a source and a version are picked, pull that version's full label definitions
   // (code, name, category, not just bare codes) and replace the local declared-label list. A
   // subsequent manual add on top of a reused vocabulary is expected, per the local list below.
   async function applyReuseSelection() {
-    if (reuseProjectId === '' || reuseVersionId === '') return
+    if (reuseSourceId === '' || reuseVersionId === '') return
     setReuseApplying(true)
     setReuseError(null)
     try {
-      const full = await fetchVersion(reuseProjectId, reuseVersionId)
+      const full = await fetchVersion(reuseSourceId, reuseVersionId)
       const labels: LabelDeclaration[] = (full.labelDefinitions ?? [])
         .filter((l) => !l.deprecated)
         .map((l) => ({
@@ -163,7 +164,7 @@ export default function Import() {
     setPollError(null)
     try {
       const created = await submitImport(
-        projectId, files, format, versionTag.trim(), user?.username ?? '', notes, isBlank ? declaredLabels : undefined,
+        sourceId, files, format, versionTag.trim(), user?.username ?? '', notes, isBlank ? declaredLabels : undefined,
       )
       setJob(created)
     } catch (err) {
@@ -184,7 +185,7 @@ export default function Import() {
         confidenceThreshold,
         initiatedBy: user?.username ?? '',
       })
-      navigate(`/projects/${projectId}/point-annotation/jobs/${pointJob.jobId}/label`)
+      navigate(`/sources/${sourceId}/point-annotation/jobs/${pointJob.jobId}/label`)
     } catch (err) {
       setPointAnnotationError(errorMessage(err))
     } finally {
@@ -201,7 +202,7 @@ export default function Import() {
     setVersionTag('')
     setNotes('')
     setDeclaredLabels([])
-    setReuseProjectId('')
+    setReuseSourceId('')
     setReuseVersions([])
     setReuseVersionId('')
     setReuseError(null)
@@ -216,7 +217,7 @@ export default function Import() {
         <div>
           <div className="topbar-title">Import Data</div>
           <div className="topbar-sub">
-            {project ? `Bulk-import images and annotations into ${project.datasetName}` : 'Bulk-import images and annotations'}
+            {source ? `Bulk-import images and annotations into ${source.datasetName}` : 'Bulk-import images and annotations'}
           </div>
         </div>
       </div>
@@ -280,10 +281,10 @@ export default function Import() {
                   <select
                     className="form-input"
                     style={{ width: 'auto' }}
-                    value={reuseProjectId}
-                    onChange={(e) => setReuseProjectId(e.target.value === '' ? '' : Number(e.target.value))}
+                    value={reuseSourceId}
+                    onChange={(e) => setReuseSourceId(e.target.value === '' ? '' : Number(e.target.value))}
                   >
-                    <option value="">a project…</option>
+                    <option value="">a source…</option>
                     {datasets.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.datasetName}
@@ -294,7 +295,7 @@ export default function Import() {
                     className="form-input"
                     style={{ width: 'auto' }}
                     value={reuseVersionId}
-                    disabled={reuseProjectId === '' || reuseVersionsLoading || reuseVersions.length === 0}
+                    disabled={reuseSourceId === '' || reuseVersionsLoading || reuseVersions.length === 0}
                     onChange={(e) => setReuseVersionId(e.target.value === '' ? '' : Number(e.target.value))}
                   >
                     <option value="">
@@ -310,7 +311,7 @@ export default function Import() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={applyReuseSelection}
-                    disabled={reuseProjectId === '' || reuseVersionId === '' || reuseApplying}
+                    disabled={reuseSourceId === '' || reuseVersionId === '' || reuseApplying}
                   >
                     {reuseApplying ? 'Loading…' : 'Use these labels'}
                   </button>
@@ -556,7 +557,7 @@ export default function Import() {
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 <button
                   className="btn btn-primary"
-                  onClick={() => navigate(`/projects/${projectId}/versions/${job.createdDatasetVersionId}`)}
+                  onClick={() => navigate(`/sources/${sourceId}/versions/${job.createdDatasetVersionId}`)}
                 >
                   View version
                 </button>

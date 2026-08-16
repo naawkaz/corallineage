@@ -1,4 +1,4 @@
-package com.corallineage.backend.datasets;
+package com.corallineage.backend.projects;
 
 import com.corallineage.backend.auth.User;
 import com.corallineage.backend.auth.UserRepository;
@@ -29,7 +29,7 @@ class ProjectMemberServiceTest {
     @Mock
     private ProjectMemberRepository projectMemberRepository;
     @Mock
-    private DatasetRepository datasetRepository;
+    private ProjectRepository projectRepository;
     @Mock
     private UserRepository userRepository;
 
@@ -39,11 +39,11 @@ class ProjectMemberServiceTest {
     @InjectMocks
     private ProjectMemberService projectMemberService;
 
-    private Dataset dataset() {
-        Dataset dataset = new Dataset();
-        dataset.setId(1L);
-        dataset.setDatasetName("Moorea Labeled Corals");
-        return dataset;
+    private Project project() {
+        Project project = new Project();
+        project.setId(1L);
+        project.setProjectName("Moorea 2010 Survey");
+        return project;
     }
 
     private User owner() {
@@ -65,7 +65,7 @@ class ProjectMemberServiceTest {
     private ProjectMember ownerMembership() {
         ProjectMember member = new ProjectMember();
         member.setId(100L);
-        member.setDataset(dataset());
+        member.setProject(project());
         member.setUser(owner());
         member.setRole(ProjectRole.OWNER);
         return member;
@@ -73,11 +73,11 @@ class ProjectMemberServiceTest {
 
     @Test
     void addMember_ownerAddsNewCollaborator_success() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
         when(userRepository.findByUsername("collab_user")).thenReturn(Optional.of(collaborator()));
-        when(projectMemberRepository.existsByDatasetIdAndUserId(1L, 20L)).thenReturn(false);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 20L)).thenReturn(false);
         when(projectMemberRepository.save(any(ProjectMember.class))).thenAnswer(inv -> {
             ProjectMember m = inv.getArgument(0);
             m.setId(200L);
@@ -98,13 +98,13 @@ class ProjectMemberServiceTest {
     @Test
     void addMember_nonOwnerActing_throwsForbidden() {
         ProjectMember collabMembership = new ProjectMember();
-        collabMembership.setDataset(dataset());
+        collabMembership.setProject(project());
         collabMembership.setUser(collaborator());
         collabMembership.setRole(ProjectRole.COLLABORATOR);
 
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("collab_user")).thenReturn(Optional.of(collaborator()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 20L)).thenReturn(Optional.of(collabMembership));
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 20L)).thenReturn(Optional.of(collabMembership));
 
         AddMemberRequest request = new AddMemberRequest();
         request.setUsername("someone_else");
@@ -117,9 +117,9 @@ class ProjectMemberServiceTest {
 
     @Test
     void addMember_actingUserNotAMember_throwsUnauthorized() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("stranger")).thenReturn(Optional.of(collaborator()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 20L)).thenReturn(Optional.empty());
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 20L)).thenReturn(Optional.empty());
 
         AddMemberRequest request = new AddMemberRequest();
         request.setUsername("someone_else");
@@ -131,9 +131,9 @@ class ProjectMemberServiceTest {
 
     @Test
     void addMember_targetUsernameNotFound_throwsNotFound() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
         when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
         AddMemberRequest request = new AddMemberRequest();
@@ -146,11 +146,11 @@ class ProjectMemberServiceTest {
 
     @Test
     void addMember_alreadyMember_throwsConflict() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
         when(userRepository.findByUsername("collab_user")).thenReturn(Optional.of(collaborator()));
-        when(projectMemberRepository.existsByDatasetIdAndUserId(1L, 20L)).thenReturn(true);
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 20L)).thenReturn(true);
 
         AddMemberRequest request = new AddMemberRequest();
         request.setUsername("collab_user");
@@ -162,10 +162,10 @@ class ProjectMemberServiceTest {
 
     @Test
     void removeMember_lastRemainingOwner_throwsConflict() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
-        when(projectMemberRepository.countByDatasetIdAndRole(1L, ProjectRole.OWNER)).thenReturn(1L);
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
+        when(projectMemberRepository.countByProjectIdAndRole(1L, ProjectRole.OWNER)).thenReturn(1L);
 
         assertThatThrownBy(() -> projectMemberService.removeMember(1L, 10L, "owner_user"))
                 .isInstanceOf(ConflictException.class);
@@ -175,15 +175,15 @@ class ProjectMemberServiceTest {
     @Test
     void removeMember_collaborator_success() {
         ProjectMember collabMembership = new ProjectMember();
-        collabMembership.setDataset(dataset());
+        collabMembership.setProject(project());
         collabMembership.setUser(collaborator());
         collabMembership.setRole(ProjectRole.COLLABORATOR);
 
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L))
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L))
                 .thenReturn(Optional.of(ownerMembership()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 20L))
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 20L))
                 .thenReturn(Optional.of(collabMembership));
 
         projectMemberService.removeMember(1L, 20L, "owner_user");
@@ -193,15 +193,30 @@ class ProjectMemberServiceTest {
 
     @Test
     void listMembers_returnsAllMembers() {
-        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project()));
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
-        when(projectMemberRepository.findByDatasetIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
-        when(projectMemberRepository.findByDatasetId(1L)).thenReturn(List.of(ownerMembership()));
+        when(projectMemberRepository.findByProjectIdAndUserId(1L, 10L)).thenReturn(Optional.of(ownerMembership()));
+        when(projectMemberRepository.findByProjectId(1L)).thenReturn(List.of(ownerMembership()));
 
         List<ProjectMemberResponse> members = projectMemberService.listMembers(1L, "owner_user");
 
         assertThat(members).hasSize(1);
         assertThat(members.get(0).getUsername()).isEqualTo("owner_user");
         assertThat(members.get(0).getRole()).isEqualTo(ProjectRole.OWNER);
+    }
+
+    @Test
+    void isMember_realMember_returnsTrue() {
+        when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(owner()));
+        when(projectMemberRepository.existsByProjectIdAndUserId(1L, 10L)).thenReturn(true);
+
+        assertThat(projectMemberService.isMember(1L, "owner_user")).isTrue();
+    }
+
+    @Test
+    void isMember_unknownUser_returnsFalse() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        assertThat(projectMemberService.isMember(1L, "ghost")).isFalse();
     }
 }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -17,8 +18,10 @@ import {
   LayoutDashboard,
   LogOut,
 } from 'lucide-react'
+import { fetchProject } from '../api/projects'
 import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
+import type { Project } from '../types/project'
 
 const globalLinks: { to: string; icon: LucideIcon; label: string }[] = [
   { to: '/', icon: Home, label: 'Home' },
@@ -26,60 +29,85 @@ const globalLinks: { to: string; icon: LucideIcon; label: string }[] = [
   { to: '/report', icon: FileText, label: 'Report Generator' },
 ]
 
-interface ProjectNavItem {
+interface SourceNavItem {
   to: string
   icon: LucideIcon
   label: string
   exact?: boolean
 }
 
-function projectSections(projectId: string): { label: string; items: ProjectNavItem[] }[] {
+function sourceSections(sourceId: string): { label: string; items: SourceNavItem[] }[] {
   return [
     {
       label: 'Overview',
       items: [
-        { to: `/projects/${projectId}`, icon: LayoutDashboard, label: 'Dashboard', exact: true },
+        { to: `/sources/${sourceId}`, icon: LayoutDashboard, label: 'Dashboard', exact: true },
       ],
     },
     {
-      label: 'Project',
+      label: 'Source',
       items: [
-        { to: `/projects/${projectId}/versions`, icon: GitBranch, label: 'Dataset Versions' },
-        { to: `/projects/${projectId}/import`, icon: Upload, label: 'Import Data' },
-        { to: `/projects/${projectId}/diff`, icon: GitCompare, label: 'Compare Versions' },
+        { to: `/sources/${sourceId}/versions`, icon: GitBranch, label: 'Dataset Versions' },
+        { to: `/sources/${sourceId}/import`, icon: Upload, label: 'Import Data' },
+        { to: `/sources/${sourceId}/diff`, icon: GitCompare, label: 'Compare Versions' },
       ],
     },
     {
       label: 'Models',
       items: [
-        { to: `/projects/${projectId}/models`, icon: Box, label: 'Model Registry' },
-        { to: `/projects/${projectId}/training`, icon: Cpu, label: 'Training Jobs' },
+        { to: `/sources/${sourceId}/models`, icon: Box, label: 'Model Registry' },
+        { to: `/sources/${sourceId}/training`, icon: Cpu, label: 'Training Jobs' },
       ],
     },
     {
       label: 'Annotation',
       items: [
-        { to: `/projects/${projectId}/annotation`, icon: Tag, label: 'Annotation Jobs' },
-        { to: `/projects/${projectId}/point-annotation`, icon: Crosshair, label: 'Point Annotation' },
+        { to: `/sources/${sourceId}/annotation`, icon: Tag, label: 'Annotation Jobs' },
+        { to: `/sources/${sourceId}/point-annotation`, icon: Crosshair, label: 'Point Annotation' },
       ],
     },
     {
       label: 'Provenance',
       items: [
-        { to: `/projects/${projectId}/events`, icon: ClipboardList, label: 'Event Log' },
-        { to: `/projects/${projectId}/ontology`, icon: Layers, label: 'Ontology Changes' },
+        { to: `/sources/${sourceId}/events`, icon: ClipboardList, label: 'Event Log' },
+        { to: `/sources/${sourceId}/ontology`, icon: Layers, label: 'Ontology Changes' },
       ],
     },
   ]
 }
 
 export default function Layout() {
-  const match = useMatch('/projects/:projectId/*')
-  const projectId = match?.params.projectId
+  const match = useMatch('/sources/:sourceId/*')
+  const sourceId = match?.params.sourceId
   const { datasets } = useDatasetContext()
   const { user, logout } = useAuthContext()
   const navigate = useNavigate()
-  const project = projectId ? datasets.find((d) => d.id === Number(projectId)) : null
+  const source = sourceId ? datasets.find((d) => d.id === Number(sourceId)) : null
+
+  const [parentProject, setParentProject] = useState<Project | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!source || source.projectId == null) {
+      Promise.resolve().then(() => {
+        if (!cancelled) setParentProject(null)
+      })
+      return () => {
+        cancelled = true
+      }
+    }
+    fetchProject(source.projectId)
+      .then((result) => {
+        if (!cancelled) setParentProject(result)
+      })
+      .catch(() => {
+        if (!cancelled) setParentProject(null)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source?.projectId])
 
   function handleSignOut() {
     logout()
@@ -96,7 +124,7 @@ export default function Layout() {
         .toUpperCase()
     : ''
 
-  const sections = projectId ? projectSections(projectId) : null
+  const sections = sourceId ? sourceSections(sourceId) : null
 
   return (
     <>
@@ -109,11 +137,11 @@ export default function Layout() {
           </div>
         </div>
 
-        {projectId ? (
+        {sourceId ? (
           <>
             <div style={{ padding: '0 24px 12px' }}>
               <NavLink
-                to="/"
+                to={source && source.projectId != null ? `/projects/${source.projectId}` : '/'}
                 style={{
                   fontSize: 12,
                   color: 'var(--text-muted)',
@@ -125,10 +153,10 @@ export default function Layout() {
                 }}
               >
                 <ArrowLeft size={12} strokeWidth={1.5} />
-                All Projects
+                {parentProject ? parentProject.projectName : 'All Projects'}
               </NavLink>
               <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--sidebar-text-strong)' }}>
-                {project ? project.datasetName : `Project ${projectId}`}
+                {source ? source.datasetName : `Source ${sourceId}`}
               </div>
             </div>
             {sections!.map((section) => (

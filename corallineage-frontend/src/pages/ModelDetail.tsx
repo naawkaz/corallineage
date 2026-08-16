@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -32,10 +32,10 @@ type DiagnosticsState =
   | { kind: 'error'; message: string }
 
 export default function ModelDetail() {
-  const { id, projectId: projectIdParam } = useParams()
+  const { id, sourceId: sourceIdParam } = useParams()
   const navigate = useNavigate()
   const modelId = Number(id)
-  const modelsListPath = `/projects/${projectIdParam}/models`
+  const modelsListPath = `/sources/${sourceIdParam}/models`
   const { user } = useAuthContext()
 
   const [model, setModel] = useState<ModelVersion | null>(null)
@@ -168,7 +168,7 @@ export default function ModelDetail() {
                   <div>
                     {model.trainedOnDatasetVersion ? (
                       <Link
-                        to={`/projects/${projectIdParam}/versions/${model.trainedOnDatasetVersion.id}`}
+                        to={`/sources/${sourceIdParam}/versions/${model.trainedOnDatasetVersion.id}`}
                         className="mono"
                         style={{ color: 'var(--accent)' }}
                       >

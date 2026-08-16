@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -13,9 +13,9 @@ import type { GeneratedPoint, PointAnnotationJob } from '../types/pointAnnotatio
 import type { LabelDefinition } from '../types/version'
 
 export default function PointAnnotationReview() {
-  const { id, projectId: projectIdParam } = useParams<{ id: string; projectId: string }>()
+  const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
-  const projectId = Number(projectIdParam)
+  const sourceId = Number(sourceIdParam)
   const navigate = useNavigate()
   const { user } = useAuthContext()
 
@@ -39,12 +39,12 @@ export default function PointAnnotationReview() {
       .then(([jobRes]) => {
         setJob(jobRes)
         setError(null)
-        return fetchVersion(projectId, jobRes.datasetVersionId)
+        return fetchVersion(sourceId, jobRes.datasetVersionId)
       })
       .then((version) => setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [jobId, projectId, loadPoints])
+  }, [jobId, sourceId, loadPoints])
 
   const imageIds = useMemo(() => {
     const seen = new Set<number>()
@@ -141,7 +141,7 @@ export default function PointAnnotationReview() {
             {Math.round(job.confidenceThreshold * 100)}%
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => navigate(`/projects/${projectId}/point-annotation`)}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
           Back
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, X } from 'lucide-react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
@@ -37,11 +37,11 @@ function dirtyQueueDotColor(points: DirtyAnnotation[]): string {
 }
 
 export default function OntologyChanges() {
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [searchParams] = useSearchParams()
   const filterVersionId = searchParams.get('datasetVersionId')
@@ -129,7 +129,7 @@ export default function OntologyChanges() {
   }, [effectiveSelectedPointId, canvasNaturalSize])
 
   function loadChanges() {
-    fetchOntologyChanges(projectId, 0, 50, filterVersionId ?? undefined)
+    fetchOntologyChanges(sourceId, 0, 50, filterVersionId ?? undefined)
       .then((res) => {
         setChanges(res.content)
         setChangesError(null)
@@ -141,16 +141,16 @@ export default function OntologyChanges() {
   useEffect(() => {
     loadChanges()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, filterVersionId])
+  }, [sourceId, filterVersionId])
 
   useEffect(() => {
-    fetchVersions(projectId, 0, 50)
+    fetchVersions(sourceId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length > 0) setSelectedVersionId(res.content[0].id)
       })
       .catch(() => setVersions([]))
-  }, [projectId])
+  }, [sourceId])
 
   // The old-label combobox and the replacement-label combobox are both fed from the selected
   // dataset version's active (non-deprecated) label definitions.
@@ -165,7 +165,7 @@ export default function OntologyChanges() {
         cancelled = true
       }
     }
-    fetchVersion(projectId, selectedVersionId)
+    fetchVersion(sourceId, selectedVersionId)
       .then((v) => {
         if (!cancelled) setBasedOnVersionLabels((v.labelDefinitions ?? []).filter((l) => !l.deprecated))
       })
@@ -175,7 +175,7 @@ export default function OntologyChanges() {
     return () => {
       cancelled = true
     }
-  }, [projectId, selectedVersionId])
+  }, [sourceId, selectedVersionId])
 
   // Resetting the change type clears fields whose meaning differs across types, so a stale
   // oldLabelCode / newLabels combination from a previous type never gets submitted by accident.
@@ -206,7 +206,7 @@ export default function OntologyChanges() {
     loadDirty(selectedChangeId)
     const change = changes.find((c) => c.id === selectedChangeId)
     if (change) {
-      fetchVersion(projectId, change.affectedDatasetVersionId)
+      fetchVersion(sourceId, change.affectedDatasetVersionId)
         .then((v) => setLabelOptions(v.labelDefinitions ?? []))
         .catch(() => setLabelOptions([]))
     }
@@ -316,7 +316,7 @@ export default function OntologyChanges() {
         <div>
           <div className="topbar-title">Ontology Changes</div>
           <div className="topbar-sub">
-            {project ? `Label vocabulary changes for ${project.datasetName}` : 'Label vocabulary changes'}
+            {source ? `Label vocabulary changes for ${source.datasetName}` : 'Label vocabulary changes'}
             {filterVersionId != null ? ` — filtered to dataset version #${filterVersionId}` : ''}
           </div>
         </div>

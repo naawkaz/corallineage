@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Box } from 'lucide-react'
 import { fetchModels } from '../api/models'
@@ -16,8 +16,8 @@ const STATUS_BADGE: Record<ModelStatus, string> = {
 
 export default function ModelRegistry() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const [page, setPage] = useState(0)
   const [status, setStatus] = useState('ALL')
   const [data, setData] = useState<Page<ModelVersion> | null>(null)
@@ -25,14 +25,14 @@ export default function ModelRegistry() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchModels(projectId, page, PAGE_SIZE, status === 'ALL' ? undefined : status)
+    fetchModels(sourceId, page, PAGE_SIZE, status === 'ALL' ? undefined : status)
       .then((res) => {
         setData(res)
         setError(null)
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [projectId, page, status])
+  }, [sourceId, page, status])
 
   const pageNumbers = data ? Array.from({ length: data.totalPages }, (_, i) => i) : []
 
@@ -96,7 +96,7 @@ export default function ModelRegistry() {
               </thead>
               <tbody>
                 {data.content.map((m) => (
-                  <tr key={m.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/projects/${projectId}/models/${m.id}`)}>
+                  <tr key={m.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/sources/${sourceId}/models/${m.id}`)}>
                     <td>
                       <span className="mono">{m.modelTag}</span>
                     </td>

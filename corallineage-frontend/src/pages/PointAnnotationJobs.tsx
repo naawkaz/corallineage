@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Info } from 'lucide-react'
 import { fetchPointAnnotationJobs } from '../api/pointAnnotation'
@@ -21,28 +21,28 @@ function statusBadge(status: PointAnnotationJobStatus): string {
 
 export default function PointAnnotationJobs() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [jobs, setJobs] = useState<PointAnnotationJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchPointAnnotationJobs(projectId, 0, 50)
+    fetchPointAnnotationJobs(sourceId, 0, 50)
       .then((res) => {
         setJobs(res.content)
         setError(null)
       })
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [projectId])
+  }, [sourceId])
 
   function openJob(job: PointAnnotationJob) {
     const target = job.status === 'REVIEW' || job.status === 'COMPLETE' ? 'review' : 'label'
-    navigate(`/projects/${projectId}/point-annotation/jobs/${job.jobId}/${target}`)
+    navigate(`/sources/${sourceId}/point-annotation/jobs/${job.jobId}/${target}`)
   }
 
   return (
@@ -51,8 +51,8 @@ export default function PointAnnotationJobs() {
         <div>
           <div className="topbar-title">Point Annotation</div>
           <div className="topbar-sub">
-            {project
-              ? `Grid point-annotation jobs for ${project.datasetName}`
+            {source
+              ? `Grid point-annotation jobs for ${source.datasetName}`
               : 'Grid point-annotation jobs'}
           </div>
         </div>

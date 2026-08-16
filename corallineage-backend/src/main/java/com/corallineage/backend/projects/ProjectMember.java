@@ -1,12 +1,12 @@
-package com.corallineage.backend.datasets;
+package com.corallineage.backend.projects;
 
 import com.corallineage.backend.auth.User;
 import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "project_members",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"dataset_id", "user_id"}))
+@Table(name = "project_memberships",
+       uniqueConstraints = @UniqueConstraint(columnNames = {"project_id", "user_id"}))
 public class ProjectMember {
 
     @Id
@@ -14,8 +14,8 @@ public class ProjectMember {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dataset_id", nullable = false)
-    private Dataset dataset;
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -38,8 +38,8 @@ public class ProjectMember {
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public Dataset getDataset() { return dataset; }
-    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }

@@ -1,4 +1,4 @@
-package com.corallineage.backend.datasets;
+package com.corallineage.backend.projects;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

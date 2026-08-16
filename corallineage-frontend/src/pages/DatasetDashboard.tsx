@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  ArrowLeft,
   ArrowRight,
   Box,
   Cpu,
@@ -10,19 +11,16 @@ import {
   Layers,
   Tag,
   Upload,
-  UserPlus,
-  X,
 } from 'lucide-react'
 import { fetchDataset } from '../api/datasets'
+import { fetchProject } from '../api/projects'
 import { fetchVersions } from '../api/versions'
-import { addProjectMember, fetchProjectMembers, removeProjectMember } from '../api/members'
 import { errorMessage } from '../api/client'
 import { formatCount, formatDate } from '../lib/format'
 import { triggerReasonBadge, triggerReasonLabel } from '../constants'
-import { useAuthContext } from '../lib/authContextCore'
 import type { Dataset } from '../types/dataset'
 import type { DatasetVersion } from '../types/version'
-import type { ProjectMember, ProjectRole } from '../types/member'
+import type { Project } from '../types/project'
 
 interface QuickLink {
   to: string
@@ -33,51 +31,32 @@ interface QuickLink {
 
 export default function DatasetDashboard() {
   const navigate = useNavigate()
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
-  const { user } = useAuthContext()
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
 
   const [dataset, setDataset] = useState<Dataset | null>(null)
+  const [parentProject, setParentProject] = useState<Project | null>(null)
   const [latestVersion, setLatestVersion] = useState<DatasetVersion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [members, setMembers] = useState<ProjectMember[]>([])
-  const [membersLoading, setMembersLoading] = useState(true)
-  const [membersError, setMembersError] = useState<string | null>(null)
-  const [newUsername, setNewUsername] = useState('')
-  const [newRole, setNewRole] = useState<ProjectRole>('COLLABORATOR')
-  const [addingMember, setAddingMember] = useState(false)
-  const [addMemberError, setAddMemberError] = useState<string | null>(null)
-
-  const currentMembership = members.find((m) => m.username === user?.username) ?? null
-  const isOwner = currentMembership?.role === 'OWNER'
-
-  function loadMembers() {
-    if (!projectId) return
-    setMembersLoading(true)
-    fetchProjectMembers(projectId)
-      .then((result) => {
-        setMembers(result)
-        setMembersError(null)
-      })
-      .catch((err) => setMembersError(errorMessage(err)))
-      .finally(() => setMembersLoading(false))
-  }
-
   useEffect(() => {
-    if (!projectId) return
+    if (!sourceId) return
     let cancelled = false
     Promise.resolve()
       .then(() => {
         if (!cancelled) setLoading(true)
       })
-    Promise.all([fetchDataset(projectId), fetchVersions(projectId, 0, 1)])
+    Promise.all([fetchDataset(sourceId), fetchVersions(sourceId, 0, 1)])
       .then(([datasetRes, versionsRes]) => {
         if (cancelled) return
         setDataset(datasetRes)
         setLatestVersion(versionsRes.content[0] ?? null)
         setError(null)
+        return datasetRes.projectId != null ? fetchProject(datasetRes.projectId) : null
+      })
+      .then((projectRes) => {
+        if (!cancelled) setParentProject(projectRes ?? null)
       })
       .catch((err) => {
         if (!cancelled) setError(errorMessage(err))
@@ -88,78 +67,47 @@ export default function DatasetDashboard() {
     return () => {
       cancelled = true
     }
-  }, [projectId])
-
-  useEffect(() => {
-    Promise.resolve().then(() => loadMembers())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId])
-
-  async function handleAddMember() {
-    if (!newUsername.trim()) return
-    setAddingMember(true)
-    setAddMemberError(null)
-    try {
-      await addProjectMember(projectId, { username: newUsername.trim(), role: newRole })
-      setNewUsername('')
-      setNewRole('COLLABORATOR')
-      loadMembers()
-    } catch (err) {
-      setAddMemberError(errorMessage(err))
-    } finally {
-      setAddingMember(false)
-    }
-  }
-
-  async function handleRemoveMember(userId: number) {
-    setMembersError(null)
-    try {
-      await removeProjectMember(projectId, userId)
-      loadMembers()
-    } catch (err) {
-      setMembersError(errorMessage(err))
-    }
-  }
+  }, [sourceId])
 
   const quickLinks: QuickLink[] = [
     {
-      to: `/projects/${projectId}/import`,
+      to: `/sources/${sourceId}/import`,
       icon: Upload,
       label: 'Import Data',
       description: 'Bring in new images and annotations',
     },
     {
-      to: `/projects/${projectId}/diff`,
+      to: `/sources/${sourceId}/diff`,
       icon: GitCompare,
       label: 'Compare Versions',
       description: 'Diff two dataset snapshots',
     },
     {
-      to: `/projects/${projectId}/models`,
+      to: `/sources/${sourceId}/models`,
       icon: Box,
       label: 'Model Registry',
       description: 'Browse trained and registered models',
     },
     {
-      to: `/projects/${projectId}/training`,
+      to: `/sources/${sourceId}/training`,
       icon: Cpu,
       label: 'Training Jobs',
-      description: 'Fine-tune a model on this project',
+      description: 'Fine-tune a model on this source',
     },
     {
-      to: `/projects/${projectId}/annotation`,
+      to: `/sources/${sourceId}/annotation`,
       icon: Tag,
       label: 'Annotation Jobs',
       description: 'Whole-image inference and review',
     },
     {
-      to: `/projects/${projectId}/point-annotation`,
+      to: `/sources/${sourceId}/point-annotation`,
       icon: Crosshair,
       label: 'Point Annotation',
       description: 'CoralNet-style point labeling jobs',
     },
     {
-      to: `/projects/${projectId}/ontology`,
+      to: `/sources/${sourceId}/ontology`,
       icon: Layers,
       label: 'Ontology Changes',
       description: 'Label vocabulary history and dirty flags',
@@ -170,14 +118,34 @@ export default function DatasetDashboard() {
     <>
       <div className="topbar">
         <div>
-          <div className="topbar-title">{dataset ? dataset.datasetName : 'Project'}</div>
+          {dataset?.projectId != null && (
+            <button
+              onClick={() => navigate(`/projects/${dataset.projectId}`)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 12,
+                color: 'var(--text-muted)',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                marginBottom: 6,
+              }}
+            >
+              <ArrowLeft size={12} strokeWidth={1.5} />
+              {parentProject ? parentProject.projectName : 'Back to project'}
+            </button>
+          )}
+          <div className="topbar-title">{dataset ? dataset.datasetName : 'Source'}</div>
           <div className="topbar-sub">
-            {dataset ? dataset.description || 'No description' : 'Project overview'}
+            {dataset ? dataset.description || 'No description' : 'Source overview'}
           </div>
         </div>
         <button
           className="btn btn-primary"
-          onClick={() => navigate(`/projects/${projectId}/versions`)}
+          onClick={() => navigate(`/sources/${sourceId}/versions`)}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           <GitBranch size={14} strokeWidth={1.5} />
@@ -194,7 +162,7 @@ export default function DatasetDashboard() {
 
         {loading ? (
           <div className="loading-state">
-            <span className="spinner" /> Loading project…
+            <span className="spinner" /> Loading source…
           </div>
         ) : (
           dataset && (
@@ -207,7 +175,7 @@ export default function DatasetDashboard() {
                     trained against until resolved.
                   </span>
                   <Link
-                    to={`/projects/${projectId}/ontology?datasetVersionId=${latestVersion.id}`}
+                    to={`/sources/${sourceId}/ontology?datasetVersionId=${latestVersion.id}`}
                     className="badge badge-amber"
                     style={{ textDecoration: 'none', flexShrink: 0 }}
                   >
@@ -279,7 +247,7 @@ export default function DatasetDashboard() {
                     </div>
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={() => navigate(`/projects/${projectId}/versions/${latestVersion.id}`)}
+                      onClick={() => navigate(`/sources/${sourceId}/versions/${latestVersion.id}`)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
                       Open version <ArrowRight size={12} strokeWidth={1.5} />
@@ -289,103 +257,6 @@ export default function DatasetDashboard() {
                   <div className="empty-state">
                     <p>No versions yet. Import data or create a snapshot to get started.</p>
                   </div>
-                )}
-              </div>
-
-              <div className="section-header">
-                <div className="section-title">Collaborators</div>
-              </div>
-              <div className="card" style={{ padding: 16, marginBottom: 24 }}>
-                {membersError && (
-                  <div className="alert alert-error" style={{ marginBottom: 12 }}>
-                    {membersError}
-                  </div>
-                )}
-                {membersLoading ? (
-                  <div className="loading-state">
-                    <span className="spinner" /> Loading collaborators…
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: isOwner ? 16 : 0 }}>
-                      {members.map((member) => (
-                        <div
-                          key={member.userId}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 13, fontWeight: 500 }}>{member.displayName}</span>
-                            <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                              {member.username}
-                            </span>
-                            <span className={`badge ${member.role === 'OWNER' ? 'badge-blue' : 'badge-gray'}`}>
-                              {member.role === 'OWNER' ? 'Owner' : 'Collaborator'}
-                            </span>
-                          </div>
-                          {isOwner && !(member.role === 'OWNER' && members.filter((m) => m.role === 'OWNER').length <= 1) && (
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleRemoveMember(member.userId)}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            >
-                              <X size={12} strokeWidth={1.5} />
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {isOwner && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                        <div className="form-row" style={{ marginBottom: 0, flex: 1, minWidth: 160 }}>
-                          <label className="form-label" htmlFor="newMemberUsername">
-                            Add collaborator by username
-                          </label>
-                          <input
-                            id="newMemberUsername"
-                            className="form-input"
-                            placeholder="username"
-                            value={newUsername}
-                            onChange={(e) => setNewUsername(e.target.value)}
-                          />
-                        </div>
-                        <div className="form-row" style={{ marginBottom: 0 }}>
-                          <label className="form-label" htmlFor="newMemberRole">
-                            Role
-                          </label>
-                          <select
-                            id="newMemberRole"
-                            className="form-select"
-                            value={newRole}
-                            onChange={(e) => setNewRole(e.target.value as ProjectRole)}
-                          >
-                            <option value="COLLABORATOR">Collaborator</option>
-                            <option value="OWNER">Owner</option>
-                          </select>
-                        </div>
-                        <button
-                          className="btn btn-primary"
-                          onClick={handleAddMember}
-                          disabled={addingMember || !newUsername.trim()}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                        >
-                          <UserPlus size={14} strokeWidth={1.5} />
-                          {addingMember ? 'Adding…' : 'Add'}
-                        </button>
-                      </div>
-                    )}
-                    {addMemberError && (
-                      <div className="alert alert-error" style={{ marginTop: 12 }}>
-                        {addMemberError}
-                      </div>
-                    )}
-                  </>
                 )}
               </div>
 

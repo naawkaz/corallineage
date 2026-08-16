@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Bar,
@@ -20,10 +20,10 @@ import type { DatasetDiff } from '../types/diff'
 import type { DatasetVersion } from '../types/version'
 
 export default function DatasetDiffPage() {
-  const { projectId: projectIdParam } = useParams()
-  const projectId = Number(projectIdParam)
+  const { sourceId: sourceIdParam } = useParams()
+  const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
-  const project = datasets.find((d) => d.id === projectId) ?? null
+  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [fromVersionId, setFromVersionId] = useState<number | null>(null)
@@ -34,7 +34,7 @@ export default function DatasetDiffPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchVersions(projectId, 0, 50)
+    fetchVersions(sourceId, 0, 50)
       .then((res) => {
         setVersions(res.content)
         if (res.content.length >= 2) {
@@ -45,14 +45,14 @@ export default function DatasetDiffPage() {
         }
       })
       .catch(() => setVersions([]))
-  }, [projectId])
+  }, [sourceId])
 
   async function handleCompare() {
     if (!fromVersionId || !toVersionId) return
     setLoading(true)
     setError(null)
     try {
-      const result = await fetchDatasetDiff(projectId, fromVersionId, toVersionId)
+      const result = await fetchDatasetDiff(sourceId, fromVersionId, toVersionId)
       setDiff(result)
     } catch (err) {
       setDiff(null)
@@ -68,7 +68,7 @@ export default function DatasetDiffPage() {
         <div>
           <div className="topbar-title">Compare Versions</div>
           <div className="topbar-sub">
-            {project ? `Diff two versions of ${project.datasetName}` : 'Diff two versions'}
+            {source ? `Diff two versions of ${source.datasetName}` : 'Diff two versions'}
           </div>
         </div>
       </div>

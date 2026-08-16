@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ClipboardList } from 'lucide-react'
 import { fetchEvents } from '../api/events'
@@ -35,10 +35,10 @@ function eventTypeColor(type: EventType): string {
 }
 
 export default function EventLog() {
-  const { projectId: projectIdParam } = useParams<{ projectId?: string }>()
-  const projectId = projectIdParam ? Number(projectIdParam) : undefined
+  const { sourceId: sourceIdParam } = useParams<{ sourceId?: string }>()
+  const sourceId = sourceIdParam ? Number(sourceIdParam) : undefined
   const { datasets } = useDatasetContext()
-  const project = projectId ? datasets.find((d) => d.id === projectId) ?? null : null
+  const source = sourceId ? datasets.find((d) => d.id === sourceId) ?? null : null
 
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Page<AnnotationEvent> | null>(null)
@@ -54,7 +54,7 @@ export default function EventLog() {
 
   useEffect(() => {
     let cancelled = false
-    fetchEvents({ ...appliedFilters, datasetId: projectId }, page, PAGE_SIZE)
+    fetchEvents({ ...appliedFilters, datasetId: sourceId }, page, PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setData(res)
@@ -70,7 +70,7 @@ export default function EventLog() {
     return () => {
       cancelled = true
     }
-  }, [appliedFilters, page, projectId])
+  }, [appliedFilters, page, sourceId])
 
   function applyFilters() {
     setPage(0)
@@ -100,7 +100,7 @@ export default function EventLog() {
       <div className="topbar">
         <div>
           <div className="topbar-title">
-            {project ? `Event Log — ${project.datasetName}` : 'Global Event Log'}
+            {source ? `Event Log — ${source.datasetName}` : 'Global Event Log'}
           </div>
           <div className="topbar-sub">Immutable, append-only record of every workflow action</div>
         </div>

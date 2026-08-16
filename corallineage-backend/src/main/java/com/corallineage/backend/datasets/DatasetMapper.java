@@ -8,6 +8,7 @@ public class DatasetMapper {
     public DatasetResponse toResponse(Dataset dataset) {
         DatasetResponse response = new DatasetResponse();
         response.setId(dataset.getId());
+        response.setProjectId(dataset.getProject() != null ? dataset.getProject().getId() : null);
         response.setDatasetName(dataset.getDatasetName());
         response.setDescription(dataset.getDescription());
         response.setCreatedBy(dataset.getCreatedBy());

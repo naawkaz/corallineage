@@ -1,4 +1,4 @@
-package com.corallineage.backend.datasets;
+package com.corallineage.backend.projects;
 
 public enum ProjectRole {
     OWNER,

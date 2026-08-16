@@ -1,5 +1,6 @@
 export interface Dataset {
   id: number
+  projectId: number | null
   datasetName: string
   description: string | null
   createdBy: string
