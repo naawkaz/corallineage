@@ -7,10 +7,11 @@ export async function fetchImages(
   versionId: number,
   page: number,
   size: number,
+  humanLabeled?: boolean,
 ): Promise<Page<DatasetImage>> {
   const { data } = await api.get<Page<DatasetImage>>(
     `/datasets/${datasetId}/versions/${versionId}/images`,
-    { params: { page, size } },
+    { params: { page, size, humanLabeled } },
   )
   return data
 }

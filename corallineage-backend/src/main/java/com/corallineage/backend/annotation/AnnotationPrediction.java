@@ -48,6 +48,22 @@ public class AnnotationPrediction {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
+    // Real pixel coordinates of the point this prediction was made against, copied from the
+    // GeneratedPoint-equivalent grid position (Mode B) or the source AnnotationPoint (Mode A).
+    // Nullable for backward compatibility with predictions created by the legacy whole-image
+    // path, which never had a real point position (the old review UI hardcoded a center dot).
+    @Column(name = "row_position")
+    private Integer rowPosition;
+
+    @Column(name = "col_position")
+    private Integer colPosition;
+
+    // Set only for VALIDATION-mode jobs: true when predictedLabelCode matches the source
+    // human-given AnnotationPoint's label code, false when it does not, null for NEW_IMAGES-mode
+    // (and legacy) jobs where there is no human ground truth to compare against.
+    @Column(name = "agrees_with_human")
+    private Boolean agreesWithHuman;
+
     // --- getters and setters ---
 
     public Long getId() { return id; }
@@ -79,4 +95,13 @@ public class AnnotationPrediction {
 
     public Instant getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+
+    public Integer getRowPosition() { return rowPosition; }
+    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+
+    public Integer getColPosition() { return colPosition; }
+    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
+
+    public Boolean getAgreesWithHuman() { return agreesWithHuman; }
+    public void setAgreesWithHuman(Boolean agreesWithHuman) { this.agreesWithHuman = agreesWithHuman; }
 }

@@ -18,6 +18,26 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
     Optional<AnnotationPoint> findByImageIdAndPointIndex(Long imageId, Integer pointIndex);
 
     /**
+     * Every point on a given image with a given source (e.g. all {@code HUMAN} ground-truth
+     * points), used by the annotation module's "Validate against human labels" job mode to
+     * build the point set a model's predictions are compared against.
+     */
+    List<AnnotationPoint> findByImageIdAndAnnotationSource(Long imageId, String annotationSource);
+
+    /**
+     * Ids of every image currently a MEMBER of {@code datasetVersionId} (via
+     * {@link DatasetVersionImage}) that has at least one point whose annotation source is in
+     * {@code sources} (typically just {@code HUMAN}), backs the "has human-labeled points"
+     * default-selection filter on the annotation job Submit page's Mode A image list.
+     */
+    @Query("select distinct dvi.image.id from DatasetVersionImage dvi "
+            + "where dvi.datasetVersion.id = :datasetVersionId "
+            + "and exists (select 1 from AnnotationPoint ap where ap.image = dvi.image "
+            + "and ap.annotationSource in :sources)")
+    List<Long> findDistinctImageIdsByDatasetVersionAndAnnotationSourceIn(@Param("datasetVersionId") Long datasetVersionId,
+                                                                          @Param("sources") List<String> sources);
+
+    /**
      * Highest pointIndex already used on this image (-1 if none). Point-annotation grid generation
      * starts its own indices after this, so a freshly generated grid can never collide with — and
      * silently overwrite — an image's pre-existing points (e.g. from a CoralNet CSV/MLC import).

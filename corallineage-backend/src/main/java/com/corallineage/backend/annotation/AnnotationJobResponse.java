@@ -16,6 +16,11 @@ public class AnnotationJobResponse {
     private Long totalPredictions;
     private Long reviewedPredictions;
     private String errorMessage;
+    private String jobType;
+    private Long datasetVersionId;
+    private Long correctPredictions;
+    private Double accuracyPercent;
+    private Long addedToProjectVersionId;
 
     public Long getJobId() { return jobId; }
     public void setJobId(Long jobId) { this.jobId = jobId; }
@@ -52,4 +57,19 @@ public class AnnotationJobResponse {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public String getJobType() { return jobType; }
+    public void setJobType(String jobType) { this.jobType = jobType; }
+
+    public Long getDatasetVersionId() { return datasetVersionId; }
+    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+
+    public Long getCorrectPredictions() { return correctPredictions; }
+    public void setCorrectPredictions(Long correctPredictions) { this.correctPredictions = correctPredictions; }
+
+    public Double getAccuracyPercent() { return accuracyPercent; }
+    public void setAccuracyPercent(Double accuracyPercent) { this.accuracyPercent = accuracyPercent; }
+
+    public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
+    public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
 }

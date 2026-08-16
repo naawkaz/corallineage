@@ -1,23 +1,45 @@
 package com.corallineage.backend.annotation;
 
 import com.corallineage.backend.datasets.Dataset;
+import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.registry.model.ModelVersionRepository;
+import com.corallineage.backend.versioning.dataset.AnnotationPoint;
+import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
+import com.corallineage.backend.versioning.dataset.CreateVersionRequest;
+import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImage;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
+import com.corallineage.backend.versioning.dataset.LabelDefinition;
+import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
+import com.corallineage.backend.versioning.dataset.TriggerReason;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class AnnotationJobService {
@@ -29,6 +51,11 @@ public class AnnotationJobService {
     private final AnnotationJobMapper annotationJobMapper;
     private final AnnotationJobExecutor annotationJobExecutor;
     private final AnnotationEventLoggerService annotationEventLoggerService;
+    private final DatasetVersionRepository datasetVersionRepository;
+    private final DatasetVersionImageRepository datasetVersionImageRepository;
+    private final AnnotationPointRepository annotationPointRepository;
+    private final LabelDefinitionRepository labelDefinitionRepository;
+    private final DatasetVersionService datasetVersionService;
 
     public AnnotationJobService(AnnotationJobRepository annotationJobRepository,
                                 AnnotationPredictionRepository annotationPredictionRepository,
@@ -36,7 +63,12 @@ public class AnnotationJobService {
                                 ImageRepository imageRepository,
                                 AnnotationJobMapper annotationJobMapper,
                                 AnnotationJobExecutor annotationJobExecutor,
-                                AnnotationEventLoggerService annotationEventLoggerService) {
+                                AnnotationEventLoggerService annotationEventLoggerService,
+                                DatasetVersionRepository datasetVersionRepository,
+                                DatasetVersionImageRepository datasetVersionImageRepository,
+                                AnnotationPointRepository annotationPointRepository,
+                                LabelDefinitionRepository labelDefinitionRepository,
+                                DatasetVersionService datasetVersionService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.modelVersionRepository = modelVersionRepository;
@@ -44,7 +76,15 @@ public class AnnotationJobService {
         this.annotationJobMapper = annotationJobMapper;
         this.annotationJobExecutor = annotationJobExecutor;
         this.annotationEventLoggerService = annotationEventLoggerService;
+        this.datasetVersionRepository = datasetVersionRepository;
+        this.datasetVersionImageRepository = datasetVersionImageRepository;
+        this.annotationPointRepository = annotationPointRepository;
+        this.labelDefinitionRepository = labelDefinitionRepository;
+        this.datasetVersionService = datasetVersionService;
     }
+
+    // --- Legacy whole-image submit path (kept for backward compatibility; no longer exposed by
+    // the frontend, which now submits through submitValidationJob/submitNewImagesJob instead). ---
 
     @Transactional
     public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request) {
@@ -77,21 +117,226 @@ public class AnnotationJobService {
         return annotationJobMapper.toResponse(saved, 0, 0);
     }
 
+    // --- Mode A: "Validate against human labels" ---
+
+    @Transactional
+    public AnnotationJobResponse submitValidationJob(SubmitValidationJobRequest request) {
+        ModelVersion model = modelVersionRepository.findById(request.getModelVersionId())
+                .orElseThrow(() -> new NotFoundException("Model not found: " + request.getModelVersionId()));
+        if (!"ACTIVE".equals(model.getStatus())) {
+            throw new InvalidRequestException(
+                    "Model " + model.getModelTag() + " is not ACTIVE (status: " + model.getStatus() + ")");
+        }
+
+        DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
+                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+
+        List<Image> images = imageRepository.findAllById(request.getImageIds());
+        if (images.size() != request.getImageIds().size()) {
+            throw new NotFoundException("One or more images not found");
+        }
+        for (Long imageId : request.getImageIds()) {
+            if (!datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(version.getId(), imageId)) {
+                throw new InvalidRequestException(
+                        "Image " + imageId + " is not a member of dataset version " + version.getId());
+            }
+        }
+
+        AnnotationJob job = new AnnotationJob();
+        job.setModelVersion(model);
+        job.setDataset(version.getDataset());
+        job.setDatasetVersion(version);
+        job.setJobType("VALIDATION");
+        job.setInitiatedBy(request.getInitiatedBy());
+        job.setStatus("RUNNING");
+        job.setImageIds(request.getImageIds());
+        // No accept/override step for a validation job (it's a direct comparison, not a
+        // labeling workflow), so reviewStatus starts already resolved rather than PENDING.
+        job.setReviewStatus("COMPLETED");
+        AnnotationJob saved = annotationJobRepository.save(job);
+
+        logAfterCommit(EventType.ANNOTATION_JOB_STARTED, saved,
+                "Validation job started with model " + model.getModelTag() + " against " + images.size()
+                        + " image(s) of human-labeled ground truth");
+        dispatchValidationAfterCommit(saved.getId());
+
+        return annotationJobMapper.toResponse(saved, 0, 0, 0);
+    }
+
+    // --- Mode B: "Annotate new images" ---
+
+    @Transactional
+    public AnnotationJobResponse submitNewImagesJob(Long modelVersionId, Long datasetId, String initiatedBy,
+                                                     int pointsPerImage, MultipartFile[] files) {
+        ModelVersion model = modelVersionRepository.findById(modelVersionId)
+                .orElseThrow(() -> new NotFoundException("Model not found: " + modelVersionId));
+        if (!"ACTIVE".equals(model.getStatus())) {
+            throw new InvalidRequestException(
+                    "Model " + model.getModelTag() + " is not ACTIVE (status: " + model.getStatus() + ")");
+        }
+        if (files == null || files.length == 0) {
+            throw new InvalidRequestException("At least one image file is required");
+        }
+
+        Path uploadDir = persistUpload(files);
+
+        AnnotationJob job = new AnnotationJob();
+        job.setModelVersion(model);
+        // job.dataset is set once the executor resolves the target Dataset; left null here would
+        // violate no DB constraint (dataset is nullable, see AnnotationJob's own javadoc) but the
+        // executor still needs a datasetId to work against, passed through directly below rather
+        // than round-tripped through the entity before the async dispatch.
+        job.setJobType("NEW_IMAGES");
+        job.setInitiatedBy(initiatedBy);
+        job.setStatus("RUNNING");
+        job.setReviewStatus("PENDING");
+        job.setImageIds(List.of());
+        AnnotationJob saved = annotationJobRepository.save(job);
+
+        logAfterCommit(EventType.ANNOTATION_JOB_STARTED, saved,
+                "New-images annotation job started with model " + model.getModelTag() + " on "
+                        + files.length + " uploaded image(s)");
+        dispatchNewImagesAfterCommit(saved.getId(), datasetId, uploadDir, pointsPerImage);
+
+        return annotationJobMapper.toResponse(saved, 0, 0);
+    }
+
+    /** Mirrors DatasetImportService.persistUpload, minus the relative-path directory structure (flat file list here). */
+    private Path persistUpload(MultipartFile[] files) {
+        try {
+            Path tempDir = Files.createTempDirectory("coral-annotation-upload-");
+            for (MultipartFile file : files) {
+                String filename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "image";
+                Path resolved = tempDir.resolve(filename).normalize();
+                if (!resolved.startsWith(tempDir)) {
+                    throw new InvalidRequestException("Uploaded file name escapes upload directory: " + filename);
+                }
+                try (var in = file.getInputStream()) {
+                    Files.copy(in, resolved, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+            return tempDir;
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Failed to read uploaded images", ex);
+        }
+    }
+
+    /**
+     * Commits a fully-reviewed NEW_IMAGES job's images and final point labels into a new, real
+     * dataset version on the project, branched from the dataset's current latest version.
+     */
+    @Transactional
+    public AnnotationJobResponse addToProject(Long jobId, AddToProjectRequest request) {
+        AnnotationJob job = findOrThrow(jobId);
+        if (!"NEW_IMAGES".equals(job.getJobType())) {
+            throw new InvalidRequestException("Only NEW_IMAGES jobs can be added to a project");
+        }
+        if (!"COMPLETED".equals(job.getReviewStatus())) {
+            throw new InvalidRequestException("All points must be reviewed (accepted or overridden) before adding to a project");
+        }
+        if (job.getAddedToProjectVersionId() != null) {
+            throw new ConflictException("Job " + jobId + " was already added to the project as dataset version "
+                    + job.getAddedToProjectVersionId());
+        }
+        if (job.getDataset() == null) {
+            throw new InvalidRequestException("Job " + jobId + " has no staged images to add");
+        }
+
+        Long datasetId = job.getDataset().getId();
+        DatasetVersion branchPoint = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+
+        CreateVersionRequest versionRequest = new CreateVersionRequest();
+        versionRequest.setVersionTag(request.getVersionTag());
+        versionRequest.setTriggerReason(TriggerReason.IMAGES_ADDED);
+        versionRequest.setCreatedBy(request.getCreatedBy());
+        versionRequest.setNotes(request.getNotes() != null ? request.getNotes()
+                : "Added from annotation job #" + jobId + " (" + job.getImageIds().size() + " reviewed image(s))");
+        DatasetVersionResponse versionResponse = datasetVersionService.createSnapshotBranchedFrom(datasetId, versionRequest, branchPoint);
+        DatasetVersion newVersion = datasetVersionRepository.findById(versionResponse.getId())
+                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
+
+        List<Image> jobImages = imageRepository.findAllById(job.getImageIds());
+        Set<Long> alreadyMember = new HashSet<>();
+        for (Image image : jobImages) {
+            if (datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(newVersion.getId(), image.getId())) {
+                alreadyMember.add(image.getId());
+            }
+        }
+        List<DatasetVersionImage> newMembership = new ArrayList<>();
+        for (Image image : jobImages) {
+            if (!alreadyMember.contains(image.getId())) {
+                DatasetVersionImage membership = new DatasetVersionImage();
+                membership.setDatasetVersion(newVersion);
+                membership.setImage(image);
+                newMembership.add(membership);
+            }
+        }
+        datasetVersionImageRepository.saveAll(newMembership);
+
+        List<AnnotationPrediction> predictions = annotationPredictionRepository.findByAnnotationJobId(jobId);
+        List<AnnotationPoint> newPoints = new ArrayList<>();
+        for (AnnotationPrediction prediction : predictions) {
+            boolean accepted = Boolean.TRUE.equals(prediction.getAccepted());
+            String finalCode = accepted ? prediction.getPredictedLabelCode() : prediction.getCorrectedLabelCode();
+            if (finalCode == null) {
+                continue; // shouldn't happen once reviewStatus == COMPLETED, but skip defensively
+            }
+            LabelDefinition label = resolveOrDeclareLabel(newVersion, finalCode);
+
+            AnnotationPoint point = new AnnotationPoint();
+            point.setImage(prediction.getImage());
+            point.setPointIndex(prediction.getPointIndex());
+            point.setRowPosition(prediction.getRowPosition() != null ? prediction.getRowPosition() : 0);
+            point.setColPosition(prediction.getColPosition() != null ? prediction.getColPosition() : 0);
+            point.setLabelDefinition(label);
+            point.setAnnotationSource(accepted ? "MODEL_PREDICTED" : "MODEL_CORRECTED");
+            point.setConfidenceScore(accepted ? prediction.getConfidenceScore() : null);
+            point.setAnnotatedBy(request.getCreatedBy());
+            newPoints.add(point);
+        }
+        annotationPointRepository.saveAll(newPoints);
+
+        newVersion.setImageCount(newVersion.getImageCount() + newMembership.size());
+        newVersion.setAnnotationCount(newVersion.getAnnotationCount() + newPoints.size());
+        datasetVersionRepository.save(newVersion);
+
+        job.setAddedToProjectVersionId(newVersion.getId());
+        annotationJobRepository.save(job);
+
+        return annotationJobMapper.toResponse(job, countTotal(jobId), countReviewed(jobId));
+    }
+
+    private LabelDefinition resolveOrDeclareLabel(DatasetVersion version, String code) {
+        return labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(version.getId(), code)
+                .orElseGet(() -> {
+                    LabelDefinition label = new LabelDefinition();
+                    label.setDatasetVersion(version);
+                    label.setLabelCode(code);
+                    label.setLabelName(code);
+                    return labelDefinitionRepository.save(label);
+                });
+    }
+
     @Transactional(readOnly = true)
     public AnnotationJobResponse getJobById(Long id) {
         AnnotationJob job = findOrThrow(id);
+        if ("VALIDATION".equals(job.getJobType())) {
+            return annotationJobMapper.toResponse(job, countTotal(id), countReviewed(id), countCorrect(id));
+        }
         return annotationJobMapper.toResponse(job, countTotal(id), countReviewed(id));
     }
 
     @Transactional(readOnly = true)
     public Page<AnnotationJobResponse> getJobs(Long datasetId, Pageable pageable) {
         return annotationJobRepository.findByDataset_IdOrderByInitiatedAtDesc(datasetId, pageable)
-                .map(job -> annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
+                .map(job -> "VALIDATION".equals(job.getJobType())
+                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()), countCorrect(job.getId()))
+                        : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
     /**
      * Derives the job's dataset server-side from the submitted images rather than trusting a
-     * client-supplied dataset id — every image must belong to the same dataset (via its
+     * client-supplied dataset id, every image must belong to the same dataset (via its
      * datasetVersion.dataset), matching the invariant the UI's image picker already enforces.
      */
     private Dataset resolveCommonDataset(List<Image> images) {
@@ -128,6 +373,10 @@ public class AnnotationJobService {
     @Transactional
     public AnnotationPredictionResponse reviewPrediction(Long jobId, Long predictionId, ReviewPredictionRequest request) {
         AnnotationJob job = findOrThrow(jobId);
+        if ("VALIDATION".equals(job.getJobType())) {
+            throw new InvalidRequestException(
+                    "Validation jobs cannot be reviewed; they are a direct model-versus-human-label comparison, not a labeling workflow");
+        }
         AnnotationPrediction prediction = annotationPredictionRepository.findById(predictionId)
                 .orElseThrow(() -> new NotFoundException("Prediction not found: " + predictionId));
         if (!prediction.getAnnotationJob().getId().equals(jobId)) {
@@ -176,6 +425,10 @@ public class AnnotationJobService {
         return annotationPredictionRepository.countByAnnotationJobIdAndAcceptedIsNotNull(jobId);
     }
 
+    private long countCorrect(Long jobId) {
+        return annotationPredictionRepository.countByAnnotationJobIdAndAgreesWithHumanTrue(jobId);
+    }
+
     private AnnotationJob findOrThrow(Long id) {
         return annotationJobRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Annotation job not found: " + id));
@@ -183,7 +436,7 @@ public class AnnotationJobService {
 
     /**
      * The @Async executor lives on a separate bean (AnnotationJobExecutor) rather than a method on
-     * this class — mirrors TrainingJobService/TrainingJobExecutor's split, needed because Spring's
+     * this class, mirrors TrainingJobService/TrainingJobExecutor's split, needed because Spring's
      * @Async proxy does not intercept same-class self-invocation.
      */
     private void dispatchAfterCommit(Long jobId) {
@@ -196,6 +449,32 @@ public class AnnotationJobService {
             });
         } else {
             annotationJobExecutor.executeAnnotationAsync(jobId);
+        }
+    }
+
+    private void dispatchValidationAfterCommit(Long jobId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    annotationJobExecutor.executeValidationAsync(jobId);
+                }
+            });
+        } else {
+            annotationJobExecutor.executeValidationAsync(jobId);
+        }
+    }
+
+    private void dispatchNewImagesAfterCommit(Long jobId, Long datasetId, Path uploadDir, int pointsPerImage) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, pointsPerImage);
+                }
+            });
+        } else {
+            annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, pointsPerImage);
         }
     }
 

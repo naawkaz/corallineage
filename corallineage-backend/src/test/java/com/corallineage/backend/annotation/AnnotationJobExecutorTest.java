@@ -1,10 +1,15 @@
 package com.corallineage.backend.annotation;
 
+import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.training.AnnotateResult;
 import com.corallineage.backend.training.MlServiceException;
 import com.corallineage.backend.training.PythonMlServiceClient;
+import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
 import org.junit.jupiter.api.Test;
@@ -35,12 +40,19 @@ class AnnotationJobExecutorTest {
     @Mock private AnnotationJobRepository annotationJobRepository;
     @Mock private AnnotationPredictionRepository annotationPredictionRepository;
     @Mock private ImageRepository imageRepository;
+    @Mock private AnnotationPointRepository annotationPointRepository;
+    @Mock private DatasetRepository datasetRepository;
+    @Mock private DatasetVersionRepository datasetVersionRepository;
+    @Mock private DatasetVersionImageRepository datasetVersionImageRepository;
+    @Mock private DatasetVersionService datasetVersionService;
     @Mock private PythonMlServiceClient pythonMlServiceClient;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
 
     private AnnotationJobExecutor newExecutor(Path workingDirectory) {
         return new AnnotationJobExecutor(annotationJobRepository, annotationPredictionRepository,
-                imageRepository, pythonMlServiceClient, annotationEventLoggerService, workingDirectory);
+                imageRepository, annotationPointRepository, datasetRepository, datasetVersionRepository,
+                datasetVersionImageRepository, datasetVersionService, pythonMlServiceClient,
+                annotationEventLoggerService, workingDirectory, "dataset", 64);
     }
 
     private ModelVersion model() {

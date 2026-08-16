@@ -1,5 +1,6 @@
 export type AnnotationJobStatus = 'RUNNING' | 'COMPLETED' | 'FAILED'
 export type AnnotationReviewStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+export type AnnotationJobType = 'VALIDATION' | 'NEW_IMAGES'
 
 export interface AnnotationJob {
   jobId: number
@@ -14,6 +15,11 @@ export interface AnnotationJob {
   totalPredictions: number
   reviewedPredictions: number
   errorMessage: string | null
+  jobType: AnnotationJobType | null
+  datasetVersionId: number | null
+  correctPredictions: number | null
+  accuracyPercent: number | null
+  addedToProjectVersionId: number | null
 }
 
 export interface AnnotationPrediction {
@@ -26,6 +32,9 @@ export interface AnnotationPrediction {
   accepted: boolean | null
   correctedLabelCode: string | null
   reviewedBy: string | null
+  rowPosition: number | null
+  colPosition: number | null
+  agreesWithHuman: boolean | null
 }
 
 export interface InitiateAnnotationJobRequest {
@@ -38,4 +47,17 @@ export interface ReviewPredictionRequest {
   accepted: boolean
   correctedLabelCode?: string
   reviewedBy: string
+}
+
+export interface SubmitValidationJobRequest {
+  modelVersionId: number
+  datasetVersionId: number
+  imageIds: number[]
+  initiatedBy: string
+}
+
+export interface AddToProjectRequest {
+  versionTag: string
+  notes?: string
+  createdBy: string
 }

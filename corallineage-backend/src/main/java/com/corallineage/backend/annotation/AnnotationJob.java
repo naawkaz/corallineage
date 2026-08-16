@@ -2,6 +2,7 @@ package com.corallineage.backend.annotation;
 
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.registry.model.ModelVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -57,6 +58,26 @@ public class AnnotationJob {
     @Column(name = "review_status", nullable = false, length = 50)
     private String reviewStatus = "PENDING";
 
+    // Values: VALIDATION (recheck model accuracy against existing human labels, no review step),
+    // NEW_IMAGES (bulk-label freshly uploaded images, Accept/Override review then Add to Project).
+    // Nullable for backward compatibility: rows created by the legacy whole-image submit path
+    // (still reachable internally, no longer exposed by the frontend) leave this null.
+    @Column(name = "job_type", length = 20)
+    private String jobType;
+
+    // VALIDATION: the dataset version the selected images/points were checked against.
+    // NEW_IMAGES: the staging dataset version created to hold the freshly uploaded images until
+    // reviewed and added to the project (see AnnotationJobExecutor.executeNewImagesAsync).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dataset_version_id")
+    private DatasetVersion datasetVersion;
+
+    // Set once a NEW_IMAGES job's reviewed points have been committed into a real project
+    // dataset version via "Add to Project", null until then, and permanently sentinel-guards
+    // against adding the same job's images twice.
+    @Column(name = "added_to_project_version_id")
+    private Long addedToProjectVersionId;
+
     @PrePersist
     protected void onCreate() {
         if (initiatedAt == null) initiatedAt = Instant.now();
@@ -93,4 +114,13 @@ public class AnnotationJob {
 
     public String getReviewStatus() { return reviewStatus; }
     public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+
+    public String getJobType() { return jobType; }
+    public void setJobType(String jobType) { this.jobType = jobType; }
+
+    public DatasetVersion getDatasetVersion() { return datasetVersion; }
+    public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
+
+    public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
+    public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
 }

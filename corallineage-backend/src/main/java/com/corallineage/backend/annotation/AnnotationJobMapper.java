@@ -19,6 +19,18 @@ public class AnnotationJobMapper {
         response.setTotalPredictions(totalPredictions);
         response.setReviewedPredictions(reviewedPredictions);
         response.setErrorMessage(job.getErrorMessage());
+        response.setJobType(job.getJobType());
+        response.setDatasetVersionId(job.getDatasetVersion() != null ? job.getDatasetVersion().getId() : null);
+        response.setAddedToProjectVersionId(job.getAddedToProjectVersionId());
+        return response;
+    }
+
+    /** VALIDATION-mode overload: also carries the correct/total accuracy summary. */
+    public AnnotationJobResponse toResponse(AnnotationJob job, long totalPredictions, long reviewedPredictions,
+                                            long correctPredictions) {
+        AnnotationJobResponse response = toResponse(job, totalPredictions, reviewedPredictions);
+        response.setCorrectPredictions(correctPredictions);
+        response.setAccuracyPercent(totalPredictions > 0 ? (correctPredictions * 100.0) / totalPredictions : null);
         return response;
     }
 
@@ -34,6 +46,9 @@ public class AnnotationJobMapper {
         response.setCorrectedLabelCode(prediction.getCorrectedLabelCode());
         response.setReviewedBy(prediction.getReviewedBy());
         response.setReviewedAt(prediction.getReviewedAt());
+        response.setRowPosition(prediction.getRowPosition());
+        response.setColPosition(prediction.getColPosition());
+        response.setAgreesWithHuman(prediction.getAgreesWithHuman());
         return response;
     }
 }

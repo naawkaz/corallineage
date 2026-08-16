@@ -7,9 +7,14 @@ import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.registry.model.ModelVersionRepository;
+import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
+import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
+import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -40,13 +45,19 @@ class AnnotationJobServiceTest {
     @Mock private ImageRepository imageRepository;
     @Mock private AnnotationJobExecutor annotationJobExecutor;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock private DatasetVersionRepository datasetVersionRepository;
+    @Mock private DatasetVersionImageRepository datasetVersionImageRepository;
+    @Mock private AnnotationPointRepository annotationPointRepository;
+    @Mock private LabelDefinitionRepository labelDefinitionRepository;
+    @Mock private DatasetVersionService datasetVersionService;
 
     private final AnnotationJobMapper annotationJobMapper = new AnnotationJobMapper();
 
     private AnnotationJobService newService() {
         return new AnnotationJobService(annotationJobRepository, annotationPredictionRepository,
                 modelVersionRepository, imageRepository, annotationJobMapper, annotationJobExecutor,
-                annotationEventLoggerService);
+                annotationEventLoggerService, datasetVersionRepository, datasetVersionImageRepository,
+                annotationPointRepository, labelDefinitionRepository, datasetVersionService);
     }
 
     private ModelVersion model(Long id, String status) {
@@ -235,6 +246,131 @@ class AnnotationJobServiceTest {
         assertThat(response.getAccepted()).isFalse();
         assertThat(job.getReviewStatus()).isEqualTo("COMPLETED");
         verify(annotationEventLoggerService).log(eq(EventType.HUMAN_CORRECTION), any(), eq(job.getModelVersion()), any(), any());
+    }
+
+    private SubmitValidationJobRequest validationRequest(Long modelVersionId, Long datasetVersionId, List<Long> imageIds) {
+        SubmitValidationJobRequest req = new SubmitValidationJobRequest();
+        req.setModelVersionId(modelVersionId);
+        req.setDatasetVersionId(datasetVersionId);
+        req.setImageIds(imageIds);
+        req.setInitiatedBy("researcher_01");
+        return req;
+    }
+
+    @Test
+    void submitValidationJob_datasetVersionNotFound_throwsNotFound() {
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ACTIVE")));
+        when(datasetVersionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 99L, List.of(1L))))
+                .isInstanceOf(NotFoundException.class);
+        verify(annotationJobExecutor, never()).executeValidationAsync(any());
+    }
+
+    @Test
+    void submitValidationJob_imageNotMemberOfVersion_throwsInvalidRequest() {
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ACTIVE")));
+        DatasetVersion version = new DatasetVersion();
+        version.setId(10L);
+        Dataset dataset = new Dataset();
+        dataset.setId(42L);
+        version.setDataset(dataset);
+        when(datasetVersionRepository.findById(10L)).thenReturn(Optional.of(version));
+        when(imageRepository.findAllById(List.of(1L))).thenReturn(List.of(image(1L)));
+        when(datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(10L, 1L)).thenReturn(false);
+
+        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L))))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(annotationJobRepository, never()).save(any());
+    }
+
+    @Test
+    void submitValidationJob_success_dispatchesValidationExecutor() {
+        ModelVersion model = model(1L, "ACTIVE");
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model));
+        DatasetVersion version = new DatasetVersion();
+        version.setId(10L);
+        Dataset dataset = new Dataset();
+        dataset.setId(42L);
+        version.setDataset(dataset);
+        when(datasetVersionRepository.findById(10L)).thenReturn(Optional.of(version));
+        when(imageRepository.findAllById(List.of(1L))).thenReturn(List.of(image(1L)));
+        when(datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(10L, 1L)).thenReturn(true);
+        when(annotationJobRepository.save(any(AnnotationJob.class))).thenAnswer(inv -> {
+            AnnotationJob job = inv.getArgument(0);
+            job.setId(7L);
+            return job;
+        });
+
+        AnnotationJobResponse response = newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L)));
+
+        assertThat(response.getJobId()).isEqualTo(7L);
+        assertThat(response.getJobType()).isEqualTo("VALIDATION");
+        assertThat(response.getDatasetVersionId()).isEqualTo(10L);
+        verify(annotationJobExecutor).executeValidationAsync(7L);
+    }
+
+    @Test
+    void reviewPrediction_validationJob_throwsInvalidRequest() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("VALIDATION");
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        ReviewPredictionRequest request = new ReviewPredictionRequest();
+        request.setAccepted(true);
+        request.setReviewedBy("researcher_01");
+
+        assertThatThrownBy(() -> newService().reviewPrediction(1L, 10L, request))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void addToProject_jobNotNewImages_throwsInvalidRequest() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("VALIDATION");
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        AddToProjectRequest request = new AddToProjectRequest();
+        request.setVersionTag("v2.0");
+        request.setCreatedBy("researcher_01");
+
+        assertThatThrownBy(() -> newService().addToProject(1L, request))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void addToProject_reviewNotComplete_throwsInvalidRequest() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("NEW_IMAGES");
+        job.setReviewStatus("IN_PROGRESS");
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        AddToProjectRequest request = new AddToProjectRequest();
+        request.setVersionTag("v2.0");
+        request.setCreatedBy("researcher_01");
+
+        assertThatThrownBy(() -> newService().addToProject(1L, request))
+                .isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test
+    void addToProject_alreadyAdded_throwsConflict() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("NEW_IMAGES");
+        job.setReviewStatus("COMPLETED");
+        job.setAddedToProjectVersionId(99L);
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        AddToProjectRequest request = new AddToProjectRequest();
+        request.setVersionTag("v2.0");
+        request.setCreatedBy("researcher_01");
+
+        assertThatThrownBy(() -> newService().addToProject(1L, request))
+                .isInstanceOf(com.corallineage.backend.exception.ConflictException.class);
     }
 
     @Test

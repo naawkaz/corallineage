@@ -4,9 +4,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface AnnotationPredictionRepository extends JpaRepository<AnnotationPrediction, Long> {
 
     Page<AnnotationPrediction> findByAnnotationJobId(Long annotationJobId, Pageable pageable);
+
+    /** Non-paged, used by the executor (applying inference results) and Add to Project (reading every reviewed point). */
+    List<AnnotationPrediction> findByAnnotationJobId(Long annotationJobId);
+
+    long countByAnnotationJobIdAndAgreesWithHumanTrue(Long annotationJobId);
 
     Page<AnnotationPrediction> findByAnnotationJobIdAndImageId(Long annotationJobId, Long imageId, Pageable pageable);
 

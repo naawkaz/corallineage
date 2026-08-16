@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/annotation")
@@ -29,6 +30,32 @@ public class AnnotationJobController {
     public ResponseEntity<AnnotationJobResponse> submitAnnotationJob(@Valid @RequestBody InitiateAnnotationJobRequest request) {
         AnnotationJobResponse response = annotationJobService.submitAnnotationJob(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    /** Mode A: "Validate against human labels" - recheck a model's accuracy against real human-given points. */
+    @PostMapping("/jobs/validate")
+    public ResponseEntity<AnnotationJobResponse> submitValidationJob(@Valid @RequestBody SubmitValidationJobRequest request) {
+        AnnotationJobResponse response = annotationJobService.submitValidationJob(request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    /** Mode B: "Annotate new images" - bulk-label freshly uploaded images not yet part of any dataset version. */
+    @PostMapping("/jobs/new-images")
+    public ResponseEntity<AnnotationJobResponse> submitNewImagesJob(
+            @RequestParam Long modelVersionId,
+            @RequestParam Long datasetId,
+            @RequestParam String initiatedBy,
+            @RequestParam(defaultValue = "12") int pointsPerImage,
+            @RequestParam MultipartFile[] files) {
+        AnnotationJobResponse response = annotationJobService.submitNewImagesJob(
+                modelVersionId, datasetId, initiatedBy, pointsPerImage, files);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    /** Commits a fully-reviewed Mode B job's images and final point labels into a new, real dataset version. */
+    @PostMapping("/jobs/{jobId}/add-to-project")
+    public AnnotationJobResponse addToProject(@PathVariable Long jobId, @Valid @RequestBody AddToProjectRequest request) {
+        return annotationJobService.addToProject(jobId, request);
     }
 
     @GetMapping("/jobs")

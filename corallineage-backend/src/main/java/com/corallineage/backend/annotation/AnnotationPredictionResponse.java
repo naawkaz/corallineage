@@ -15,6 +15,9 @@ public class AnnotationPredictionResponse {
     private String correctedLabelCode;
     private String reviewedBy;
     private Instant reviewedAt;
+    private Integer rowPosition;
+    private Integer colPosition;
+    private Boolean agreesWithHuman;
 
     public Long getPredictionId() { return predictionId; }
     public void setPredictionId(Long predictionId) { this.predictionId = predictionId; }
@@ -45,4 +48,13 @@ public class AnnotationPredictionResponse {
 
     public Instant getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+
+    public Integer getRowPosition() { return rowPosition; }
+    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+
+    public Integer getColPosition() { return colPosition; }
+    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
+
+    public Boolean getAgreesWithHuman() { return agreesWithHuman; }
+    public void setAgreesWithHuman(Boolean agreesWithHuman) { this.agreesWithHuman = agreesWithHuman; }
 }
