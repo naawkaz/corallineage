@@ -1,80 +1,66 @@
 package com.corallineage.backend.training;
 
-import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
-import com.corallineage.backend.registry.model.ModelVersion;
-import com.corallineage.backend.registry.model.ModelVersionService;
-import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map;
 
+/**
+ * Orchestrates a training job's background run. Deliberately holds no @Transactional boundary
+ * of its own: every DB write is delegated to TrainingJobStatusService, each call opening its own
+ * fresh Propagation.REQUIRES_NEW transaction. See TrainingJobStatusService's class comment for
+ * the full history of why (a shared-transaction design here previously caused a real
+ * UnexpectedRollbackException bug that left failed jobs stuck at QUEUED with no error surfaced).
+ */
 @Service
 public class TrainingJobExecutor {
 
-    private final TrainingJobRepository trainingJobRepository;
+    private final TrainingJobStatusService trainingJobStatusService;
     private final DatasetPreparationService datasetPreparationService;
     private final PythonMlServiceClient pythonMlServiceClient;
-    private final ModelVersionService modelVersionService;
     private final AnnotationEventLoggerService annotationEventLoggerService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public TrainingJobExecutor(TrainingJobRepository trainingJobRepository,
+    public TrainingJobExecutor(TrainingJobStatusService trainingJobStatusService,
                                DatasetPreparationService datasetPreparationService,
                                PythonMlServiceClient pythonMlServiceClient,
-                               ModelVersionService modelVersionService,
                                AnnotationEventLoggerService annotationEventLoggerService) {
-        this.trainingJobRepository = trainingJobRepository;
+        this.trainingJobStatusService = trainingJobStatusService;
         this.datasetPreparationService = datasetPreparationService;
         this.pythonMlServiceClient = pythonMlServiceClient;
-        this.modelVersionService = modelVersionService;
         this.annotationEventLoggerService = annotationEventLoggerService;
     }
 
     @Async
-    @Transactional
     public void executeTrainingAsync(Long jobId) {
-        TrainingJob job = trainingJobRepository.findById(jobId)
-                .orElseThrow(() -> new NotFoundException("Training job not found: " + jobId));
         Path preparedDir = null;
         try {
-            job.setStatus("RUNNING");
-            trainingJobRepository.save(job);
+            TrainingJobStart start = trainingJobStatusService.markRunning(jobId);
 
-            preparedDir = datasetPreparationService.prepareImageFolderDataset(job.getDatasetVersion().getId(), jobId);
+            preparedDir = datasetPreparationService.prepareImageFolderDataset(start.datasetVersionId(), jobId);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> hyperparameters = objectMapper.readValue(job.getHyperparameters(), Map.class);
-            TrainResult result = pythonMlServiceClient.train(job.getArchitecture(), preparedDir.toString(), hyperparameters);
+            Map<String, Object> hyperparameters = objectMapper.readValue(start.hyperparametersJson(), Map.class);
+            TrainResult result = pythonMlServiceClient.train(start.architecture(), preparedDir.toString(), hyperparameters);
 
             String performanceMetricsJson = objectMapper.writeValueAsString(result.performanceMetrics());
             String classMappingsJson = objectMapper.writeValueAsString(result.classMappings());
-            ModelVersion model = modelVersionService.registerFromTrainingResult(
-                    job, result.mlflowRunId(), result.weightsPath(), result.accuracy(),
-                    performanceMetricsJson, classMappingsJson);
 
-            job.setModelVersion(model);
-            job.setStatus("COMPLETED");
-            job.setCompletedAt(Instant.now());
-            trainingJobRepository.save(job);
+            TrainingJob completed = trainingJobStatusService.markCompleted(jobId, result.mlflowRunId(),
+                    result.weightsPath(), result.accuracy(), performanceMetricsJson, classMappingsJson);
 
-            logModelTrainedAfterCommit(job, model, "Training completed, registered " + model.getModelTag());
+            annotationEventLoggerService.log(EventType.MODEL_TRAINED, completed.getDatasetVersion(),
+                    completed.getModelVersion(), completed.getInitiatedBy(),
+                    "Training completed, registered " + completed.getModelVersion().getModelTag());
         } catch (Exception ex) {
-            job.setStatus("FAILED");
-            job.setErrorMessage(ex.getMessage());
-            job.setCompletedAt(Instant.now());
-            trainingJobRepository.save(job);
+            trainingJobStatusService.markFailed(jobId, describeFailure(ex));
         } finally {
             if (preparedDir != null) {
                 deleteRecursivelyQuietly(preparedDir);
@@ -83,23 +69,13 @@ public class TrainingJobExecutor {
     }
 
     /**
-     * Mirrors DatasetImportExecutor's logImportCompletedAfterCommit: AnnotationEventLoggerService.log()
-     * runs in REQUIRES_NEW on a separate connection, so it cannot see this method's own uncommitted
-     * writes (the new ModelVersion row in particular) until the outer transaction commits.
+     * Falls back to the exception's class name when the message is null (a bare NullPointerException,
+     * for example), so a training job never ends up FAILED with an empty errorMessage that gives the
+     * user nothing to act on.
      */
-    private void logModelTrainedAfterCommit(TrainingJob job, ModelVersion modelVersion, String description) {
-        DatasetVersion datasetVersion = job.getDatasetVersion();
-        String performedBy = job.getInitiatedBy();
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    annotationEventLoggerService.log(EventType.MODEL_TRAINED, datasetVersion, modelVersion, performedBy, description);
-                }
-            });
-        } else {
-            annotationEventLoggerService.log(EventType.MODEL_TRAINED, datasetVersion, modelVersion, performedBy, description);
-        }
+    private String describeFailure(Exception ex) {
+        String message = ex.getMessage();
+        return (message == null || message.isBlank()) ? ex.getClass().getSimpleName() : message;
     }
 
     private void deleteRecursivelyQuietly(Path dir) {
