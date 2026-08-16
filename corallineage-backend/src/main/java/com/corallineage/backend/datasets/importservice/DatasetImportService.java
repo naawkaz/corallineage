@@ -16,6 +16,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 
 @Service
 public class DatasetImportService {
@@ -40,7 +41,8 @@ public class DatasetImportService {
 
     @Transactional
     public ImportJobResponse submitImport(Long datasetId, MultipartFile[] files, String[] relativePaths,
-                                          ImportFormat format, String versionTag, String importedBy, String notes) {
+                                          ImportFormat format, String versionTag, String importedBy, String notes,
+                                          List<LabelDeclarationRequest> labels) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
@@ -62,7 +64,7 @@ public class DatasetImportService {
         // The @Async executor runs on another thread/connection and must not start
         // until this transaction (and the ImportJob/Dataset rows it depends on) has
         // committed — same visibility issue fixed for DatasetVersionService's event log.
-        dispatchAfterCommit(saved.getId(), datasetId, tempDir, format, versionTag, importedBy);
+        dispatchAfterCommit(saved.getId(), datasetId, tempDir, format, versionTag, importedBy, labels);
 
         return importJobMapper.toResponse(saved);
     }
@@ -75,16 +77,16 @@ public class DatasetImportService {
     }
 
     private void dispatchAfterCommit(Long jobId, Long datasetId, Path tempDir, ImportFormat format,
-                                     String versionTag, String importedBy) {
+                                     String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy);
+                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy, labels);
                 }
             });
         } else {
-            datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy);
+            datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy, labels);
         }
     }
 

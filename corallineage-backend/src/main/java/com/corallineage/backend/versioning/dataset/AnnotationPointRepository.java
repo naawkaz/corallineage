@@ -18,6 +18,14 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
     Optional<AnnotationPoint> findByImageIdAndPointIndex(Long imageId, Integer pointIndex);
 
     /**
+     * Highest pointIndex already used on this image (-1 if none). Point-annotation grid generation
+     * starts its own indices after this, so a freshly generated grid can never collide with — and
+     * silently overwrite — an image's pre-existing points (e.g. from a CoralNet CSV/MLC import).
+     */
+    @Query("select coalesce(max(ap.pointIndex), -1) from AnnotationPoint ap where ap.image.id = :imageId")
+    int findMaxPointIndexByImageId(@Param("imageId") Long imageId);
+
+    /**
      * Points on images whose ORIGIN version is {@code datasetVersionId} with a given label code.
      * Kept for callers that specifically need origin-scoped lookups; ontology-change dirty-flagging
      * uses {@link #findByLabelCodeAndDatasetVersionMembership} instead, since membership (not origin)

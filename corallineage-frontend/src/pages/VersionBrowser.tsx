@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, FolderOpen } from 'lucide-react'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../constants'
@@ -77,8 +78,9 @@ export default function VersionBrowser() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/')}>
-            ← Back
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ArrowLeft size={14} strokeWidth={1.5} />
+            Back
           </button>
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             ＋ New Version
@@ -144,7 +146,9 @@ export default function VersionBrowser() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">🗂</div>
+              <div className="empty-icon">
+                <FolderOpen size={32} strokeWidth={1.5} />
+              </div>
               <p>
                 No versions found
                 {search || trigger !== 'ALL' ? ' matching your filters' : ' yet'}.
@@ -201,7 +205,9 @@ export default function VersionBrowser() {
                     <td style={{ color: 'var(--text-secondary)' }}>{formatDate(v.createdAt)}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{v.createdBy}</td>
                     <td>
-                      <span style={{ color: 'var(--accent)', fontSize: 12 }}>View →</span>
+                      <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        View <ArrowRight size={12} strokeWidth={1.5} />
+                      </span>
                     </td>
                   </tr>
                 ))}

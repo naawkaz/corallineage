@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,6 +60,7 @@ class DatasetImportExecutorTest {
                 new MlcFormatParser(),
                 new CoralNetCsvParser(),
                 new CocoJsonParser(),
+                new BlankFormatParser(),
                 workingDirectory,
                 "dataset");
     }
@@ -100,7 +102,7 @@ class DatasetImportExecutorTest {
             return images;
         });
 
-        executor.executeImportAsync(1L, 10L, uploadDir, ImportFormat.MLC, "v1.0", "researcher_01");
+        executor.executeImportAsync(1L, 10L, uploadDir, ImportFormat.MLC, "v1.0", "researcher_01", List.of());
 
         verify(labelDefinitionRepository, org.mockito.Mockito.times(2)).save(any(LabelDefinition.class));
         verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
@@ -120,10 +122,60 @@ class DatasetImportExecutorTest {
         onlyKnownLabel.setLabelCode("SAND");
         when(labelDefinitionRepository.findByDatasetVersionId(5L)).thenReturn(List.of(onlyKnownLabel));
 
-        executor.executeImportAsync(2L, 10L, uploadDir, ImportFormat.MLC, "v2.0", "researcher_01");
+        executor.executeImportAsync(2L, 10L, uploadDir, ImportFormat.MLC, "v2.0", "researcher_01", List.of());
 
         verify(datasetVersionService, never()).createSnapshot(any(), any());
         verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
                 "FAILED".equals(saved.getStatus()) && saved.getLabelsUnresolved() != null && saved.getLabelsUnresolved() == 1));
+    }
+
+    private void writeBlankFixture(Path dir) throws IOException {
+        Files.createFile(dir.resolve("raw001.jpg"));
+        Files.createFile(dir.resolve("raw002.jpg"));
+    }
+
+    @Test
+    void blankFormat_declaresProvidedLabelCodes_andImportsNoPoints(@TempDir Path uploadDir) throws IOException {
+        writeBlankFixture(uploadDir);
+        when(importJobRepository.findById(3L)).thenReturn(Optional.of(job(3L)));
+        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.empty());
+
+        DatasetVersionResponse versionResponse = new DatasetVersionResponse();
+        versionResponse.setId(200L);
+        when(datasetVersionService.createSnapshot(any(), any())).thenReturn(versionResponse);
+
+        DatasetVersion newVersion = new DatasetVersion();
+        newVersion.setId(200L);
+        newVersion.setImageCount(0);
+        newVersion.setAnnotationCount(0);
+        when(datasetVersionRepository.findById(200L)).thenReturn(Optional.of(newVersion));
+
+        when(labelDefinitionRepository.findByDatasetVersionId(200L)).thenReturn(List.of());
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        when(imageRepository.saveAll(any())).thenAnswer(inv -> {
+            List<Image> images = inv.getArgument(0);
+            for (Image image : images) image.setId(1L);
+            return images;
+        });
+
+        executor.executeImportAsync(3L, 10L, uploadDir, ImportFormat.BLANK, "v1.0", "researcher_01",
+                List.of(new LabelDeclarationRequest("CCA", "Crustose Coralline Algae", null),
+                        new LabelDeclarationRequest("Sand", "Sand", "Substrate")));
+
+        org.mockito.ArgumentCaptor<LabelDefinition> captor = org.mockito.ArgumentCaptor.forClass(LabelDefinition.class);
+        verify(labelDefinitionRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getAllValues().stream().map(LabelDefinition::getLabelCode).collect(Collectors.toSet()))
+                .containsExactlyInAnyOrder("CCA", "Sand");
+        assertThat(captor.getAllValues().stream().map(LabelDefinition::getLabelName).collect(Collectors.toSet()))
+                .containsExactlyInAnyOrder("Crustose Coralline Algae", "Sand");
+        assertThat(captor.getAllValues().stream()
+                .filter(l -> "Sand".equals(l.getLabelCode()))
+                .findFirst().orElseThrow().getLabelCategory())
+                .isEqualTo("Substrate");
+        verify(annotationPointRepository).saveAll(List.of());
+        verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                "COMPLETED".equals(saved.getStatus()) && saved.getLabelsResolved() == 2
+                        && saved.getAnnotationPointsImported() == 0));
     }
 }

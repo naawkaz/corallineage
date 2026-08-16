@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { fetchImages, imageFileUrl } from '../api/images'
@@ -139,8 +140,9 @@ export default function VersionDetail() {
             {version ? `Created ${formatDate(version.createdAt)} by ${version.createdBy}` : ''}
           </div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate(versionsListPath)}>
-          ← Back
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate(versionsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ArrowLeft size={14} strokeWidth={1.5} />
+          Back
         </button>
       </div>
 

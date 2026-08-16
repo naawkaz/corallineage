@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { createDataset } from '../api/datasets'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER } from '../constants'
@@ -46,7 +47,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="modal-body">

@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { fetchMlflowDetails, fetchModel, updateModelStatus } from '../api/models'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER } from '../constants'
@@ -126,8 +127,9 @@ export default function ModelDetail() {
             Trained {formatDate(model.trainedAt)} by {model.trainedBy}
           </div>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate(modelsListPath)}>
-          ← Back
+        <button className="btn btn-secondary btn-sm" onClick={() => navigate(modelsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ArrowLeft size={14} strokeWidth={1.5} />
+          Back
         </button>
       </div>
 
@@ -363,8 +365,10 @@ export default function ModelDetail() {
                   href={diagnostics.details.mlflowUiUrl}
                   target="_blank"
                   rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >
-                  Open in MLflow ↗
+                  Open in MLflow
+                  <ExternalLink size={14} strokeWidth={1.5} />
                 </a>
               </>
             )}

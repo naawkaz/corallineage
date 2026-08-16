@@ -14,6 +14,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,9 +66,9 @@ class DatasetImportServiceTest {
         when(datasetRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> datasetImportService.submitImport(
-                99L, files(), relativePaths(), ImportFormat.MLC, "v1.0", "researcher_01", null))
+                99L, files(), relativePaths(), ImportFormat.MLC, "v1.0", "researcher_01", null, List.of()))
                 .isInstanceOf(NotFoundException.class);
-        verify(datasetImportExecutor, never()).executeImportAsync(any(), any(), any(), any(), any(), any());
+        verify(datasetImportExecutor, never()).executeImportAsync(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -79,9 +80,9 @@ class DatasetImportServiceTest {
         when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> datasetImportService.submitImport(
-                1L, files(), relativePaths(), ImportFormat.MLC, "v1.0", "researcher_01", null))
+                1L, files(), relativePaths(), ImportFormat.MLC, "v1.0", "researcher_01", null, List.of()))
                 .isInstanceOf(ConflictException.class);
-        verify(datasetImportExecutor, never()).executeImportAsync(any(), any(), any(), any(), any(), any());
+        verify(datasetImportExecutor, never()).executeImportAsync(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -95,13 +96,34 @@ class DatasetImportServiceTest {
         });
 
         ImportJobResponse response = datasetImportService.submitImport(
-                1L, files(), relativePaths(), ImportFormat.CORALNET_CSV, "v1.0", "researcher_01", "test notes");
+                1L, files(), relativePaths(), ImportFormat.CORALNET_CSV, "v1.0", "researcher_01", "test notes", List.of());
 
         assertThat(response.getImportJobId()).isEqualTo("IMP-7");
         assertThat(response.getStatus()).isEqualTo("PROCESSING");
         assertThat(response.getFormat()).isEqualTo("CORALNET_CSV");
         verify(datasetImportExecutor).executeImportAsync(
-                eq(7L), eq(1L), any(), eq(ImportFormat.CORALNET_CSV), eq("v1.0"), eq("researcher_01"));
+                eq(7L), eq(1L), any(), eq(ImportFormat.CORALNET_CSV), eq("v1.0"), eq("researcher_01"), eq(List.of()));
+    }
+
+    @Test
+    void submitImport_blankFormat_passesLabelDeclarationsThrough() {
+        when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
+        when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.empty());
+        when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> {
+            ImportJob job = inv.getArgument(0);
+            job.setId(8L);
+            return job;
+        });
+
+        List<LabelDeclarationRequest> labels = List.of(
+                new LabelDeclarationRequest("CCA", "Crustose Coralline Algae", null),
+                new LabelDeclarationRequest("Sand", "Sand", "Substrate"));
+
+        datasetImportService.submitImport(
+                1L, files(), relativePaths(), ImportFormat.BLANK, "v1.0", "researcher_01", null, labels);
+
+        verify(datasetImportExecutor).executeImportAsync(
+                eq(8L), eq(1L), any(), eq(ImportFormat.BLANK), eq("v1.0"), eq("researcher_01"), eq(labels));
     }
 
     @Test

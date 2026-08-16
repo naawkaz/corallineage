@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { createVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { CURRENT_USER, TRIGGER_REASONS } from '../constants'
@@ -49,7 +50,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            ✕
+            <X size={16} strokeWidth={1.5} />
           </button>
         </div>
         <div className="modal-body">

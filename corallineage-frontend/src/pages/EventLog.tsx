@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { ClipboardList } from 'lucide-react'
 import { fetchEvents } from '../api/events'
 import { errorMessage } from '../api/client'
 import { EVENT_TYPES, PAGE_SIZE, eventTypeLabel } from '../constants'
@@ -160,7 +161,9 @@ export default function EventLog() {
             </div>
           ) : !data || data.content.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📋</div>
+              <div className="empty-icon">
+                <ClipboardList size={32} strokeWidth={1.5} />
+              </div>
               <p>No events found{Object.keys(appliedFilters).length > 0 ? ' matching your filters' : ' yet'}.</p>
             </div>
           ) : (

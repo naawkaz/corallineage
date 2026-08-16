@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ClipboardList, FileText, Shell } from 'lucide-react'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import { formatCount, formatDate } from '../lib/format'
 import CreateDatasetModal from '../components/CreateDatasetModal'
@@ -23,11 +24,13 @@ export default function Home() {
 
       <div className="content">
         <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/events')}>
-            📋 Global Event Log
+          <button className="btn btn-secondary" onClick={() => navigate('/events')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ClipboardList size={14} strokeWidth={1.5} />
+            Global Event Log
           </button>
-          <button className="btn btn-secondary" onClick={() => navigate('/report')}>
-            📄 Report Generator
+          <button className="btn btn-secondary" onClick={() => navigate('/report')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <FileText size={14} strokeWidth={1.5} />
+            Report Generator
           </button>
         </div>
 
@@ -48,7 +51,9 @@ export default function Home() {
         ) : datasets.length === 0 ? (
           <div className="card">
             <div className="empty-state">
-              <div className="empty-icon">🪸</div>
+              <div className="empty-icon">
+                <Shell size={32} strokeWidth={1.5} />
+              </div>
               <p>No projects yet. Create your first project to get started.</p>
             </div>
           </div>

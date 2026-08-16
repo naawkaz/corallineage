@@ -10,7 +10,10 @@ import Import from './pages/Import'
 import ModelDetail from './pages/ModelDetail'
 import ModelRegistry from './pages/ModelRegistry'
 import OntologyChanges from './pages/OntologyChanges'
+import PointAnnotationJobs from './pages/PointAnnotationJobs'
+import PointAnnotationReview from './pages/PointAnnotationReview'
 import ReportGenerator from './pages/ReportGenerator'
+import SeedLabeling from './pages/SeedLabeling'
 import TrainingJobs from './pages/TrainingJobs'
 import VersionBrowser from './pages/VersionBrowser'
 import VersionDetail from './pages/VersionDetail'
@@ -34,6 +37,9 @@ function App() {
             <Route path="/projects/:projectId/training" element={<TrainingJobs />} />
             <Route path="/projects/:projectId/annotation" element={<AnnotationJobs />} />
             <Route path="/projects/:projectId/annotation/jobs/:id/review" element={<AnnotationReview />} />
+            <Route path="/projects/:projectId/point-annotation" element={<PointAnnotationJobs />} />
+            <Route path="/projects/:projectId/point-annotation/jobs/:id/label" element={<SeedLabeling />} />
+            <Route path="/projects/:projectId/point-annotation/jobs/:id/review" element={<PointAnnotationReview />} />
             <Route path="/projects/:projectId/events" element={<EventLog />} />
             <Route path="/projects/:projectId/ontology" element={<OntologyChanges />} />
             <Route path="*" element={<ComingSoon />} />

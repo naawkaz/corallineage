@@ -53,6 +53,7 @@ public class DatasetImportExecutor {
     private final MlcFormatParser mlcFormatParser;
     private final CoralNetCsvParser coralNetCsvParser;
     private final CocoJsonParser cocoJsonParser;
+    private final BlankFormatParser blankFormatParser;
     private final Path workingDirectory;
     private final String dataDir;
 
@@ -68,6 +69,7 @@ public class DatasetImportExecutor {
                                  MlcFormatParser mlcFormatParser,
                                  CoralNetCsvParser coralNetCsvParser,
                                  CocoJsonParser cocoJsonParser,
+                                 BlankFormatParser blankFormatParser,
                                  @Value("${app.dvc.working-directory}") Path workingDirectory,
                                  @Value("${app.dvc.data-dir}") String dataDir) {
         this.importJobRepository = importJobRepository;
@@ -82,6 +84,7 @@ public class DatasetImportExecutor {
         this.mlcFormatParser = mlcFormatParser;
         this.coralNetCsvParser = coralNetCsvParser;
         this.cocoJsonParser = cocoJsonParser;
+        this.blankFormatParser = blankFormatParser;
         this.workingDirectory = workingDirectory;
         this.dataDir = dataDir;
     }
@@ -89,7 +92,7 @@ public class DatasetImportExecutor {
     @Async
     @Transactional
     public void executeImportAsync(Long jobId, Long datasetId, Path uploadDir, ImportFormat format,
-                                   String versionTag, String importedBy) {
+                                   String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
         ImportJob job = importJobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Import job not found: " + jobId));
         try {
@@ -132,6 +135,12 @@ public class DatasetImportExecutor {
             List<LabelDefinition> newLabels = labelDefinitionRepository.findByDatasetVersionId(newVersion.getId());
             if (previousLatest == null) {
                 newLabels = bootstrapLabelDefinitions(newVersion, requestedCodes);
+            }
+            int labelsDeclared = 0;
+            if (format == ImportFormat.BLANK && labels != null && !labels.isEmpty()) {
+                int before = newLabels.size();
+                newLabels = declareLabelDefinitions(newVersion, newLabels, labels);
+                labelsDeclared = newLabels.size() - before;
             }
             Map<String, LabelDefinition> resolvedByCode = labelCodeResolver.resolve(newLabels, requestedCodes);
 
@@ -181,7 +190,7 @@ public class DatasetImportExecutor {
             job.setStatus("COMPLETED");
             job.setImagesImported(savedImages.size());
             job.setAnnotationPointsImported(pointEntities.size());
-            job.setLabelsResolved(resolvedByCode.size());
+            job.setLabelsResolved(format == ImportFormat.BLANK ? labelsDeclared : resolvedByCode.size());
             job.setLabelsUnresolved(0);
             job.setCreatedDatasetVersionId(newVersion.getId());
             job.setCompletedAt(Instant.now());
@@ -220,11 +229,42 @@ public class DatasetImportExecutor {
         return created;
     }
 
+    /**
+     * The "Blank / Unlabeled Dataset" import path: the label vocabulary is declared upfront by
+     * the user (either typed into a structured code/name/category form, or copied wholesale from
+     * another project's version via "Reuse labels from") rather than discovered from parsed
+     * annotation data. Uses the caller-provided name/category verbatim, never defaults the name
+     * to the code. Additive, skips any code that already exists on this version (copied forward
+     * from a prior version, or already declared by an earlier blank import).
+     */
+    private List<LabelDefinition> declareLabelDefinitions(DatasetVersion version, List<LabelDefinition> existing,
+                                                           List<LabelDeclarationRequest> declarations) {
+        Set<String> existingCodes = existing.stream().map(LabelDefinition::getLabelCode).collect(Collectors.toSet());
+        List<LabelDefinition> all = new ArrayList<>(existing);
+        for (LabelDeclarationRequest declaration : declarations) {
+            String code = declaration.getLabelCode() != null ? declaration.getLabelCode().trim() : "";
+            String name = declaration.getLabelName() != null ? declaration.getLabelName().trim() : "";
+            if (code.isEmpty() || name.isEmpty() || existingCodes.contains(code)) {
+                continue;
+            }
+            String category = declaration.getLabelCategory() != null ? declaration.getLabelCategory().trim() : null;
+            LabelDefinition label = new LabelDefinition();
+            label.setDatasetVersion(version);
+            label.setLabelCode(code);
+            label.setLabelName(name);
+            label.setLabelCategory((category == null || category.isEmpty()) ? null : category);
+            all.add(labelDefinitionRepository.save(label));
+            existingCodes.add(code);
+        }
+        return all;
+    }
+
     private DatasetFormatParser parser(ImportFormat format) {
         return switch (format) {
             case MLC -> mlcFormatParser;
             case CORALNET_CSV -> coralNetCsvParser;
             case COCO_JSON -> cocoJsonParser;
+            case BLANK -> blankFormatParser;
         };
     }
 

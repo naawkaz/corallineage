@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { Box } from 'lucide-react'
 import { fetchModels } from '../api/models'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE } from '../constants'
@@ -75,7 +76,9 @@ export default function ModelRegistry() {
             </div>
           ) : !data || data.content.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📦</div>
+              <div className="empty-icon">
+                <Box size={32} strokeWidth={1.5} />
+              </div>
               <p>No models registered yet. Complete a training job to register one.</p>
             </div>
           ) : (

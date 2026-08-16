@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { AlertTriangle, X } from 'lucide-react'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
 import {
@@ -577,7 +578,7 @@ export default function OntologyChanges() {
             </div>
             {selectedChange && (selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount) > 0 && (
               <div className="impact-box" style={{ marginBottom: 16, marginTop: 0 }}>
-                <span>⚠</span>
+                <span><AlertTriangle size={16} strokeWidth={1.5} /></span>
                 <span>
                   {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount} annotation point
                   {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount === 1 ? '' : 's'} carry a
@@ -824,7 +825,7 @@ function NewLabelRowFields({
         />
         {removable && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={onRemove} title="Remove">
-            ✕
+            <X size={14} strokeWidth={1.5} />
           </button>
         )}
       </div>

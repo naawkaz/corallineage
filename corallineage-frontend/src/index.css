@@ -1,27 +1,96 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --canvas:    #F8F9FA;
-  --surface:   #FFFFFF;
-  --sidebar-bg:#F0F2F5;
-  --border:    #E2E6EA;
-  --border-md: #CBD2DA;
-  --text-primary: #1A1D23;
-  --text-secondary: #5A6474;
-  --text-muted: #9BA5B4;
-  --accent:    #2563EB;
-  --accent-bg: #EFF4FF;
-  --accent-hover: #1D4ED8;
-  --success:   #16A34A;
-  --success-bg:#F0FDF4;
-  --warning:   #D97706;
-  --warning-bg:#FFFBEB;
-  --danger:    #DC2626;
-  --danger-bg: #FEF2F2;
-  --mono: 'JetBrains Mono', monospace;
-  --sans: 'Inter', sans-serif;
-  --radius: 6px;
-  --radius-sm: 4px;
+  /* ── ACCENT — steel-blue, H206. Cooler/less saturated than default-Tailwind
+     blue (H≈221) on purpose — see decisions.md 2026-08-15 "Design language v1". ── */
+  --accent-50:  hsl(206 60% 96%);
+  --accent-100: hsl(206 65% 90%);
+  --accent-200: hsl(206 68% 80%);
+  --accent-300: hsl(206 70% 68%);
+  --accent-400: hsl(206 72% 56%);
+  --accent-500: hsl(206 74% 45%);
+  --accent-600: hsl(206 78% 38%);
+  --accent-700: hsl(206 80% 30%);
+  --accent-800: hsl(206 75% 22%);
+  --accent-900: hsl(206 70% 15%);
+
+  /* ── NEUTRALS — tinted toward the accent hue, not pure grey ── */
+  --neutral-0:   hsl(206 20% 99%);
+  --neutral-50:  hsl(206 18% 97%);
+  --neutral-100: hsl(206 16% 93%);
+  --neutral-200: hsl(206 14% 87%);
+  --neutral-300: hsl(206 12% 76%);
+  --neutral-400: hsl(206 10% 58%);
+  --neutral-500: hsl(206 12% 44%);
+  --neutral-600: hsl(206 16% 32%);
+  --neutral-700: hsl(206 20% 22%);
+  --neutral-800: hsl(206 24% 14%);
+  --neutral-900: hsl(206 28% 8%);
+
+  /* ── SEMANTIC — desaturated to sit inside the steel palette ── */
+  --success:    hsl(152 45% 36%);
+  --success-bg: hsl(152 45% 95%);
+  --warning:    hsl(38 75% 42%);
+  --warning-bg: hsl(38 80% 95%);
+  --danger:     hsl(358 60% 46%);
+  --danger-bg:  hsl(358 70% 96%);
+
+  /* ── LEGACY ALIASES — every rule below still references these names.
+     Repoint the scale above, not these, so the whole app stays in sync. ── */
+  --canvas:      var(--neutral-50);
+  --surface:     var(--neutral-0);
+  --sidebar-bg:  var(--neutral-900);
+  --border:      var(--neutral-200);
+  --border-md:   var(--neutral-300);
+  --text-primary:   var(--neutral-800);
+  --text-secondary: var(--neutral-500);
+  --text-muted:     var(--neutral-400);
+  --accent:      var(--accent-500);
+  --accent-bg:   var(--accent-50);
+  --accent-hover:var(--accent-600);
+
+  /* ── SIDEBAR — dedicated tokens, since it sits on --neutral-900 (dark),
+     not the light --surface the tokens above assume. ── */
+  --sidebar-border:      hsl(206 20% 20%);
+  --sidebar-text:        hsl(206 15% 72%);
+  --sidebar-text-strong: hsl(206 20% 96%);
+  --sidebar-text-faint:  hsl(206 15% 50%);
+  --sidebar-active-bg:   hsl(206 30% 16%);
+  --sidebar-hover-bg:    hsl(206 25% 14%);
+
+  /* ── TYPE — base 14px, ~1.2 ratio ── */
+  --text-xs:   0.75rem;
+  --text-sm:   0.8125rem;
+  --text-base: 0.875rem;
+  --text-md:   1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.375rem;
+  --text-2xl:  1.75rem;
+  --mono: 'Geist Mono', monospace;
+  --sans: 'Sora', sans-serif;
+
+  /* ── SPACING — rem-based so it scales with the user's font-size setting.
+     Rolling this out page-by-page; existing px values below are unchanged
+     until each page/component is migrated. ── */
+  --space-1: 0.125rem;
+  --space-2: 0.25rem;
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-5: 1rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+  --space-9: 4rem;
+
+  /* ── RADIUS — modest, precise; not pill-shaped ── */
+  --radius: 0.375rem;
+  --radius-sm: 0.25rem;
+  --radius-lg: 0.5rem;
+
+  /* ── ELEVATION — flat + hairline borders by default; this shadow is
+     reserved for true overlays (modals/dropdowns/popovers), never resting
+     cards. See decisions.md — "no skeuomorphism" direction. ── */
+  --shadow-overlay: 0 4px 16px -4px hsl(206 40% 20% / 0.18), 0 2px 6px -2px hsl(206 40% 20% / 0.10);
 }
 
 html, body { height: 100%; }
@@ -30,18 +99,19 @@ body {
   font-family: var(--sans);
   background: var(--canvas);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.5;
 }
 
 #root { display: flex; height: 100vh; overflow: hidden; }
 
-/* ── SIDEBAR ── */
+/* ── SIDEBAR — dark instrument-panel treatment, flat + hairline dividers,
+   no gradients/bevels. See markdown/docs/decisions.md 2026-08-15. ── */
 .sidebar {
   width: 220px;
   min-width: 220px;
   background: var(--sidebar-bg);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--sidebar-border);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -49,73 +119,81 @@ body {
 }
 
 .sidebar-logo {
-  padding: 18px 16px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--sidebar-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 .sidebar-logo .wordmark {
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: -0.3px;
+  color: var(--sidebar-text-strong);
+  letter-spacing: -0.01em;
+  font-family: var(--mono);
 }
 .sidebar-logo .tagline {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: var(--text-xs);
+  color: var(--sidebar-text-faint);
   margin-top: 2px;
 }
 
 .sidebar-section {
-  padding: 16px 10px 4px;
+  padding: var(--space-5) var(--space-3) var(--space-2);
 }
 .sidebar-section-label {
-  font-size: 10px;
+  font-family: var(--mono);
+  font-size: 0.625rem;
   font-weight: 600;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 0 6px;
-  margin-bottom: 4px;
+  color: var(--sidebar-text-faint);
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
 }
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: var(--sidebar-text);
+  font-size: var(--text-sm);
   font-weight: 400;
   transition: background 0.12s, color 0.12s;
   margin-bottom: 1px;
   user-select: none;
   text-decoration: none;
 }
-.sidebar-item:hover { background: var(--border); color: var(--text-primary); }
+.sidebar-item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-text-strong); }
 .sidebar-item.active {
-  background: var(--surface);
-  color: var(--accent);
+  background: var(--sidebar-active-bg);
+  color: #fff;
   font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border-left: 2px solid var(--accent-400);
+  padding-left: calc(var(--space-4) - 2px);
 }
-.sidebar-item .icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-item .icon { width: 16px; height: 16px; flex-shrink: 0; }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--text-muted);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--sidebar-border);
+  font-size: var(--text-xs);
+  color: var(--sidebar-text-faint);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 .user-avatar {
   width: 24px; height: 24px;
-  background: var(--accent);
+  background: var(--accent-500);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 11px; font-weight: 600;
+  color: #fff; font-size: var(--text-xs); font-weight: 600;
+  font-family: var(--mono);
+  flex-shrink: 0;
 }
 
 /* ── MAIN ── */
@@ -163,23 +241,23 @@ body {
 
 .badge {
   display: inline-flex; align-items: center;
-  padding: 2px 8px; border-radius: 20px;
+  padding: 2px 8px; border-radius: var(--radius-sm);
   font-size: 11px; font-weight: 500;
 }
 .badge-blue   { background: var(--accent-bg); color: var(--accent); }
 .badge-green  { background: var(--success-bg); color: var(--success); }
 .badge-amber  { background: var(--warning-bg); color: var(--warning); }
 .badge-red    { background: var(--danger-bg); color: var(--danger); }
-.badge-gray   { background: var(--sidebar-bg); color: var(--text-secondary); }
+.badge-gray   { background: var(--neutral-100); color: var(--text-secondary); }
 
 .mono {
   font-family: var(--mono);
   font-size: 12px;
-  background: var(--sidebar-bg);
-  color: var(--text-secondary);
+  background: var(--neutral-100);
+  color: var(--text-primary);
   padding: 2px 7px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-md);
 }
 
 table { width: 100%; border-collapse: collapse; }
@@ -294,7 +372,7 @@ tr:hover td { background: var(--canvas); }
 }
 .detail-key { font-weight: 500; color: var(--text-secondary); font-size: 12px; padding-right: 16px; }
 
-.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; background: var(--sidebar-bg); border: 1px solid var(--border); color: var(--text-secondary); margin: 1px; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; background: var(--neutral-100); border: 1px solid var(--border); color: var(--text-secondary); margin: 1px; }
 
 /* ── MODAL ── */
 .modal-overlay {
@@ -341,8 +419,8 @@ tr:hover td { background: var(--canvas); }
 
 .loading-state, .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
 
-.progress-bar-bg { background: var(--sidebar-bg); border-radius: 20px; height: 6px; overflow: hidden; }
-.progress-bar-fill { height: 100%; border-radius: 20px; background: var(--accent); }
+.progress-bar-bg { background: var(--neutral-200); border-radius: var(--radius-sm); height: 6px; overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: var(--radius-sm); background: var(--accent); }
 
 .impact-box {
   background: var(--warning-bg); border: 1px solid #FDE68A; border-radius: var(--radius);
@@ -354,7 +432,7 @@ tr:hover td { background: var(--canvas); }
 /* ── ANNOTATION REVIEW ── */
 .review-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
 .image-canvas {
-  background: #1A1D23;
+  background: var(--neutral-900);
   border-radius: var(--radius);
   aspect-ratio: 4/3;
   position: relative;
@@ -400,7 +478,7 @@ tr:hover td { background: var(--canvas); }
 .diff-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px; }
 .diff-thumb {
   aspect-ratio: 1; border-radius: var(--radius-sm);
-  background: var(--sidebar-bg); position: relative;
+  background: var(--neutral-100); position: relative;
   overflow: hidden; border: 2px solid transparent;
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; color: var(--text-muted);
