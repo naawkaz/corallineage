@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom'
 import { fetchArchitectures, fetchTrainingJob, fetchTrainingJobs, submitTrainingJob } from '../api/training'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
 import { formatDate } from '../lib/format'
+import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import type { Architecture, TrainingJob } from '../types/training'
 import type { DatasetVersion } from '../types/version'
@@ -26,6 +26,7 @@ export default function TrainingJobs() {
   const { projectId: projectIdParam } = useParams()
   const projectId = Number(projectIdParam)
   const { datasets } = useDatasetContext()
+  const { user } = useAuthContext()
   const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [architectures, setArchitectures] = useState<Architecture[]>([])
@@ -116,7 +117,7 @@ export default function TrainingJobs() {
         learningRate: Number(learningRate),
         batchSize: Number(batchSize),
         epochs: Number(epochs),
-        initiatedBy: CURRENT_USER,
+        initiatedBy: user?.username ?? '',
       })
       setActiveJob(created)
       loadJobs()

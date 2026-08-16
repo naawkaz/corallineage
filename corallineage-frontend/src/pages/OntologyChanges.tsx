@@ -12,8 +12,9 @@ import {
 import { fetchVersion, fetchVersions } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
 import { errorMessage } from '../api/client'
-import { CHANGE_TYPES, CURRENT_USER, changeTypeBadge, changeTypeLabel } from '../constants'
+import { CHANGE_TYPES, changeTypeBadge, changeTypeLabel } from '../constants'
 import { formatDate } from '../lib/format'
+import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { ChangeType, DirtyAnnotation, NewLabelSpec, OntologyChange } from '../types/ontology'
@@ -39,6 +40,7 @@ export default function OntologyChanges() {
   const { projectId: projectIdParam } = useParams()
   const projectId = Number(projectIdParam)
   const { datasets } = useDatasetContext()
+  const { user } = useAuthContext()
   const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [searchParams] = useSearchParams()
@@ -265,7 +267,7 @@ export default function OntologyChanges() {
           changeType === 'LABEL_DEPRECATED' && replacementLabelCode.trim() !== ''
             ? replacementLabelCode.trim()
             : undefined,
-        changedBy: CURRENT_USER,
+        changedBy: user?.username ?? '',
         notes: notes.trim() === '' ? undefined : notes.trim(),
       })
       setOldLabelCode('')
@@ -282,7 +284,7 @@ export default function OntologyChanges() {
 
   async function handleResolve(dirty: DirtyAnnotation, newLabelCode: string) {
     try {
-      await resolveDirtyAnnotation(dirty.id, { newLabelCode, resolvedBy: CURRENT_USER })
+      await resolveDirtyAnnotation(dirty.id, { newLabelCode, resolvedBy: user?.username ?? '' })
       if (selectedChangeId != null) loadDirty(selectedChangeId)
       loadChanges()
     } catch (err) {

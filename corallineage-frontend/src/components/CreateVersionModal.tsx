@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { createVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER, TRIGGER_REASONS } from '../constants'
+import { TRIGGER_REASONS } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import type { CreateVersionRequest, DatasetVersion, TriggerReason } from '../types/version'
 
 interface CreateVersionModalProps {
@@ -13,6 +14,7 @@ interface CreateVersionModalProps {
 }
 
 export default function CreateVersionModal({ datasetId, open, onClose, onCreated }: CreateVersionModalProps) {
+  const { user } = useAuthContext()
   const [versionTag, setVersionTag] = useState('')
   const [triggerReason, setTriggerReason] = useState<TriggerReason>('MANUAL_SNAPSHOT')
   const [notes, setNotes] = useState('')
@@ -27,7 +29,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
     const request: CreateVersionRequest = {
       versionTag: versionTag.trim(),
       triggerReason,
-      createdBy: CURRENT_USER,
+      createdBy: user?.username ?? '',
       notes: notes.trim() === '' ? null : notes.trim(),
     }
     try {
@@ -103,7 +105,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
             <label className="form-label">Created by</label>
-            <input className="form-input" value={CURRENT_USER} disabled />
+            <input className="form-input" value={user?.username ?? ''} disabled />
           </div>
         </div>
         <div className="modal-footer">

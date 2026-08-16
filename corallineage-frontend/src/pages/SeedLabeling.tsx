@@ -14,7 +14,7 @@ import { fetchTrainingJob } from '../api/training'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { GeneratedPoint, PointAnnotationJob } from '../types/pointAnnotation'
 import type { TrainingJobStatus } from '../types/training'
@@ -25,6 +25,7 @@ export default function SeedLabeling() {
   const jobId = Number(id)
   const projectId = Number(projectIdParam)
   const navigate = useNavigate()
+  const { user } = useAuthContext()
 
   const [job, setJob] = useState<PointAnnotationJob | null>(null)
   const [points, setPoints] = useState<GeneratedPoint[]>([])
@@ -112,7 +113,7 @@ export default function SeedLabeling() {
 
   async function handleLabel(point: GeneratedPoint, labelCode: string) {
     try {
-      await labelPoint(point.id, { labelCode, annotatedBy: CURRENT_USER })
+      await labelPoint(point.id, { labelCode, annotatedBy: user?.username ?? '' })
       await loadPoints()
     } catch (err) {
       setError(errorMessage(err))

@@ -12,7 +12,7 @@ import {
 import { imageFileUrlById } from '../api/images'
 import { fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { AnnotationJob, AnnotationPrediction } from '../types/annotation'
 import type { LabelDefinition } from '../types/version'
@@ -31,6 +31,7 @@ export default function AnnotationReview() {
   const jobId = Number(id)
   const projectId = Number(projectIdParam)
   const navigate = useNavigate()
+  const { user } = useAuthContext()
 
   const [job, setJob] = useState<AnnotationJob | null>(null)
   const [predictions, setPredictions] = useState<AnnotationPrediction[]>([])
@@ -120,7 +121,7 @@ export default function AnnotationReview() {
 
   async function acceptPrediction(prediction: AnnotationPrediction) {
     try {
-      await reviewPrediction(jobId, prediction.predictionId, { accepted: true, reviewedBy: CURRENT_USER })
+      await reviewPrediction(jobId, prediction.predictionId, { accepted: true, reviewedBy: user?.username ?? '' })
       await loadAll()
     } catch (err) {
       setError(errorMessage(err))
@@ -132,7 +133,7 @@ export default function AnnotationReview() {
       await reviewPrediction(jobId, prediction.predictionId, {
         accepted: false,
         correctedLabelCode: labelCode,
-        reviewedBy: CURRENT_USER,
+        reviewedBy: user?.username ?? '',
       })
       await loadAll()
     } catch (err) {
@@ -148,7 +149,7 @@ export default function AnnotationReview() {
       await addToProject(jobId, {
         versionTag: versionTag.trim(),
         notes: addNotes.trim() || undefined,
-        createdBy: CURRENT_USER,
+        createdBy: user?.username ?? '',
       })
       // Re-fetch the canonical job state through the same loadAll() path used on mount, rather
       // than trusting the add-to-project response body directly. This is what a manual page

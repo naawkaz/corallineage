@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { createDataset } from '../api/datasets'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import type { CreateDatasetRequest, Dataset } from '../types/dataset'
 
 interface CreateDatasetModalProps {
@@ -12,6 +12,7 @@ interface CreateDatasetModalProps {
 }
 
 export default function CreateDatasetModal({ open, onClose, onCreated }: CreateDatasetModalProps) {
+  const { user } = useAuthContext()
   const [datasetName, setDatasetName] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -25,7 +26,7 @@ export default function CreateDatasetModal({ open, onClose, onCreated }: CreateD
     const request: CreateDatasetRequest = {
       datasetName: datasetName.trim(),
       description: description.trim() === '' ? null : description.trim(),
-      createdBy: CURRENT_USER,
+      createdBy: user?.username ?? '',
     }
     try {
       const created = await createDataset(request)

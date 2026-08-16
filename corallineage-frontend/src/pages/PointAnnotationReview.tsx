@@ -7,7 +7,7 @@ import { fetchGeneratedPoints, fetchPointAnnotationJob, reviewGeneratedPoint } f
 import { fetchVersion } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { GeneratedPoint, PointAnnotationJob } from '../types/pointAnnotation'
 import type { LabelDefinition } from '../types/version'
@@ -17,6 +17,7 @@ export default function PointAnnotationReview() {
   const jobId = Number(id)
   const projectId = Number(projectIdParam)
   const navigate = useNavigate()
+  const { user } = useAuthContext()
 
   const [job, setJob] = useState<PointAnnotationJob | null>(null)
   const [points, setPoints] = useState<GeneratedPoint[]>([])
@@ -90,7 +91,7 @@ export default function PointAnnotationReview() {
 
   async function acceptPoint(point: GeneratedPoint) {
     try {
-      await reviewGeneratedPoint(point.id, { accepted: true, reviewedBy: CURRENT_USER })
+      await reviewGeneratedPoint(point.id, { accepted: true, reviewedBy: user?.username ?? '' })
       await loadPoints()
     } catch (err) {
       setError(errorMessage(err))
@@ -99,7 +100,7 @@ export default function PointAnnotationReview() {
 
   async function overridePoint(point: GeneratedPoint, labelCode: string) {
     try {
-      await reviewGeneratedPoint(point.id, { accepted: false, correctedLabelCode: labelCode, reviewedBy: CURRENT_USER })
+      await reviewGeneratedPoint(point.id, { accepted: false, correctedLabelCode: labelCode, reviewedBy: user?.username ?? '' })
       await loadPoints()
     } catch (err) {
       setError(errorMessage(err))

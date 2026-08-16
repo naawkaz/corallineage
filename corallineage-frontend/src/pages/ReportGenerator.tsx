@@ -16,7 +16,8 @@ import {
 } from 'recharts'
 import { exportReportUrl, fetchReports, generateReport } from '../api/reports'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER, changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../constants'
+import { changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import { formatCount, formatDate } from '../lib/format'
 import type { ReportListItem, ReproducibilityReport } from '../types/report'
 
@@ -29,6 +30,7 @@ function defaultDateInput(daysAgo: number): string {
 }
 
 export default function ReportGenerator() {
+  const { user } = useAuthContext()
   const [fromDate, setFromDate] = useState(defaultDateInput(365))
   const [toDate, setToDate] = useState(defaultDateInput(0))
   const [includeEventLog, setIncludeEventLog] = useState(true)
@@ -68,7 +70,7 @@ export default function ReportGenerator() {
     setError(null)
     try {
       const result = await generateReport({
-        requestedBy: CURRENT_USER,
+        requestedBy: user?.username ?? '',
         fromDate: new Date(fromDate + 'T00:00:00Z').toISOString(),
         toDate: new Date(toDate + 'T23:59:59Z').toISOString(),
         includeEventLog,

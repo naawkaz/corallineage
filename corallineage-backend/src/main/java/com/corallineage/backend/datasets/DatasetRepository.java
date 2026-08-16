@@ -10,4 +10,6 @@ public interface DatasetRepository extends JpaRepository<Dataset, Long> {
     Optional<Dataset> findByDatasetName(String datasetName);
 
     List<Dataset> findAllByOrderByCreatedAtDesc();
+
+    List<Dataset> findAllByIdInOrderByCreatedAtDesc(List<Long> ids);
 }

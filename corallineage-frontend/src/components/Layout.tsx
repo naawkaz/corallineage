@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useMatch } from 'react-router-dom'
+import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   Home,
@@ -15,8 +15,9 @@ import {
   Waves,
   ArrowLeft,
   LayoutDashboard,
+  LogOut,
 } from 'lucide-react'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
 
 const globalLinks: { to: string; icon: LucideIcon; label: string }[] = [
@@ -76,7 +77,24 @@ export default function Layout() {
   const match = useMatch('/projects/:projectId/*')
   const projectId = match?.params.projectId
   const { datasets } = useDatasetContext()
+  const { user, logout } = useAuthContext()
+  const navigate = useNavigate()
   const project = projectId ? datasets.find((d) => d.id === Number(projectId)) : null
+
+  function handleSignOut() {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  const initials = user
+    ? user.displayName
+        .trim()
+        .split(/\s+/)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : ''
 
   const sections = projectId ? projectSections(projectId) : null
 
@@ -153,12 +171,28 @@ export default function Layout() {
         )}
 
         <div className="sidebar-footer">
-          <div className="user-avatar">R1</div>
+          <div className="user-avatar">{initials}</div>
           <div>
             <div style={{ fontSize: 12, color: 'var(--sidebar-text-strong)', fontWeight: 500 }}>
-              {CURRENT_USER}
+              {user?.displayName}
             </div>
-            <div style={{ fontSize: 11 }}>Sign out</div>
+            <button
+              onClick={handleSignOut}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 11,
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'inherit',
+              }}
+            >
+              <LogOut size={11} strokeWidth={1.5} />
+              Sign out
+            </button>
           </div>
         </div>
       </nav>

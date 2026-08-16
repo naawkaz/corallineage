@@ -5,7 +5,7 @@ import { fetchImportJob, submitImport } from '../api/imports'
 import { startPointAnnotationJob } from '../api/pointAnnotation'
 import { fetchVersion, fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import type { ImportFormat, ImportJob, LabelDeclaration } from '../types/import'
 import type { DatasetVersion } from '../types/version'
@@ -26,6 +26,7 @@ export default function Import() {
   const { projectId: projectIdParam } = useParams()
   const projectId = Number(projectIdParam)
   const { datasets } = useDatasetContext()
+  const { user } = useAuthContext()
   const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [format, setFormat] = useState<ImportFormat>('MLC')
@@ -162,7 +163,7 @@ export default function Import() {
     setPollError(null)
     try {
       const created = await submitImport(
-        projectId, files, format, versionTag.trim(), CURRENT_USER, notes, isBlank ? declaredLabels : undefined,
+        projectId, files, format, versionTag.trim(), user?.username ?? '', notes, isBlank ? declaredLabels : undefined,
       )
       setJob(created)
     } catch (err) {
@@ -181,7 +182,7 @@ export default function Import() {
         datasetVersionId: job.createdDatasetVersionId,
         seedImageCount,
         confidenceThreshold,
-        initiatedBy: CURRENT_USER,
+        initiatedBy: user?.username ?? '',
       })
       navigate(`/projects/${projectId}/point-annotation/jobs/${pointJob.jobId}/label`)
     } catch (err) {

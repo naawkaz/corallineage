@@ -14,7 +14,7 @@ import {
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { fetchMlflowDetails, fetchModel, updateModelStatus } from '../api/models'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
+import { useAuthContext } from '../lib/authContextCore'
 import { formatDate } from '../lib/format'
 import type { MlflowDetails, ModelStatus, ModelVersion } from '../types/model'
 
@@ -36,6 +36,7 @@ export default function ModelDetail() {
   const navigate = useNavigate()
   const modelId = Number(id)
   const modelsListPath = `/projects/${projectIdParam}/models`
+  const { user } = useAuthContext()
 
   const [model, setModel] = useState<ModelVersion | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,7 +80,7 @@ export default function ModelDetail() {
     setStatusChanging(true)
     setStatusError(null)
     try {
-      const updated = await updateModelStatus(modelId, newStatus, CURRENT_USER)
+      const updated = await updateModelStatus(modelId, newStatus, user?.username ?? '')
       setModel(updated)
     } catch (err) {
       setStatusError(errorMessage(err))

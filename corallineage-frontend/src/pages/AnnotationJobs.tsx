@@ -5,8 +5,8 @@ import { fetchImages, imageFileUrlById } from '../api/images'
 import { fetchModels } from '../api/models'
 import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
-import { CURRENT_USER } from '../constants'
 import { formatDate } from '../lib/format'
+import { useAuthContext } from '../lib/authContextCore'
 import { useDatasetContext } from '../lib/datasetContextCore'
 import type { AnnotationJob } from '../types/annotation'
 import type { DatasetImage } from '../types/image'
@@ -48,6 +48,7 @@ export default function AnnotationJobs() {
   const { projectId: projectIdParam } = useParams()
   const projectId = Number(projectIdParam)
   const { datasets } = useDatasetContext()
+  const { user } = useAuthContext()
   const project = datasets.find((d) => d.id === projectId) ?? null
 
   const [tab, setTab] = useState<'submit' | 'review'>('submit')
@@ -163,7 +164,7 @@ export default function AnnotationJobs() {
         modelVersionId: selectedModelId,
         datasetVersionId: selectedVersionId,
         imageIds: selectedImageIds,
-        initiatedBy: CURRENT_USER,
+        initiatedBy: user?.username ?? '',
       })
       setActiveJob(created)
       loadJobs()
@@ -179,7 +180,7 @@ export default function AnnotationJobs() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const created = await submitNewImagesJob(selectedModelId, projectId, CURRENT_USER, pointsPerImage, uploadFiles)
+      const created = await submitNewImagesJob(selectedModelId, projectId, user?.username ?? '', pointsPerImage, uploadFiles)
       setActiveJob(created)
       setUploadFiles([])
       loadJobs()
