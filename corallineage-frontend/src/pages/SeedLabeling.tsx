@@ -9,7 +9,7 @@ import {
   labelPoint,
   trainPointAnnotationJob,
 } from '../api/pointAnnotation'
-import { Check, Plus } from 'lucide-react'
+import { CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { fetchTrainingJob } from '../api/training'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
@@ -221,14 +221,7 @@ export default function SeedLabeling() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Seed Labeling — Job #{job.jobId}</div>
-          <div className="topbar-sub">
-            {labeledCount} / {totalCount} seed points labeled ({job.seedImageCount} image(s), {job.pointsPerImage}{' '}
-            points/image)
-          </div>
-        </div>
+      <div className="page-actions">
         <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
           Back
         </button>
@@ -242,7 +235,7 @@ export default function SeedLabeling() {
         {allLabeled && job.status === 'SEED_LABELING' && (
           <div className="impact-box" style={{ marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span><Check size={16} strokeWidth={1.5} /></span>
+              <span><CheckIcon style={{ width: 16, height: 16 }} /></span>
               <span>All seed points are labeled — ready to train.</span>
             </span>
             <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
@@ -335,7 +328,7 @@ export default function SeedLabeling() {
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                   >
-                    <Plus size={14} strokeWidth={1.5} />
+                    <PlusIcon style={{ width: 14, height: 14 }} />
                     New label
                   </button>
                 </div>

@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
 import { exportReportUrl, fetchReports, generateReport } from '../api/reports'
 import { errorMessage } from '../api/client'
 import { changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../constants'
@@ -113,15 +114,8 @@ export default function ReportGenerator() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Report Generator</div>
-          <div className="topbar-sub">Aggregate provenance and analytics into a reproducibility report</div>
-        </div>
-      </div>
-
       <div className="content">
-        <div className="grid-2" style={{ gap: 24, alignItems: 'start', marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start', marginBottom: 24 }}>
           <div className="card" style={{ padding: 16 }}>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
               <div className="form-row" style={{ marginBottom: 0 }}>
@@ -227,9 +221,11 @@ export default function ReportGenerator() {
                         <td>
                           <button
                             className="btn btn-secondary btn-sm"
+                            aria-label="Redownload report"
+                            title="Redownload report"
                             onClick={() => window.open(exportReportUrl(r.reportId), '_blank')}
                           >
-                            Re-download
+                            <ArrowDownTrayIcon style={{ width: 13, height: 13 }} />
                           </button>
                         </td>
                       </tr>
@@ -237,21 +233,6 @@ export default function ReportGenerator() {
                   </tbody>
                 </table>
               )}
-            </div>
-
-            <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>What gets included</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                A generated report always includes a summary of dataset versions created, models registered,
-                ontology changes, and total annotation events within the selected date range. Optionally, it can
-                also include the full dataset version history table, the model registry table, the ontology change
-                history table, and the raw event log table for that period. When analytics are enabled, the report
-                adds class distribution and annotation-source-split charts plus a per-class accuracy table computed
-                from the most recently trained model in scope; enabling MLflow details additionally pulls each
-                model's environment fingerprint, loss curve, and confusion matrix directly from MLflow (degrading
-                gracefully if MLflow is unreachable). Every report is saved and can be re-exported as JSON later
-                from the list on the left.
-              </div>
             </div>
           </div>
         </div>

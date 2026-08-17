@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Crosshair, X } from 'lucide-react'
+import { ArrowLeftIcon, ViewfinderCircleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import { createLabelDefinition, fetchVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
@@ -147,45 +147,28 @@ export default function VersionDetail() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="page-actions with-back">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {version ? (
+            <span className="mono" style={{ fontSize: 14 }}>
+              {version.versionTag}
+            </span>
+          ) : (
+            <span>…</span>
+          )}
+          {version && !version.complete && (
             <Link
-              to={versionsListPath}
-              style={{
-                color: 'var(--text-muted)',
-                fontWeight: 400,
-                textDecoration: 'none',
-                cursor: 'pointer',
-              }}
+              to={`/sources/${sourceIdParam}/ontology?datasetVersionId=${version.id}`}
+              className="badge badge-amber"
+              style={{ textDecoration: 'none' }}
+              title={`${version.unresolvedDirtyCount} unresolved dirty annotation(s)`}
             >
-              Dataset Versions
+              Incomplete
             </Link>
-            <span style={{ color: 'var(--border-md)' }}>/</span>
-            {version ? (
-              <span className="mono" style={{ fontSize: 14 }}>
-                {version.versionTag}
-              </span>
-            ) : (
-              <span>…</span>
-            )}
-            {version && !version.complete && (
-              <Link
-                to={`/sources/${sourceIdParam}/ontology?datasetVersionId=${version.id}`}
-                className="badge badge-amber"
-                style={{ textDecoration: 'none' }}
-                title={`${version.unresolvedDirtyCount} unresolved dirty annotation(s)`}
-              >
-                Incomplete
-              </Link>
-            )}
-          </div>
-          <div className="topbar-sub">
-            {version ? `Created ${formatDate(version.createdAt)} by ${version.createdBy}` : ''}
-          </div>
+          )}
         </div>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate(versionsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <ArrowLeft size={14} strokeWidth={1.5} />
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
       </div>
@@ -387,7 +370,7 @@ export default function VersionDetail() {
                 }
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                <Crosshair size={14} strokeWidth={1.5} />
+                <ViewfinderCircleIcon style={{ width: 14, height: 14 }} />
                 {overlayActive ? 'Points on' : 'Show points'}
               </button>
             </div>
@@ -649,7 +632,7 @@ function Lightbox({
         className="btn btn-secondary"
         style={{ position: 'absolute', top: 24, right: 24, display: 'inline-flex', alignItems: 'center', gap: 4 }}
       >
-        <X size={14} strokeWidth={1.5} />
+        <XMarkIcon style={{ width: 14, height: 14 }} />
         Close
       </button>
       <div

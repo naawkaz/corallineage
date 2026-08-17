@@ -7,7 +7,6 @@ import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { formatDate } from '../lib/format'
 import { useAuthContext } from '../lib/authContextCore'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { AnnotationJob } from '../types/annotation'
 import type { DatasetImage } from '../types/image'
 import type { ModelVersion } from '../types/model'
@@ -47,11 +46,8 @@ export default function AnnotationJobs() {
   const navigate = useNavigate()
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
-  const [tab, setTab] = useState<'submit' | 'review'>('submit')
   const [mode, setMode] = useState<'validate' | 'new-images'>('validate')
 
   const [models, setModels] = useState<ModelVersion[]>([])
@@ -193,231 +189,265 @@ export default function AnnotationJobs() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Annotation Jobs</div>
-          <div className="topbar-sub">
-            {source ? `Run model inference on ${source.datasetName}` : 'Run model inference'}
-          </div>
-        </div>
-      </div>
-
       <div className="content">
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <button
-            className={`btn ${tab === 'submit' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab('submit')}
-          >
-            Submit
-          </button>
-          <button
-            className={`btn ${tab === 'review' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab('review')}
-          >
-            Review Jobs
-          </button>
-        </div>
-
-        {tab === 'submit' && (
-          <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
-            <div>
-              <div className="section-header">
-                <div className="section-title">New Annotation Job</div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <button
-                  className={`btn ${mode === 'validate' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setMode('validate')}
-                >
-                  Validate Against Human Labels
-                </button>
-                <button
-                  className={`btn ${mode === 'new-images' ? 'btn-primary' : 'btn-secondary'}`}
-                  onClick={() => setMode('new-images')}
-                >
-                  Annotate New Images
-                </button>
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                {mode === 'validate'
-                  ? 'Recheck a model\'s accuracy against real human-given labels already in a dataset version, no correction step, just a comparison.'
-                  : 'Upload brand-new images that are not yet part of any dataset version, generate points, run inference, then review each prediction before adding it to a source.'}
-              </p>
-
-              <div className="card" style={{ padding: 16 }}>
-                <div className="form-row">
-                  <label className="form-label">Model</label>
-                  <select
-                    className="form-select"
-                    value={selectedModelId ?? ''}
-                    onChange={(e) => setSelectedModelId(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    {models.length === 0 && <option value="">No ACTIVE models available</option>}
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.modelTag} ({m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}% acc` : 'n/a'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {mode === 'validate' ? (
-                  <>
-                    <div className="form-row">
-                      <label className="form-label">Dataset version</label>
-                      <select
-                        className="form-select"
-                        value={selectedVersionId ?? ''}
-                        onChange={(e) => {
-                          setImagesLoading(true)
-                          setSelectedVersionId(e.target.value ? Number(e.target.value) : null)
-                        }}
-                      >
-                        {versions.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.versionTag}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-row" style={{ marginBottom: 0 }}>
-                      <label className="form-label">
-                        Images with human-labeled points ({selectedImageIds.length} of {images.length} selected)
-                      </label>
-                      <div
-                        style={{
-                          maxHeight: 320,
-                          overflowY: 'auto',
-                          border: '1px solid var(--border-md)',
-                          borderRadius: 6,
-                        }}
-                      >
-                        {imagesLoading ? (
-                          <div className="loading-state" style={{ padding: 16 }}>
-                            <span className="spinner" /> Loading images...
-                          </div>
-                        ) : images.length === 0 ? (
-                          <div className="empty-state" style={{ padding: 16 }}>
-                            <p>No images with human-labeled points in this version.</p>
-                          </div>
-                        ) : (
-                          images.map((img) => (
-                            <label key={img.id} className="image-select-row">
-                              <input
-                                type="checkbox"
-                                checked={selectedImageIds.includes(img.id)}
-                                onChange={() => toggleImage(img.id)}
-                              />
-                              <span className="image-select-thumb">
-                                <img src={imageFileUrlById(img.id)} alt={img.filename} loading="lazy" />
-                              </span>
-                              <span className="mono" style={{ fontSize: 12 }}>{img.filename}</span>
-                            </label>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="form-row">
-                      <label className="form-label">Points per image</label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={pointsPerImage}
-                        onChange={(e) => setPointsPerImage(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-                      />
-                    </div>
-                    <div className="form-row" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Images ({uploadFiles.length} selected)</label>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={(e) => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])}
-                      />
-                    </div>
-                  </>
-                )}
-
-                {submitError && (
-                  <div className="alert alert-error" style={{ marginTop: 16 }}>
-                    {submitError}
-                  </div>
-                )}
-
-                <div style={{ marginTop: 16 }}>
-                  {mode === 'validate' ? (
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleSubmitValidation}
-                      disabled={submitting || !selectedModelId || !selectedVersionId || selectedImageIds.length === 0}
-                    >
-                      {submitting ? 'Submitting...' : 'Run Validation'}
-                    </button>
-                  ) : (
-                    <button
-                      className="btn btn-primary"
-                      onClick={handleSubmitNewImages}
-                      disabled={submitting || !selectedModelId || uploadFiles.length === 0}
-                    >
-                      {submitting ? 'Uploading...' : 'Upload and Annotate'}
-                    </button>
-                  )}
-                </div>
-
-                {activeJob && (
-                  <div style={{ marginTop: 16, borderTop: '1px solid var(--border-md)', paddingTop: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <span className={`badge ${jobStatusBadge(activeJob.status)}`}>{activeJob.status}</span>
-                      <span className="mono" style={{ fontSize: 12 }}>job #{activeJob.jobId}</span>
-                    </div>
-                    {activeJob.status === 'RUNNING' && (
-                      <div className="loading-state">
-                        <span className="spinner" /> Running inference...
-                      </div>
-                    )}
-                    {activeJob.status === 'COMPLETED' && (
-                      <div>
-                        {activeJob.totalPredictions} point(s) ready.{' '}
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => navigate(`/sources/${sourceId}/annotation/jobs/${activeJob.jobId}/review`)}
-                        >
-                          {activeJob.jobType === 'VALIDATION' ? 'View results' : 'Review now'}
-                        </button>
-                      </div>
-                    )}
-                    {activeJob.status === 'FAILED' && (
-                      <div className="alert alert-error">{activeJob.errorMessage}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <div className="section-header">
-                <div className="section-title">Recent Jobs</div>
-              </div>
-              <JobsTable jobs={jobs.slice(0, 5)} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
-            </div>
-          </div>
-        )}
-
-        {tab === 'review' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
           <div>
             <div className="section-header">
-              <div className="section-title">All Annotation Jobs</div>
+              <div className="section-title">New Annotation Job</div>
+            </div>
+
+            <div className="card" style={{ padding: 16 }}>
+              {/* item 41: mode choice as radio options inside the submit card, not a page-level tab */}
+              <div className="form-row">
+                <label className="form-label">Mode</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="annotationMode"
+                      checked={mode === 'validate'}
+                      onChange={() => setMode('validate')}
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>Validate Against Human Labels</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Recheck a model's accuracy against real human-given labels already in a dataset version, no
+                        correction step, just a comparison.
+                      </div>
+                    </span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="annotationMode"
+                      checked={mode === 'new-images'}
+                      onChange={() => setMode('new-images')}
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>Annotate New Images</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        Upload brand-new images that are not yet part of any dataset version, generate points, run
+                        inference, then review each prediction before adding it to a source.
+                      </div>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <label className="form-label">Model</label>
+                <select
+                  className="form-select"
+                  value={selectedModelId ?? ''}
+                  onChange={(e) => setSelectedModelId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {models.length === 0 && <option value="">No ACTIVE models available</option>}
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.modelTag} ({m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}% acc` : 'n/a'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {mode === 'validate' ? (
+                <>
+                  <div className="form-row">
+                    <label className="form-label">Dataset version</label>
+                    <select
+                      className="form-select"
+                      value={selectedVersionId ?? ''}
+                      onChange={(e) => {
+                        setImagesLoading(true)
+                        setSelectedVersionId(e.target.value ? Number(e.target.value) : null)
+                      }}
+                    >
+                      {versions.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.versionTag}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-row" style={{ marginBottom: 0 }}>
+                    <label className="form-label">
+                      Images with human-labeled points ({selectedImageIds.length} of {images.length} selected)
+                    </label>
+                    {imagesLoading ? (
+                      <div className="loading-state" style={{ padding: 16 }}>
+                        <span className="spinner" /> Loading images...
+                      </div>
+                    ) : images.length === 0 ? (
+                      <div className="empty-state" style={{ padding: 16 }}>
+                        <p>No images with human-labeled points in this version.</p>
+                      </div>
+                    ) : (
+                      // item 43: grid layout matching the Dataset Versions image grid, not a row list
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                          gap: 8,
+                          maxHeight: 340,
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {images.map((img) => {
+                          const selected = selectedImageIds.includes(img.id)
+                          return (
+                            <button
+                              key={img.id}
+                              type="button"
+                              onClick={() => toggleImage(img.id)}
+                              title={img.filename}
+                              style={{
+                                position: 'relative',
+                                padding: 0,
+                                border: selected ? '2px solid var(--accent)' : '2px solid transparent',
+                                borderRadius: 6,
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                aspectRatio: '1 / 1',
+                                background: 'var(--neutral-100)',
+                              }}
+                            >
+                              <img
+                                src={imageFileUrlById(img.id)}
+                                alt={img.filename}
+                                loading="lazy"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              <span
+                                style={{
+                                  position: 'absolute',
+                                  top: 4,
+                                  left: 4,
+                                  width: 14,
+                                  height: 14,
+                                  borderRadius: 3,
+                                  background: selected ? 'var(--accent)' : 'rgba(20,24,30,0.55)',
+                                  border: '1px solid #fff',
+                                }}
+                              />
+                              {/* item 44: filename shown on hover (native title) plus a truncated label strip */}
+                              <span
+                                className="mono"
+                                style={{
+                                  position: 'absolute',
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  fontSize: 10,
+                                  padding: '2px 4px',
+                                  background: 'rgba(20,24,30,0.75)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                              >
+                                {img.filename}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <label className="form-label">Points per image</label>
+                    <input
+                      className="form-input"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={pointsPerImage}
+                      onChange={(e) => setPointsPerImage(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                    />
+                  </div>
+                  <div className="form-row" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Images ({uploadFiles.length} selected)</label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])}
+                    />
+                  </div>
+                </>
+              )}
+
+              {submitError && (
+                <div className="alert alert-error" style={{ marginTop: 16 }}>
+                  {submitError}
+                </div>
+              )}
+
+              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                {mode === 'validate' ? (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSubmitValidation}
+                    disabled={submitting || !selectedModelId || !selectedVersionId || selectedImageIds.length === 0}
+                  >
+                    {submitting ? 'Submitting...' : 'Run Validation'}
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSubmitNewImages}
+                    disabled={submitting || !selectedModelId || uploadFiles.length === 0}
+                  >
+                    {submitting ? 'Uploading...' : 'Upload and Annotate'}
+                  </button>
+                )}
+              </div>
+
+              {activeJob && (
+                <div style={{ marginTop: 16, borderTop: '1px solid var(--border-md)', paddingTop: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span className={`badge ${jobStatusBadge(activeJob.status)}`}>{activeJob.status}</span>
+                    <span className="mono" style={{ fontSize: 12 }}>job #{activeJob.jobId}</span>
+                  </div>
+                  {activeJob.status === 'RUNNING' && (
+                    <div className="loading-state">
+                      <span className="spinner" /> Running inference...
+                    </div>
+                  )}
+                  {activeJob.status === 'COMPLETED' && (
+                    <div>
+                      {activeJob.totalPredictions} point(s) ready.{' '}
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => navigate(`/sources/${sourceId}/annotation/jobs/${activeJob.jobId}/review`)}
+                      >
+                        {activeJob.jobType === 'VALIDATION' ? 'View results' : 'Review now'}
+                      </button>
+                    </div>
+                  )}
+                  {activeJob.status === 'FAILED' && (
+                    <div className="alert alert-error">{activeJob.errorMessage}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* item 42: "Recent Jobs" renamed to "Review Jobs", 1/3 width, to the right */}
+          <div>
+            <div className="section-header">
+              <div className="section-title">Review Jobs</div>
             </div>
             <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
           </div>
-        )}
+        </div>
       </div>
     </>
   )

@@ -1,10 +1,9 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Info } from 'lucide-react'
+import { InformationCircleIcon } from '@heroicons/react/24/outline'
 import { fetchPointAnnotationJobs } from '../api/pointAnnotation'
 import { errorMessage } from '../api/client'
 import { formatDate } from '../lib/format'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { PointAnnotationJob, PointAnnotationJobStatus } from '../types/pointAnnotation'
 
 function statusBadge(status: PointAnnotationJobStatus): string {
@@ -23,8 +22,6 @@ export default function PointAnnotationJobs() {
   const navigate = useNavigate()
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [jobs, setJobs] = useState<PointAnnotationJob[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,20 +44,10 @@ export default function PointAnnotationJobs() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Point Annotation</div>
-          <div className="topbar-sub">
-            {source
-              ? `Grid point-annotation jobs for ${source.datasetName}`
-              : 'Grid point-annotation jobs'}
-          </div>
-        </div>
-      </div>
 
       <div className="content">
         <div className="impact-box" style={{ marginBottom: 16 }}>
-          <span><Info size={16} strokeWidth={1.5} /></span>
+          <span><InformationCircleIcon style={{ width: 16, height: 16 }} /></span>
           <span>
             New point-annotation jobs start from the Import page — pick the "Blank / Unlabeled Dataset" format,
             then continue straight into seed labeling.

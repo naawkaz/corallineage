@@ -6,9 +6,16 @@ export interface ProjectMember {
   displayName: string
   role: ProjectRole
   addedAt: string
+  sourceAccessRestricted: boolean
 }
 
 export interface AddMemberRequest {
   username: string
   role: ProjectRole
+  sourceIds?: number[]
+}
+
+export interface SourceAccess {
+  restricted: boolean
+  sourceIds: number[]
 }

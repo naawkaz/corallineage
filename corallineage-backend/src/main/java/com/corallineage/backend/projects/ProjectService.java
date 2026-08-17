@@ -72,7 +72,8 @@ public class ProjectService {
         return projectRepository.findAllByIdInOrderByCreatedAtDesc(List.copyOf(roleByProjectId.keySet())).stream()
                 .map(project -> projectMapper.toSummaryResponse(project,
                         datasetRepository.countByProjectId(project.getId()),
-                        roleByProjectId.get(project.getId())))
+                        roleByProjectId.get(project.getId()),
+                        ownerDisplayName(project.getId())))
                 .toList();
     }
 
@@ -92,6 +93,13 @@ public class ProjectService {
         }
 
         long sourceCount = datasetRepository.countByProjectId(id);
-        return projectMapper.toSummaryResponse(project, sourceCount, callerRole);
+        return projectMapper.toSummaryResponse(project, sourceCount, callerRole, ownerDisplayName(id));
+    }
+
+    private String ownerDisplayName(Long projectId) {
+        return projectMemberRepository.findByProjectIdAndRole(projectId, ProjectRole.OWNER).stream()
+                .findFirst()
+                .map(member -> member.getUser().getDisplayName())
+                .orElse(null);
     }
 }

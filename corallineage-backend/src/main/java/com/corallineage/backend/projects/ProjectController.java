@@ -56,4 +56,17 @@ public class ProjectController {
         projectMemberService.removeMember(id, userId, authentication.getName());
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/{id}/members/{userId}/source-access")
+    public SourceAccessResponse getSourceAccess(@PathVariable Long id, @PathVariable Long userId,
+                                                 Authentication authentication) {
+        return projectMemberService.getSourceAccess(id, userId, authentication.getName());
+    }
+
+    @PutMapping("/{id}/members/{userId}/source-access")
+    public SourceAccessResponse setSourceAccess(@PathVariable Long id, @PathVariable Long userId,
+                                                 @RequestBody SourceAccessRequest request,
+                                                 Authentication authentication) {
+        return projectMemberService.setSourceAccess(id, userId, request, authentication.getName());
+    }
 }

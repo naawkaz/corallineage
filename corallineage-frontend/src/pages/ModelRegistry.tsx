@@ -1,10 +1,11 @@
 ﻿import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Box } from 'lucide-react'
+import { CubeIcon } from '@heroicons/react/24/outline'
 import { fetchModels } from '../api/models'
 import { errorMessage } from '../api/client'
 import { PAGE_SIZE } from '../constants'
 import { formatDate } from '../lib/format'
+import Pagination from '../components/Pagination'
 import type { ModelStatus, ModelVersion } from '../types/model'
 import type { Page } from '../types/version'
 
@@ -34,35 +35,9 @@ export default function ModelRegistry() {
       .finally(() => setLoading(false))
   }, [sourceId, page, status])
 
-  const pageNumbers = data ? Array.from({ length: data.totalPages }, (_, i) => i) : []
-
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Model Registry</div>
-          <div className="topbar-sub">Models registered from completed training jobs</div>
-        </div>
-      </div>
-
       <div className="content">
-        <div className="filter-bar">
-          <select
-            className="form-select"
-            value={status}
-            onChange={(e) => {
-              setLoading(true)
-              setStatus(e.target.value)
-              setPage(0)
-            }}
-          >
-            <option value="ALL">All statuses</option>
-            <option value="ACTIVE">Active</option>
-            <option value="ARCHIVED">Archived</option>
-            <option value="DEPRECATED">Deprecated</option>
-          </select>
-        </div>
-
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             {error}
@@ -70,6 +45,36 @@ export default function ModelRegistry() {
         )}
 
         <div className="card">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
+            <select
+              className="form-select"
+              style={{ width: 'auto' }}
+              value={status}
+              onChange={(e) => {
+                setLoading(true)
+                setStatus(e.target.value)
+                setPage(0)
+              }}
+            >
+              <option value="ALL">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="ARCHIVED">Archived</option>
+              <option value="DEPRECATED">Deprecated</option>
+            </select>
+            {data && data.totalPages > 0 && (
+              <Pagination
+                page={page}
+                totalPages={data.totalPages}
+                onPageChange={(p) => {
+                  setLoading(true)
+                  setPage(p)
+                }}
+                totalElements={data.totalElements}
+                pageSize={PAGE_SIZE}
+              />
+            )}
+          </div>
+
           {loading ? (
             <div className="loading-state">
               <span className="spinner" /> Loading models…
@@ -77,7 +82,7 @@ export default function ModelRegistry() {
           ) : !data || data.content.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">
-                <Box size={32} strokeWidth={1.5} />
+                <CubeIcon style={{ width: 32, height: 32 }} />
               </div>
               <p>No models registered yet. Complete a training job to register one.</p>
             </div>
@@ -120,44 +125,6 @@ export default function ModelRegistry() {
             </table>
           )}
 
-          {data && data.totalPages > 0 && (
-            <div className="pagination">
-              Showing {data.number * PAGE_SIZE + 1}–
-              {Math.min((data.number + 1) * PAGE_SIZE, data.totalElements)} of {data.totalElements}
-              <button
-                className="page-btn"
-                disabled={page === 0}
-                onClick={() => {
-                  setLoading(true)
-                  setPage(page - 1)
-                }}
-              >
-                ‹
-              </button>
-              {pageNumbers.map((n) => (
-                <button
-                  key={n}
-                  className={`page-btn${n === page ? ' active' : ''}`}
-                  onClick={() => {
-                    setLoading(true)
-                    setPage(n)
-                  }}
-                >
-                  {n + 1}
-                </button>
-              ))}
-              <button
-                className="page-btn"
-                disabled={page >= data.totalPages - 1}
-                onClick={() => {
-                  setLoading(true)
-                  setPage(page + 1)
-                }}
-              >
-                ›
-              </button>
-            </div>
-          )}
         </div>
       </div>
     </>

@@ -1,76 +1,80 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import type { ComponentType, SVGProps } from 'react'
 import { NavLink, Outlet, useMatch, useNavigate } from 'react-router-dom'
-import type { LucideIcon } from 'lucide-react'
 import {
-  Home,
-  ClipboardList,
-  FileText,
-  GitBranch,
-  Upload,
-  GitCompare,
-  Box,
-  Cpu,
-  Tag,
-  Crosshair,
-  Layers,
-  Waves,
-  ArrowLeft,
-  LayoutDashboard,
-  LogOut,
-} from 'lucide-react'
-import { fetchProject } from '../api/projects'
+  HomeIcon,
+  ClipboardDocumentListIcon,
+  DocumentTextIcon,
+  ArrowRightStartOnRectangleIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
+  Squares2X2Icon,
+  RectangleStackIcon,
+  ArrowUpTrayIcon,
+  ArrowsRightLeftIcon,
+  CubeIcon,
+  CpuChipIcon,
+  TagIcon,
+  ViewfinderCircleIcon,
+  Square3Stack3DIcon,
+} from '@heroicons/react/24/outline'
 import { useAuthContext } from '../lib/authContextCore'
-import { useDatasetContext } from '../lib/datasetContextCore'
-import type { Project } from '../types/project'
 
-const globalLinks: { to: string; icon: LucideIcon; label: string }[] = [
-  { to: '/', icon: Home, label: 'Home' },
-  { to: '/events', icon: ClipboardList, label: 'Global Event Log' },
-  { to: '/report', icon: FileText, label: 'Report Generator' },
+type IconType = ComponentType<SVGProps<SVGSVGElement>>
+
+const globalLinks: { to: string; icon: IconType; label: string }[] = [
+  { to: '/', icon: HomeIcon, label: 'Home' },
+  { to: '/events', icon: ClipboardDocumentListIcon, label: 'Global Event Log' },
+  { to: '/report', icon: DocumentTextIcon, label: 'Report Generator' },
 ]
 
 interface SourceNavItem {
   to: string
-  icon: LucideIcon
+  icon: IconType
   label: string
   exact?: boolean
 }
 
-function sourceSections(sourceId: string): { label: string; items: SourceNavItem[] }[] {
+interface SourceNavSection {
+  label: string
+  items: SourceNavItem[]
+}
+
+function sourceSections(sourceId: string): SourceNavSection[] {
   return [
     {
       label: 'Overview',
       items: [
-        { to: `/sources/${sourceId}`, icon: LayoutDashboard, label: 'Dashboard', exact: true },
+        { to: `/sources/${sourceId}`, icon: Squares2X2Icon, label: 'Dashboard', exact: true },
       ],
     },
     {
       label: 'Source',
       items: [
-        { to: `/sources/${sourceId}/versions`, icon: GitBranch, label: 'Dataset Versions' },
-        { to: `/sources/${sourceId}/import`, icon: Upload, label: 'Import Data' },
-        { to: `/sources/${sourceId}/diff`, icon: GitCompare, label: 'Compare Versions' },
+        { to: `/sources/${sourceId}/versions`, icon: RectangleStackIcon, label: 'Dataset Versions' },
+        { to: `/sources/${sourceId}/import`, icon: ArrowUpTrayIcon, label: 'Import Data' },
+        { to: `/sources/${sourceId}/diff`, icon: ArrowsRightLeftIcon, label: 'Compare Versions' },
       ],
     },
     {
       label: 'Models',
       items: [
-        { to: `/sources/${sourceId}/models`, icon: Box, label: 'Model Registry' },
-        { to: `/sources/${sourceId}/training`, icon: Cpu, label: 'Training Jobs' },
+        { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Model Registry' },
+        { to: `/sources/${sourceId}/training`, icon: CpuChipIcon, label: 'Training Jobs' },
       ],
     },
     {
       label: 'Annotation',
       items: [
-        { to: `/sources/${sourceId}/annotation`, icon: Tag, label: 'Annotation Jobs' },
-        { to: `/sources/${sourceId}/point-annotation`, icon: Crosshair, label: 'Point Annotation' },
+        { to: `/sources/${sourceId}/annotation`, icon: TagIcon, label: 'Annotation Jobs' },
+        { to: `/sources/${sourceId}/point-annotation`, icon: ViewfinderCircleIcon, label: 'Point Annotation' },
       ],
     },
     {
       label: 'Provenance',
       items: [
-        { to: `/sources/${sourceId}/events`, icon: ClipboardList, label: 'Event Log' },
-        { to: `/sources/${sourceId}/ontology`, icon: Layers, label: 'Ontology Changes' },
+        { to: `/sources/${sourceId}/events`, icon: ClipboardDocumentListIcon, label: 'Event Log' },
+        { to: `/sources/${sourceId}/ontology`, icon: Square3Stack3DIcon, label: 'Ontology Changes' },
       ],
     },
   ]
@@ -79,35 +83,9 @@ function sourceSections(sourceId: string): { label: string; items: SourceNavItem
 export default function Layout() {
   const match = useMatch('/sources/:sourceId/*')
   const sourceId = match?.params.sourceId
-  const { datasets } = useDatasetContext()
   const { user, logout } = useAuthContext()
   const navigate = useNavigate()
-  const source = sourceId ? datasets.find((d) => d.id === Number(sourceId)) : null
-
-  const [parentProject, setParentProject] = useState<Project | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    if (!source || source.projectId == null) {
-      Promise.resolve().then(() => {
-        if (!cancelled) setParentProject(null)
-      })
-      return () => {
-        cancelled = true
-      }
-    }
-    fetchProject(source.projectId)
-      .then((result) => {
-        if (!cancelled) setParentProject(result)
-      })
-      .catch(() => {
-        if (!cancelled) setParentProject(null)
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source?.projectId])
+  const [collapsed, setCollapsed] = useState(false)
 
   function handleSignOut() {
     logout()
@@ -128,57 +106,45 @@ export default function Layout() {
 
   return (
     <>
-      <nav className="sidebar">
+      <nav className={`sidebar${collapsed ? ' collapsed' : ''}`}>
         <div className="sidebar-logo">
-          <Waves size={18} strokeWidth={1.5} color="var(--accent-400)" />
-          <div>
-            <div className="wordmark">CORALLINEAGE</div>
-            <div className="tagline">Annotation reproducibility</div>
-          </div>
+          <img src="/logo.png" alt="" width={18} height={18} style={{ filter: 'invert(1)', flexShrink: 0 }} />
+          {!collapsed && <div className="wordmark">CORALLINEAGE</div>}
+          <button
+            className="sidebar-collapse-toggle"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <ChevronDoubleRightIcon style={{ width: 15, height: 15 }} />
+            ) : (
+              <ChevronDoubleLeftIcon style={{ width: 15, height: 15 }} />
+            )}
+          </button>
         </div>
 
-        {sourceId ? (
-          <>
-            <div style={{ padding: '0 24px 12px' }}>
-              <NavLink
-                to={source && source.projectId != null ? `/projects/${source.projectId}` : '/'}
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-muted)',
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  marginBottom: 8,
-                }}
-              >
-                <ArrowLeft size={12} strokeWidth={1.5} />
-                {parentProject ? parentProject.projectName : 'All Projects'}
-              </NavLink>
-              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--sidebar-text-strong)' }}>
-                {source ? source.datasetName : `Source ${sourceId}`}
-              </div>
+        {sections ? (
+          sections.map((section) => (
+            <div className="sidebar-section" key={section.label}>
+              <div className="sidebar-section-label">{section.label}</div>
+              {section.items.map((item) => {
+                const Icon = item.icon
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.exact}
+                    className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <Icon className="icon" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                )
+              })}
             </div>
-            {sections!.map((section) => (
-              <div className="sidebar-section" key={section.label}>
-                <div className="sidebar-section-label">{section.label}</div>
-                {section.items.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.exact}
-                      className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
-                    >
-                      <Icon className="icon" strokeWidth={1.5} />
-                      {item.label}
-                    </NavLink>
-                  )
-                })}
-              </div>
-            ))}
-          </>
+          ))
         ) : (
           <div className="sidebar-section">
             {globalLinks.map((item) => {
@@ -189,9 +155,10 @@ export default function Layout() {
                   to={item.to}
                   end={item.to === '/'}
                   className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+                  title={collapsed ? item.label : undefined}
                 >
-                  <Icon className="icon" strokeWidth={1.5} />
-                  {item.label}
+                  <Icon className="icon" />
+                  <span>{item.label}</span>
                 </NavLink>
               )
             })}
@@ -200,28 +167,30 @@ export default function Layout() {
 
         <div className="sidebar-footer">
           <div className="user-avatar">{initials}</div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--sidebar-text-strong)', fontWeight: 500 }}>
-              {user?.displayName}
+          {!collapsed && (
+            <div>
+              <div className="sidebar-footer-name" style={{ fontSize: 12, color: 'var(--sidebar-text-strong)', fontWeight: 500 }}>
+                {user?.displayName}
+              </div>
+              <button
+                onClick={handleSignOut}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 11,
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'inherit',
+                }}
+              >
+                <ArrowRightStartOnRectangleIcon style={{ width: 11, height: 11 }} />
+                Sign out
+              </button>
             </div>
-            <button
-              onClick={handleSignOut}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 11,
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
-            >
-              <LogOut size={11} strokeWidth={1.5} />
-              Sign out
-            </button>
-          </div>
+          )}
         </div>
       </nav>
 

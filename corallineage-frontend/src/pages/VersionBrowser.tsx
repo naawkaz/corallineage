@@ -1,265 +1,28 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, FolderOpen } from 'lucide-react'
-import { fetchVersions } from '../api/versions'
-import { errorMessage } from '../api/client'
-import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../constants'
-import { formatCount, formatDate, shortHash } from '../lib/format'
-import { useDatasetContext } from '../lib/datasetContextCore'
-import CreateVersionModal from '../components/CreateVersionModal'
-import type { DatasetVersion, Page } from '../types/version'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeftIcon } from '@heroicons/react/24/outline'
+import VersionsList from '../components/VersionsList'
 
 export default function VersionBrowser() {
   const navigate = useNavigate()
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
-  const [page, setPage] = useState(0)
-  const [data, setData] = useState<Page<DatasetVersion> | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [trigger, setTrigger] = useState('ALL')
-  const [showCreate, setShowCreate] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    fetchVersions(sourceId, page, PAGE_SIZE)
-      .then((res) => {
-        if (!cancelled) {
-          setData(res)
-          setError(null)
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [sourceId, page])
-
-  const filtered = useMemo(() => {
-    if (!data) return []
-    const q = search.trim().toLowerCase()
-    return data.content.filter((v) => {
-      const matchesSearch =
-        !q ||
-        v.versionTag.toLowerCase().includes(q) ||
-        (v.notes ?? '').toLowerCase().includes(q)
-      const matchesTrigger = trigger === 'ALL' || v.triggerReason === trigger
-      return matchesSearch && matchesTrigger
-    })
-  }, [data, search, trigger])
-
-  const latest = data?.content[0] ?? null
-  const pageNumbers = data ? Array.from({ length: data.totalPages }, (_, i) => i) : []
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span
-              style={{ color: 'var(--text-muted)', fontWeight: 400, cursor: 'pointer' }}
-              onClick={() => navigate(`/sources/${sourceId}`)}
-            >
-              {source ? source.datasetName : 'Source'}
-            </span>
-            <span style={{ color: 'var(--border-md)' }}>/</span>
-            <span>Dataset Versions</span>
-          </div>
-          <div className="topbar-sub">
-            {source ? `${source.datasetName} — snapshots tracked by DVC` : 'Snapshots tracked by DVC'}
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/sources/${sourceId}`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <ArrowLeft size={14} strokeWidth={1.5} />
-            Back
-          </button>
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            ＋ New Version
-          </button>
-        </div>
+      <div className="page-actions with-back">
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate(`/sources/${sourceId}`)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+          Back
+        </button>
       </div>
 
       <div className="content">
-        {data && (
-          <div className="grid-4" style={{ marginBottom: 24 }}>
-            <div className="stat-card">
-              <div className="stat-label">Total Versions</div>
-              <div className="stat-value">{formatCount(data.totalElements)}</div>
-              <div className="stat-sub">Across all history</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Images</div>
-              <div className="stat-value">{latest ? formatCount(latest.imageCount) : '—'}</div>
-              <div className="stat-sub">Latest listed version</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Annotation Points</div>
-              <div className="stat-value">
-                {latest ? formatCount(latest.annotationCount) : '—'}
-              </div>
-              <div className="stat-sub">Latest listed version</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Label Classes</div>
-              <div className="stat-value">{latest?.labelDefinitions?.length ?? '—'}</div>
-              <div className="stat-sub">Latest listed version</div>
-            </div>
-          </div>
-        )}
-
-        <div className="filter-bar">
-          <input
-            placeholder="Search version tag or notes…"
-            style={{ width: 260 }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select className="form-select" value={trigger} onChange={(e) => setTrigger(e.target.value)}>
-            <option value="ALL">All triggers</option>
-            {TRIGGER_REASONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {error && (
-          <div className="alert alert-error" style={{ marginBottom: 16 }}>
-            {error}
-          </div>
-        )}
-
-        <div className="card">
-          {loading ? (
-            <div className="loading-state">
-              <span className="spinner" /> Loading versions…
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">
-                <FolderOpen size={32} strokeWidth={1.5} />
-              </div>
-              <p>
-                No versions found
-                {search || trigger !== 'ALL' ? ' matching your filters' : ' yet'}.
-                {search || trigger !== 'ALL'
-                  ? ''
-                  : ' Create your first snapshot to get started.'}
-              </p>
-            </div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Version</th>
-                  <th>Trigger</th>
-                  <th>Images</th>
-                  <th>Points</th>
-                  <th>DVC Hash</th>
-                  <th>Created</th>
-                  <th>By</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((v) => (
-                  <tr
-                    key={v.id}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/sources/${sourceId}/versions/${v.id}`)}
-                  >
-                    <td>
-                      <span className="mono">{v.versionTag}</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${triggerReasonBadge(v.triggerReason)}`}>
-                        {triggerReasonLabel(v.triggerReason)}
-                      </span>
-                      {!v.complete && (
-                        <Link
-                          to={`/sources/${sourceId}/ontology?datasetVersionId=${v.id}`}
-                          className="badge badge-amber"
-                          style={{ marginLeft: 6, textDecoration: 'none' }}
-                          onClick={(e) => e.stopPropagation()}
-                          title={`${v.unresolvedDirtyCount} unresolved dirty annotation(s)`}
-                        >
-                          Incomplete
-                        </Link>
-                      )}
-                    </td>
-                    <td>{formatCount(v.imageCount)}</td>
-                    <td>{formatCount(v.annotationCount)}</td>
-                    <td>
-                      <span className="mono">{shortHash(v.dvcCommitHash)}</span>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{formatDate(v.createdAt)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{v.createdBy}</td>
-                    <td>
-                      <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                        View <ArrowRight size={12} strokeWidth={1.5} />
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {data && data.totalPages > 0 && (
-            <div className="pagination">
-              Showing {data.number * PAGE_SIZE + 1}–
-              {Math.min((data.number + 1) * PAGE_SIZE, data.totalElements)} of{' '}
-              {data.totalElements}
-              <button
-                className="page-btn"
-                disabled={page === 0}
-                onClick={() => setPage(page - 1)}
-              >
-                ‹
-              </button>
-              {pageNumbers.map((n) => (
-                <button
-                  key={n}
-                  className={`page-btn${n === page ? ' active' : ''}`}
-                  onClick={() => setPage(n)}
-                >
-                  {n + 1}
-                </button>
-              ))}
-              <button
-                className="page-btn"
-                disabled={page >= data.totalPages - 1}
-                onClick={() => setPage(page + 1)}
-              >
-                ›
-              </button>
-              <div style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
-                {PAGE_SIZE} per page
-              </div>
-            </div>
-          )}
-        </div>
+        <VersionsList sourceId={sourceId} />
       </div>
-
-      <CreateVersionModal
-        datasetId={sourceId}
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={(v) => {
-          setShowCreate(false)
-          navigate(`/sources/${sourceId}/versions/${v.id}`)
-        }}
-      />
     </>
   )
 }

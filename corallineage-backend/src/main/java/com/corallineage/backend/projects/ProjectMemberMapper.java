@@ -12,6 +12,7 @@ public class ProjectMemberMapper {
         response.setDisplayName(member.getUser().getDisplayName());
         response.setRole(member.getRole());
         response.setAddedAt(member.getCreatedAt());
+        response.setSourceAccessRestricted(member.isSourceAccessRestricted());
         return response;
     }
 }

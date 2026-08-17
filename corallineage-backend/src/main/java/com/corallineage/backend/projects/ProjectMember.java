@@ -28,6 +28,17 @@ public class ProjectMember {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /**
+     * When false (the default), this member has unrestricted access to every Source in
+     * the project, including Sources added later - the project_member_source_access join
+     * table is bypassed entirely. When true, access is exactly the set of rows for this
+     * member in that table (an empty set legitimately means "no Sources"). Only ever true
+     * for COLLABORATOR members; OWNER members always bypass this regardless of the flag.
+     * See docs/decisions.md for the full rationale.
+     */
+    @Column(name = "source_access_restricted", nullable = false)
+    private boolean sourceAccessRestricted = false;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
@@ -49,4 +60,7 @@ public class ProjectMember {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public boolean isSourceAccessRestricted() { return sourceAccessRestricted; }
+    public void setSourceAccessRestricted(boolean sourceAccessRestricted) { this.sourceAccessRestricted = sourceAccessRestricted; }
 }

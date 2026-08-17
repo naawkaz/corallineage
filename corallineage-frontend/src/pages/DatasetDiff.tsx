@@ -15,15 +15,12 @@ import { fetchVersions } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
 import { errorMessage } from '../api/client'
 import { formatCount } from '../lib/format'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { DatasetDiff } from '../types/diff'
 import type { DatasetVersion } from '../types/version'
 
 export default function DatasetDiffPage() {
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [fromVersionId, setFromVersionId] = useState<number | null>(null)
@@ -64,19 +61,10 @@ export default function DatasetDiffPage() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Compare Versions</div>
-          <div className="topbar-sub">
-            {source ? `Diff two versions of ${source.datasetName}` : 'Diff two versions'}
-          </div>
-        </div>
-      </div>
-
       <div className="content">
         <div className="card" style={{ padding: 16, marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="form-row" style={{ marginBottom: 0, width: 180 }}>
               <label className="form-label">From version</label>
               <select
                 className="form-select"
@@ -91,7 +79,7 @@ export default function DatasetDiffPage() {
                 ))}
               </select>
             </div>
-            <div className="form-row" style={{ marginBottom: 0 }}>
+            <div className="form-row" style={{ marginBottom: 0, width: 180 }}>
               <label className="form-label">To version</label>
               <select
                 className="form-select"

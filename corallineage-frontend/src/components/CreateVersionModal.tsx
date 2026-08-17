@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { createVersion } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { TRIGGER_REASONS } from '../constants'
@@ -52,7 +52,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={16} strokeWidth={1.5} />
+            <XMarkIcon style={{ width: 16, height: 16 }} />
           </button>
         </div>
         <div className="modal-body">

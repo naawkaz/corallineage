@@ -6,8 +6,10 @@ export interface Project {
   description: string | null
   createdBy: string
   createdAt: string
+  updatedAt: string
   sourceCount: number
   callerRole: ProjectRole | null
+  ownerDisplayName: string | null
 }
 
 export interface CreateProjectRequest {

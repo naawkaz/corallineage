@@ -2,7 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
-import { Check } from 'lucide-react'
+import { CheckIcon } from '@heroicons/react/24/outline'
 import { fetchGeneratedPoints, fetchPointAnnotationJob, reviewGeneratedPoint } from '../api/pointAnnotation'
 import { fetchVersion } from '../api/versions'
 import { imageFileUrlById } from '../api/images'
@@ -133,14 +133,7 @@ export default function PointAnnotationReview() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Point Annotation Review — Job #{job.jobId}</div>
-          <div className="topbar-sub">
-            {confirmedCount} / {totalCount} points confirmed — model {job.modelTag}, threshold{' '}
-            {Math.round(job.confidenceThreshold * 100)}%
-          </div>
-        </div>
+      <div className="page-actions">
         <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
           Back
         </button>
@@ -153,7 +146,7 @@ export default function PointAnnotationReview() {
       <div className="content">
         {pendingCount === 0 && totalCount > 0 && (
           <div className="impact-box" style={{ marginBottom: 16 }}>
-            <span><Check size={16} strokeWidth={1.5} /></span>
+            <span><CheckIcon style={{ width: 16, height: 16 }} /></span>
             <span>All points reviewed — this point-annotation job is complete.</span>
           </div>
         )}

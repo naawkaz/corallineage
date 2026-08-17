@@ -11,11 +11,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeftIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 import { fetchMlflowDetails, fetchModel, updateModelStatus } from '../api/models'
 import { errorMessage } from '../api/client'
 import { useAuthContext } from '../lib/authContextCore'
-import { formatDate } from '../lib/format'
 import type { MlflowDetails, ModelStatus, ModelVersion } from '../types/model'
 
 const STATUS_BADGE: Record<ModelStatus, string> = {
@@ -120,21 +119,10 @@ export default function ModelDetail() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to={modelsListPath} style={{ color: 'var(--text-muted)', fontWeight: 400, textDecoration: 'none' }}>
-              Model Registry
-            </Link>
-            <span style={{ color: 'var(--border-md)' }}>/</span>
-            <span className="mono" style={{ fontSize: 14 }}>{model.modelTag}</span>
-          </div>
-          <div className="topbar-sub">
-            Trained {formatDate(model.trainedAt)} by {model.trainedBy}
-          </div>
-        </div>
+      <div className="page-actions with-back">
+        <span className="mono" style={{ fontSize: 14 }}>{model.modelTag}</span>
         <button className="btn btn-secondary btn-sm" onClick={() => navigate(modelsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <ArrowLeft size={14} strokeWidth={1.5} />
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
       </div>
@@ -387,7 +375,7 @@ export default function ModelDetail() {
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >
                   Open in MLflow
-                  <ExternalLink size={14} strokeWidth={1.5} />
+                  <ArrowTopRightOnSquareIcon style={{ width: 14, height: 14 }} />
                 </a>
               </>
             )}

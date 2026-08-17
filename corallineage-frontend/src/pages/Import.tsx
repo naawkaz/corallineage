@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { fetchImportJob, submitImport } from '../api/imports'
 import { startPointAnnotationJob } from '../api/pointAnnotation'
 import { fetchVersion, fetchVersions } from '../api/versions'
@@ -27,7 +27,6 @@ export default function Import() {
   const sourceId = Number(sourceIdParam)
   const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [format, setFormat] = useState<ImportFormat>('MLC')
   const [files, setFiles] = useState<File[]>([])
@@ -213,18 +212,9 @@ export default function Import() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Import Data</div>
-          <div className="topbar-sub">
-            {source ? `Bulk-import images and annotations into ${source.datasetName}` : 'Bulk-import images and annotations'}
-          </div>
-        </div>
-      </div>
-
       <div className="content">
         {!job && (
-          <div className="card" style={{ padding: 16, maxWidth: 560 }}>
+          <div className="card" style={{ padding: 16, maxWidth: '100%' }}>
             <div className="form-row">
               <label className="form-label">Format</label>
               {FORMATS.map((f) => (
@@ -353,7 +343,7 @@ export default function Import() {
                           }}
                           title="Remove"
                         >
-                          <X size={14} strokeWidth={1.5} />
+                          <XMarkIcon style={{ width: 14, height: 14 }} />
                         </button>
                       </div>
                     ))}
@@ -461,7 +451,7 @@ export default function Import() {
         )}
 
         {job && job.status === 'PROCESSING' && (
-          <div className="card" style={{ padding: 16, maxWidth: 560 }}>
+          <div className="card" style={{ padding: 16, maxWidth: '100%' }}>
             <div className="loading-state">
               <span className="spinner" /> Processing import ({job.importJobId})…
             </div>
@@ -474,7 +464,7 @@ export default function Import() {
         )}
 
         {job && job.status === 'COMPLETED' && (
-          <div className="card" style={{ padding: 16, maxWidth: 560 }}>
+          <div className="card" style={{ padding: 16, maxWidth: '100%' }}>
             <div style={{ fontWeight: 600, marginBottom: 12 }}>Import completed</div>
             <div className="detail-grid">
               <div className="detail-row">
@@ -570,7 +560,7 @@ export default function Import() {
         )}
 
         {job && job.status === 'FAILED' && (
-          <div className="card" style={{ padding: 16, maxWidth: 560 }}>
+          <div className="card" style={{ padding: 16, maxWidth: '100%' }}>
             <div style={{ fontWeight: 600, marginBottom: 12, color: 'var(--red)' }}>Import failed</div>
             <div className="alert alert-error">{job.errorMessage}</div>
             <div style={{ marginTop: 16 }}>

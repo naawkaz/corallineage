@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { createProject } from '../api/projects'
 import { errorMessage } from '../api/client'
 import type { CreateProjectRequest, Project } from '../types/project'
@@ -45,7 +45,7 @@ export default function CreateProjectModal({ open, onClose, onCreated }: CreateP
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={16} strokeWidth={1.5} />
+            <XMarkIcon style={{ width: 16, height: 16 }} />
           </button>
         </div>
         <div className="modal-body">

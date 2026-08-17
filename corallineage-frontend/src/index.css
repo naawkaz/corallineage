@@ -116,7 +116,36 @@ body {
   flex-direction: column;
   height: 100vh;
   overflow-y: auto;
+  transition: width 0.15s ease, min-width 0.15s ease;
 }
+.sidebar.collapsed {
+  width: 56px;
+  min-width: 56px;
+  overflow-x: hidden;
+}
+.sidebar.collapsed .sidebar-item span,
+.sidebar.collapsed .sidebar-section-label,
+.sidebar.collapsed .wordmark,
+.sidebar.collapsed .sidebar-footer-name {
+  display: none;
+}
+.sidebar.collapsed .sidebar-item {
+  justify-content: center;
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+.sidebar.collapsed .sidebar-item.active {
+  padding-left: calc(var(--space-3) - 2px);
+}
+.sidebar-collapse-toggle {
+  background: none; border: none; cursor: pointer;
+  color: var(--sidebar-text-faint); padding: 4px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  margin-left: auto;
+}
+.sidebar-collapse-toggle:hover { color: var(--sidebar-text-strong); background: var(--sidebar-hover-bg); }
+.sidebar.collapsed .sidebar-collapse-toggle { margin-left: 0; }
 
 .sidebar-logo {
   padding: var(--space-5) var(--space-5) var(--space-4);
@@ -125,6 +154,7 @@ body {
   align-items: center;
   gap: var(--space-3);
 }
+.sidebar.collapsed .sidebar-logo { padding: var(--space-5) var(--space-3) var(--space-4); justify-content: center; }
 .sidebar-logo .wordmark {
   font-size: var(--text-md);
   font-weight: 600;
@@ -223,6 +253,35 @@ body {
   padding: 28px;
 }
 
+/* Slim replacement for the removed topbar: only rendered when a page needs a
+   real action/back control, never decorative title/subtitle text. */
+.page-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; margin-bottom: 18px;
+}
+.page-actions.with-back { justify-content: space-between; }
+
+/* LIST ROWS: replaces card-grid layouts for Projects/Sources (dense, spacing-separated) */
+.list-rows { display: flex; flex-direction: column; }
+.list-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: var(--space-6) 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none; color: inherit;
+  cursor: pointer;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row-main { flex: 1; min-width: 0; }
+.list-row-name { font-size: var(--text-md); font-weight: 600; color: var(--text-primary); }
+.list-row-desc { font-size: var(--text-sm); color: var(--text-secondary); margin-top: 3px; }
+.list-row-meta {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 4px; flex-shrink: 0; text-align: right;
+}
+.list-row-owner { font-size: var(--text-sm); color: var(--text-primary); }
+.list-row-date { font-size: var(--text-xs); color: var(--text-muted); }
+.list-row-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
 /* ── COMMON COMPONENTS ── */
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -274,7 +333,6 @@ tr:hover td { background: var(--canvas); }
 
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
@@ -321,7 +379,7 @@ tr:hover td { background: var(--canvas); }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
 .stat-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: var(--radius); padding: 16px 20px;
 }
 .stat-label { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -337,8 +395,20 @@ tr:hover td { background: var(--canvas); }
   padding: 4px 10px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--surface);
   cursor: pointer; font-size: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-ellipsis { color: var(--text-muted); font-size: 12px; padding: 0 2px; }
+
+/* Section-level pagination: top right of its section, not a bottom footer bar. */
+.pagination-top {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text-secondary);
+}
+.pagination-summary { color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+
+.section-header .pagination-top { margin-left: auto; }
 
 .filter-bar {
   display: flex; align-items: center; gap: 10px;

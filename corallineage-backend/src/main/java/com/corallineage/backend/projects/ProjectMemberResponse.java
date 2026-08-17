@@ -9,6 +9,7 @@ public class ProjectMemberResponse {
     private String displayName;
     private ProjectRole role;
     private Instant addedAt;
+    private boolean sourceAccessRestricted;
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
@@ -24,4 +25,7 @@ public class ProjectMemberResponse {
 
     public Instant getAddedAt() { return addedAt; }
     public void setAddedAt(Instant addedAt) { this.addedAt = addedAt; }
+
+    public boolean isSourceAccessRestricted() { return sourceAccessRestricted; }
+    public void setSourceAccessRestricted(boolean sourceAccessRestricted) { this.sourceAccessRestricted = sourceAccessRestricted; }
 }

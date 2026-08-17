@@ -6,6 +6,7 @@ import com.corallineage.backend.exception.UnauthorizedException;
 import com.corallineage.backend.projects.Project;
 import com.corallineage.backend.projects.ProjectMemberService;
 import com.corallineage.backend.projects.ProjectRepository;
+import java.util.Set;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,9 @@ public class DatasetService {
         dataset.setProject(project);
         Dataset saved = datasetRepository.save(dataset);
 
+        project.setUpdatedAt(java.time.Instant.now());
+        projectRepository.save(project);
+
         return datasetMapper.toResponse(saved);
     }
 
@@ -66,7 +70,10 @@ public class DatasetService {
             throw new UnauthorizedException("You are not a member of this project");
         }
 
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+
         return datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(projectId).stream()
+                .filter(dataset -> accessibleSourceIds.isEmpty() || accessibleSourceIds.get().contains(dataset.getId()))
                 .map(dataset -> {
                     long versionCount = datasetVersionRepository.countByDatasetId(dataset.getId());
                     String latestVersionTag = datasetVersionRepository

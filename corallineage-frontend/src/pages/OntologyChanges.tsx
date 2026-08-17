@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, X } from 'lucide-react'
+import { ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
 import {
@@ -15,7 +15,6 @@ import { errorMessage } from '../api/client'
 import { CHANGE_TYPES, changeTypeBadge, changeTypeLabel } from '../constants'
 import { formatDate } from '../lib/format'
 import { useAuthContext } from '../lib/authContextCore'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { ChangeType, DirtyAnnotation, NewLabelSpec, OntologyChange } from '../types/ontology'
 import type { DatasetVersion, LabelDefinition } from '../types/version'
@@ -39,16 +38,12 @@ function dirtyQueueDotColor(points: DirtyAnnotation[]): string {
 export default function OntologyChanges() {
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [searchParams] = useSearchParams()
   const filterVersionId = searchParams.get('datasetVersionId')
     ? Number(searchParams.get('datasetVersionId'))
     : null
-
-  const [tab, setTab] = useState<'history' | 'dirty'>('history')
 
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [changeType, setChangeType] = useState<ChangeType>('LABEL_RENAMED')
@@ -310,55 +305,21 @@ export default function OntologyChanges() {
     return filtered.length > 0 ? filtered : labelOptions
   }, [selectedChange, labelOptions])
 
+  const totalChanges = changes.length
+  const annotationsFlagged = changes.reduce((sum, c) => sum + c.dirtyAnnotationsFlagged, 0)
+  const unresolvedFlags = changes.reduce((sum, c) => sum + (c.dirtyAnnotationsFlagged - c.resolvedCount), 0)
+
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Ontology Changes</div>
-          <div className="topbar-sub">
-            {source ? `Label vocabulary changes for ${source.datasetName}` : 'Label vocabulary changes'}
-            {filterVersionId != null ? ` — filtered to dataset version #${filterVersionId}` : ''}
-          </div>
-        </div>
-      </div>
-
       <div className="content">
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          <button
-            className={`btn ${tab === 'history' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab('history')}
-          >
-            Change History
-          </button>
-          <button
-            className={`btn ${tab === 'dirty' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab('dirty')}
-          >
-            Dirty Annotations Queue
-          </button>
-        </div>
+        {filterVersionId != null && (
+          <div className="alert alert-info" style={{ marginBottom: 16 }}>
+            Filtered to dataset version #{filterVersionId}
+          </div>
+        )}
 
-        {tab === 'history' && (
-          <>
-            <div className="grid-3" style={{ marginBottom: 20 }}>
-              <div className="stat-card">
-                <div className="stat-label">Total Changes</div>
-                <div className="stat-value">{changes.length}</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Annotations Flagged</div>
-                <div className="stat-value">
-                  {changes.reduce((sum, c) => sum + c.dirtyAnnotationsFlagged, 0)}
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Unresolved Flags</div>
-                <div className="stat-value">
-                  {changes.reduce((sum, c) => sum + (c.dirtyAnnotationsFlagged - c.resolvedCount), 0)}
-                </div>
-              </div>
-            </div>
-          <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
+        {/* item 46: Record-change form on the left, condensed summary on the right */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start', marginBottom: 24 }}>
             <div>
               <div className="section-header">
                 <div className="section-title">Record Ontology Change</div>
@@ -479,7 +440,8 @@ export default function OntologyChanges() {
                   </div>
                 )}
 
-                <div style={{ marginTop: 16 }}>
+                {/* item 47: primary action right-aligned within its own card, matching this pass's convention */}
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     className="btn btn-primary"
                     onClick={handleRecordChange}
@@ -491,96 +453,130 @@ export default function OntologyChanges() {
               </div>
             </div>
 
+            {/* item 45: the 3 stat cards de-emphasized into a single condensed summary card */}
             <div>
               <div className="section-header">
-                <div className="section-title">Change History</div>
+                <div className="section-title">Summary</div>
               </div>
-              <div className="card">
-                {changesError && (
-                  <div className="alert alert-error" style={{ margin: 16 }}>
-                    {changesError}
-                  </div>
-                )}
-                {changesLoading ? (
-                  <div className="loading-state">
-                    <span className="spinner" /> Loading changes…
-                  </div>
-                ) : changes.length === 0 ? (
-                  <div className="empty-state">
-                    <p>No ontology changes recorded yet.</p>
-                  </div>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Old → New</th>
-                        <th>Changed by</th>
-                        <th>Changed at</th>
-                        <th>Dirty flags</th>
-                        <th>Resolved</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {changes.map((c) => {
-                        const pct = c.dirtyAnnotationsFlagged > 0
-                          ? (c.resolvedCount / c.dirtyAnnotationsFlagged) * 100
-                          : 0
-                        return (
-                          <tr
-                            key={c.id}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => {
-                              selectChange(c.id)
-                              setTab('dirty')
-                            }}
-                          >
-                            <td>
-                              <span className={`badge ${changeTypeBadge(c.changeType)}`}>
-                                {changeTypeLabel(c.changeType)}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="mono" style={{ fontSize: 12 }}>
-                                {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '—')}
-                              </span>
-                            </td>
-                            <td>{c.changedBy}</td>
-                            <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
-                            <td>{c.dirtyAnnotationsFlagged}</td>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div className="progress-bar-bg" style={{ width: 60 }}>
-                                  <div
-                                    className="progress-bar-fill"
-                                    style={{ width: `${pct}%`, background: 'var(--success)' }}
-                                  />
-                                </div>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                  {c.resolvedCount}/{c.dirtyAnnotationsFlagged}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )}
+              <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <div className="stat-label">Total Changes</div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>{totalChanges}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Annotations Flagged</div>
+                  <div style={{ fontSize: 20, fontWeight: 600 }}>{annotationsFlagged}</div>
+                </div>
+                <div>
+                  <div className="stat-label">Unresolved Flags</div>
+                  {unresolvedFlags > 0 ? (
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 600,
+                        color: '#9F1D1D',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <ExclamationTriangleIcon style={{ width: 16, height: 16 }} />
+                      {unresolvedFlags}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 20, fontWeight: 600 }}>{unresolvedFlags}</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          </>
-        )}
+        </div>
 
-        {tab === 'dirty' && (
-          <div>
+        {/* item 48: Change History moved below the two cards above */}
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-header">
+            <div className="section-title">Change History</div>
+          </div>
+          <div className="card">
+            {changesError && (
+              <div className="alert alert-error" style={{ margin: 16 }}>
+                {changesError}
+              </div>
+            )}
+            {changesLoading ? (
+              <div className="loading-state">
+                <span className="spinner" /> Loading changes…
+              </div>
+            ) : changes.length === 0 ? (
+              <div className="empty-state">
+                <p>No ontology changes recorded yet.</p>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Old → New</th>
+                    <th>Changed by</th>
+                    <th>Changed at</th>
+                    <th>Dirty flags</th>
+                    <th>Resolved</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {changes.map((c) => {
+                    const pct = c.dirtyAnnotationsFlagged > 0
+                      ? (c.resolvedCount / c.dirtyAnnotationsFlagged) * 100
+                      : 0
+                    return (
+                      <tr
+                        key={c.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => selectChange(c.id)}
+                      >
+                        <td>
+                          <span className={`badge ${changeTypeBadge(c.changeType)}`}>
+                            {changeTypeLabel(c.changeType)}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="mono" style={{ fontSize: 12 }}>
+                            {c.oldLabelCode ?? '(none)'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
+                          </span>
+                        </td>
+                        <td>{c.changedBy}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
+                        <td>{c.dirtyAnnotationsFlagged}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div className="progress-bar-bg" style={{ width: 60 }}>
+                              <div
+                                className="progress-bar-fill"
+                                style={{ width: `${pct}%`, background: 'var(--success)' }}
+                              />
+                            </div>
+                            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                              {c.resolvedCount}/{c.dirtyAnnotationsFlagged}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* item 49: no top tab switcher, Dirty Annotations Queue stays reachable stacked below
+            Change History (clicking a history row above selects it here). */}
+        <div>
             <div className="section-header">
               <div className="section-title">Dirty Annotations Queue</div>
             </div>
             {selectedChange && (selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount) > 0 && (
               <div className="impact-box" style={{ marginBottom: 16, marginTop: 0 }}>
-                <span><AlertTriangle size={16} strokeWidth={1.5} /></span>
+                <span><ExclamationTriangleIcon style={{ width: 16, height: 16 }} /></span>
                 <span>
                   {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount} annotation point
                   {selectedChange.dirtyAnnotationsFlagged - selectedChange.resolvedCount === 1 ? '' : 's'} carry a
@@ -599,7 +595,7 @@ export default function OntologyChanges() {
                   <option value="">Select a change…</option>
                   {changes.map((c) => (
                     <option key={c.id} value={c.id}>
-                      #{c.id} — {c.oldLabelCode ?? changeTypeLabel(c.changeType)} ({c.dirtyAnnotationsFlagged} flagged)
+                      #{c.id}: {c.oldLabelCode ?? changeTypeLabel(c.changeType)} ({c.dirtyAnnotationsFlagged} flagged)
                     </option>
                   ))}
                 </select>
@@ -784,7 +780,6 @@ export default function OntologyChanges() {
               </div>
             )}
           </div>
-        )}
       </div>
     </>
   )
@@ -827,7 +822,7 @@ function NewLabelRowFields({
         />
         {removable && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={onRemove} title="Remove">
-            <X size={14} strokeWidth={1.5} />
+            <XMarkIcon style={{ width: 14, height: 14 }} />
           </button>
         )}
       </div>

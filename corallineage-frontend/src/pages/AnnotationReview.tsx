@@ -2,7 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
-import { Check, X } from 'lucide-react'
+import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   addToProject,
   fetchAnnotationJob,
@@ -189,17 +189,7 @@ export default function AnnotationReview() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">
-            {isValidation ? 'Validation Results' : 'Review'} - Job #{job.jobId}
-          </div>
-          <div className="topbar-sub">
-            {isValidation
-              ? `${job.correctPredictions ?? 0} / ${job.totalPredictions} points agree with human labels`
-              : `${job.reviewedPredictions} / ${job.totalPredictions} reviewed`}
-          </div>
-        </div>
+      <div className="page-actions">
         <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/annotation`)}>
           Back to jobs
         </button>
@@ -275,7 +265,7 @@ export default function AnnotationReview() {
 
         {job.addedToProjectVersionId && (
           <div className="impact-box safe" style={{ marginBottom: 16 }}>
-            <span><Check size={16} strokeWidth={1.5} /></span>
+            <span><CheckIcon style={{ width: 16, height: 16 }} /></span>
             <span>
               Added to the source as dataset version #{job.addedToProjectVersionId}.
             </span>
@@ -464,11 +454,11 @@ function PredictionCard({
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
           {prediction.agreesWithHuman ? (
             <>
-              <Check size={12} strokeWidth={2} /> Matches human label
+              <CheckIcon style={{ width: 12, height: 12 }} /> Matches human label
             </>
           ) : (
             <>
-              <X size={12} strokeWidth={2} /> Does not match human label
+              <XMarkIcon style={{ width: 12, height: 12 }} /> Does not match human label
             </>
           )}
         </div>

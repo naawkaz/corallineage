@@ -5,7 +5,6 @@ import { fetchVersions } from '../api/versions'
 import { errorMessage } from '../api/client'
 import { formatDate } from '../lib/format'
 import { useAuthContext } from '../lib/authContextCore'
-import { useDatasetContext } from '../lib/datasetContextCore'
 import type { Architecture, TrainingJob } from '../types/training'
 import type { DatasetVersion } from '../types/version'
 
@@ -25,9 +24,7 @@ function statusBadge(status: TrainingJob['status']): string {
 export default function TrainingJobs() {
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
-  const { datasets } = useDatasetContext()
   const { user } = useAuthContext()
-  const source = datasets.find((d) => d.id === sourceId) ?? null
 
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
@@ -130,17 +127,8 @@ export default function TrainingJobs() {
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          <div className="topbar-title">Training Jobs</div>
-          <div className="topbar-sub">
-            {source ? `Fine-tune a model on ${source.datasetName}` : 'Fine-tune a model'}
-          </div>
-        </div>
-      </div>
-
       <div className="content">
-        <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <div>
             <div className="section-header">
               <div className="section-title">New Training Job</div>

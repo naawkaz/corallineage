@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Waves } from 'lucide-react'
 import { useAuthContext } from '../lib/authContextCore'
 import { errorMessage } from '../api/client'
 
@@ -31,6 +30,7 @@ export default function Register() {
   return (
     <div
       style={{
+        width: '100%',
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -41,7 +41,7 @@ export default function Register() {
     >
       <div className="card" style={{ width: 360, padding: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <Waves size={20} strokeWidth={1.5} color="var(--accent-500)" />
+          <img src="/logo.png" alt="" width={22} height={22} />
           <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>CORALLINEAGE</div>
         </div>
         <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 20 }}>

@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Box,
-  Cpu,
-  Crosshair,
-  GitBranch,
-  GitCompare,
-  Layers,
-  Tag,
-  Upload,
-} from 'lucide-react'
+import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { fetchDataset } from '../api/datasets'
 import { fetchProject } from '../api/projects'
 import { fetchVersions } from '../api/versions'
+import { fetchModels } from '../api/models'
 import { errorMessage } from '../api/client'
-import { formatCount, formatDate } from '../lib/format'
-import { triggerReasonBadge, triggerReasonLabel } from '../constants'
+import { formatCount } from '../lib/format'
+import VersionsList from '../components/VersionsList'
 import type { Dataset } from '../types/dataset'
 import type { DatasetVersion } from '../types/version'
 import type { Project } from '../types/project'
-
-interface QuickLink {
-  to: string
-  icon: typeof Box
-  label: string
-  description: string
-}
 
 export default function DatasetDashboard() {
   const navigate = useNavigate()
@@ -37,21 +20,22 @@ export default function DatasetDashboard() {
   const [dataset, setDataset] = useState<Dataset | null>(null)
   const [parentProject, setParentProject] = useState<Project | null>(null)
   const [latestVersion, setLatestVersion] = useState<DatasetVersion | null>(null)
+  const [modelCount, setModelCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!sourceId) return
     let cancelled = false
-    Promise.resolve()
-      .then(() => {
-        if (!cancelled) setLoading(true)
-      })
-    Promise.all([fetchDataset(sourceId), fetchVersions(sourceId, 0, 1)])
-      .then(([datasetRes, versionsRes]) => {
+    Promise.resolve().then(() => {
+      if (!cancelled) setLoading(true)
+    })
+    Promise.all([fetchDataset(sourceId), fetchVersions(sourceId, 0, 1), fetchModels(sourceId, 0, 1)])
+      .then(([datasetRes, versionsRes, modelsRes]) => {
         if (cancelled) return
         setDataset(datasetRes)
         setLatestVersion(versionsRes.content[0] ?? null)
+        setModelCount(modelsRes.totalElements)
         setError(null)
         return datasetRes.projectId != null ? fetchProject(datasetRes.projectId) : null
       })
@@ -69,88 +53,49 @@ export default function DatasetDashboard() {
     }
   }, [sourceId])
 
-  const quickLinks: QuickLink[] = [
-    {
-      to: `/sources/${sourceId}/import`,
-      icon: Upload,
-      label: 'Import Data',
-      description: 'Bring in new images and annotations',
-    },
-    {
-      to: `/sources/${sourceId}/diff`,
-      icon: GitCompare,
-      label: 'Compare Versions',
-      description: 'Diff two dataset snapshots',
-    },
-    {
-      to: `/sources/${sourceId}/models`,
-      icon: Box,
-      label: 'Model Registry',
-      description: 'Browse trained and registered models',
-    },
-    {
-      to: `/sources/${sourceId}/training`,
-      icon: Cpu,
-      label: 'Training Jobs',
-      description: 'Fine-tune a model on this source',
-    },
-    {
-      to: `/sources/${sourceId}/annotation`,
-      icon: Tag,
-      label: 'Annotation Jobs',
-      description: 'Whole-image inference and review',
-    },
-    {
-      to: `/sources/${sourceId}/point-annotation`,
-      icon: Crosshair,
-      label: 'Point Annotation',
-      description: 'CoralNet-style point labeling jobs',
-    },
-    {
-      to: `/sources/${sourceId}/ontology`,
-      icon: Layers,
-      label: 'Ontology Changes',
-      description: 'Label vocabulary history and dirty flags',
-    },
-  ]
+  const dirtyBanner = latestVersion && !latestVersion.complete
 
   return (
     <>
-      <div className="topbar">
-        <div>
-          {dataset?.projectId != null && (
-            <button
-              onClick={() => navigate(`/projects/${dataset.projectId}`)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 12,
-                color: 'var(--text-muted)',
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                marginBottom: 6,
-              }}
-            >
-              <ArrowLeft size={12} strokeWidth={1.5} />
-              {parentProject ? parentProject.projectName : 'Back to project'}
-            </button>
-          )}
-          <div className="topbar-title">{dataset ? dataset.datasetName : 'Source'}</div>
-          <div className="topbar-sub">
-            {dataset ? dataset.description || 'No description' : 'Source overview'}
-          </div>
-        </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => navigate(`/sources/${sourceId}/versions`)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+      {/* item 28: edge-to-edge, no page padding, red with light text, no border */}
+      {dirtyBanner && (
+        <div
+          style={{
+            width: '100%',
+            padding: '10px 28px',
+            background: 'var(--danger-bg)',
+            color: 'var(--danger)',
+            fontWeight: 400,
+            fontSize: 12.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexShrink: 0,
+          }}
         >
-          <GitBranch size={14} strokeWidth={1.5} />
-          Dataset Versions
+          <span>
+            The latest version has {formatCount(latestVersion!.unresolvedDirtyCount)} unresolved dirty
+            annotation{latestVersion!.unresolvedDirtyCount === 1 ? '' : 's'} and cannot be trained against
+            until resolved.
+          </span>
+          <Link to={`/sources/${sourceId}/ontology?datasetVersionId=${latestVersion!.id}`} style={{ color: 'inherit', flexShrink: 0 }}>
+            Resolve
+          </Link>
+        </div>
+      )}
+
+      {/* item 26: reserved top-nav space, single button back to the parent project */}
+      <div className="page-actions with-back">
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate(dataset?.projectId != null ? `/projects/${dataset.projectId}` : '/')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        >
+          <ArrowLeftIcon style={{ width: 12, height: 12 }} />
+          {parentProject ? parentProject.projectName : 'Back to project'}
         </button>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{dataset?.datasetName}</div>
       </div>
 
       <div className="content">
@@ -167,23 +112,6 @@ export default function DatasetDashboard() {
         ) : (
           dataset && (
             <>
-              {latestVersion && !latestVersion.complete && (
-                <div className="impact-box" style={{ marginBottom: 20 }}>
-                  <span>
-                    The latest version has {formatCount(latestVersion.unresolvedDirtyCount)} unresolved
-                    dirty annotation{latestVersion.unresolvedDirtyCount === 1 ? '' : 's'} and cannot be
-                    trained against until resolved.
-                  </span>
-                  <Link
-                    to={`/sources/${sourceId}/ontology?datasetVersionId=${latestVersion.id}`}
-                    className="badge badge-amber"
-                    style={{ textDecoration: 'none', flexShrink: 0 }}
-                  >
-                    Resolve
-                  </Link>
-                </div>
-              )}
-
               <div className="grid-4" style={{ marginBottom: 24 }}>
                 <div className="stat-card">
                   <div className="stat-label">Versions</div>
@@ -199,91 +127,23 @@ export default function DatasetDashboard() {
                 <div className="stat-card">
                   <div className="stat-label">Images</div>
                   <div className="stat-value">
-                    {dataset.imageCount != null ? formatCount(dataset.imageCount) : '—'}
-                  </div>
-                  <div className="stat-sub">Latest version</div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-label">Annotation Points</div>
-                  <div className="stat-value">
-                    {dataset.annotationCount != null ? formatCount(dataset.annotationCount) : '—'}
+                    {dataset.imageCount != null ? formatCount(dataset.imageCount) : 0}
                   </div>
                   <div className="stat-sub">Latest version</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Label Classes</div>
-                  <div className="stat-value">{latestVersion?.labelDefinitions?.length ?? '—'}</div>
+                  <div className="stat-value">{latestVersion?.labelDefinitions?.length ?? 0}</div>
                   <div className="stat-sub">Latest version</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Number of models</div>
+                  <div className="stat-value">{modelCount != null ? formatCount(modelCount) : 0}</div>
+                  <div className="stat-sub">In the model registry</div>
                 </div>
               </div>
 
-              <div className="section-header">
-                <div className="section-title">Latest version</div>
-              </div>
-              <div className="card" style={{ padding: 16, marginBottom: 24 }}>
-                {latestVersion ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span className="mono" style={{ fontSize: 14 }}>
-                        {latestVersion.versionTag}
-                      </span>
-                      <span className={`badge ${triggerReasonBadge(latestVersion.triggerReason)}`}>
-                        {triggerReasonLabel(latestVersion.triggerReason)}
-                      </span>
-                      {!latestVersion.complete && (
-                        <span className="badge badge-amber">Incomplete</span>
-                      )}
-                      <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                        Created {formatDate(latestVersion.createdAt)} by {latestVersion.createdBy}
-                      </span>
-                    </div>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => navigate(`/sources/${sourceId}/versions/${latestVersion.id}`)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    >
-                      Open version <ArrowRight size={12} strokeWidth={1.5} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <p>No versions yet. Import data or create a snapshot to get started.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="section-header">
-                <div className="section-title">Quick links</div>
-              </div>
-              <div className="grid-3" style={{ gap: 16 }}>
-                {quickLinks.map((link) => {
-                  const Icon = link.icon
-                  return (
-                    <div
-                      key={link.to}
-                      className="card"
-                      style={{ padding: 16, cursor: 'pointer' }}
-                      onClick={() => navigate(link.to)}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <Icon size={16} strokeWidth={1.5} color="var(--accent-500)" />
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{link.label}</div>
-                      </div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                        {link.description}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <VersionsList sourceId={sourceId} />
             </>
           )
         )}
