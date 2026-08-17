@@ -5,6 +5,7 @@ import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
+import com.corallineage.backend.registry.model.MlflowIntegrationService;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionService;
@@ -38,13 +39,14 @@ class TrainingJobServiceTest {
     @Mock private ArchitectureRegistry architectureRegistry;
     @Mock private TrainingJobExecutor trainingJobExecutor;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock private MlflowIntegrationService mlflowIntegrationService;
 
     private final TrainingJobMapper trainingJobMapper = new TrainingJobMapper();
 
     private TrainingJobService newService() {
         return new TrainingJobService(datasetRepository, datasetVersionRepository, datasetVersionService,
                 trainingJobRepository, trainingJobMapper, architectureRegistry, trainingJobExecutor,
-                annotationEventLoggerService);
+                annotationEventLoggerService, mlflowIntegrationService);
     }
 
     private Dataset dataset(Long id) {

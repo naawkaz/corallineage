@@ -24,6 +24,9 @@ public class TrainingJobMapper {
         response.setModelVersionId(job.getModelVersion() != null ? job.getModelVersion().getId() : null);
         response.setModelTag(job.getModelVersion() != null ? job.getModelVersion().getModelTag() : null);
         response.setErrorMessage(job.getErrorMessage());
+        response.setCurrentEpoch(job.getCurrentEpoch());
+        response.setTotalEpochs(job.getTotalEpochs());
+        response.setMlflowRunId(job.getMlflowRunId());
         return response;
     }
 }

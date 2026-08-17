@@ -17,7 +17,7 @@ import { errorMessage } from '../api/client'
 import { useAuthContext } from '../lib/authContextCore'
 import LabelCombobox from '../components/LabelCombobox'
 import type { GeneratedPoint, PointAnnotationJob } from '../types/pointAnnotation'
-import type { TrainingJobStatus } from '../types/training'
+import type { TrainingJob } from '../types/training'
 import type { LabelDefinition } from '../types/version'
 
 export default function SeedLabeling() {
@@ -40,7 +40,7 @@ export default function SeedLabeling() {
 
   const [training, setTraining] = useState(false)
   const [autoAnnotating, setAutoAnnotating] = useState(false)
-  const [trainingJobStatus, setTrainingJobStatus] = useState<TrainingJobStatus | null>(null)
+  const [trainingJob, setTrainingJob] = useState<TrainingJob | null>(null)
 
   const [addLabelOpen, setAddLabelOpen] = useState(false)
   const [newLabelCode, setNewLabelCode] = useState('')
@@ -167,7 +167,7 @@ export default function SeedLabeling() {
     const interval = setInterval(() => {
       fetchTrainingJob(job.trainingJobId as number)
         .then((tj) => {
-          if (!cancelled) setTrainingJobStatus(tj.status)
+          if (!cancelled) setTrainingJob(tj)
         })
         .catch(() => {
           /* transient poll failure — try again next tick */
@@ -179,15 +179,38 @@ export default function SeedLabeling() {
     }
   }, [job])
 
+  // Auto-annotation now kicks off asynchronously and returns almost immediately with the job
+  // already in AUTO_ANNOTATING status, so this polls the point-annotation job itself (faster
+  // than the 3s training poll, since inference races through points quickly and the status
+  // strip should visibly flicker as it goes) until it reaches REVIEW or COMPLETE.
+  useEffect(() => {
+    if (!job || job.status !== 'AUTO_ANNOTATING') return
+    let cancelled = false
+    const interval = setInterval(() => {
+      fetchPointAnnotationJob(jobId)
+        .then((updated) => {
+          if (cancelled) return
+          setJob(updated)
+          if (updated.status === 'REVIEW') {
+            navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)
+          }
+        })
+        .catch(() => {
+          /* transient poll failure — try again next tick */
+        })
+    }, 1000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [job, jobId, navigate, sourceId])
+
   async function handleAutoAnnotate() {
     setAutoAnnotating(true)
     setError(null)
     try {
       const updated = await autoAnnotatePointAnnotationJob(jobId)
       setJob(updated)
-      if (updated.status === 'REVIEW') {
-        navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)
-      }
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -219,6 +242,15 @@ export default function SeedLabeling() {
   const progressPct = totalCount > 0 ? (labeledCount / totalCount) * 100 : 0
   const allLabeled = totalCount > 0 && labeledCount === totalCount
 
+  const autoAnnotationCurrentFilename =
+    job.autoAnnotationCurrentPointId != null
+      ? points.find((p) => p.id === job.autoAnnotationCurrentPointId)?.filename ?? null
+      : null
+  const trainingProgressPct =
+    trainingJob?.currentEpoch != null && trainingJob.totalEpochs
+      ? (trainingJob.currentEpoch / trainingJob.totalEpochs) * 100
+      : 0
+
   return (
     <>
       <div className="page-actions">
@@ -227,32 +259,82 @@ export default function SeedLabeling() {
         </button>
       </div>
 
-      <div style={{ height: 4, background: 'var(--border)', margin: '0 24px' }}>
+      <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+          {labeledCount} / {totalCount} labeled
+        </span>
+      </div>
+      <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
         <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
       </div>
 
       <div className="content">
-        {allLabeled && job.status === 'SEED_LABELING' && (
-          <div className="impact-box" style={{ marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span><CheckIcon style={{ width: 16, height: 16 }} /></span>
-              <span>All seed points are labeled — ready to train.</span>
-            </span>
-            <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
-              {training ? 'Starting…' : 'Train Model'}
-            </button>
-          </div>
-        )}
-        {job.status === 'TRAINING' && (
-          <div className="impact-box" style={{ marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>Training job #{job.trainingJobId} — status: {trainingJobStatus ?? 'QUEUED'}</span>
-            <button
-              className="btn btn-primary"
-              onClick={handleAutoAnnotate}
-              disabled={autoAnnotating || trainingJobStatus !== 'COMPLETED'}
-            >
-              {autoAnnotating ? 'Running…' : 'Run Auto-Annotation'}
-            </button>
+        {(job.status === 'SEED_LABELING' || job.status === 'TRAINING' || job.status === 'AUTO_ANNOTATING') && (
+          <div
+            className="impact-box"
+            style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+              {job.status === 'SEED_LABELING' &&
+                (allLabeled ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <CheckIcon style={{ width: 16, height: 16 }} />
+                    All seed points are labeled, ready to train.
+                  </span>
+                ) : (
+                  <span>
+                    {job.seedImageCount} seed image{job.seedImageCount === 1 ? '' : 's'}, confidence threshold{' '}
+                    {Math.round(job.confidenceThreshold * 100)}%, {totalCount} point{totalCount === 1 ? '' : 's'}{' '}
+                    generated.
+                  </span>
+                ))}
+              {job.status === 'TRAINING' && (
+                <div style={{ flex: 1, minWidth: 0, maxWidth: 320 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                    Training, epoch {trainingJob?.currentEpoch ?? '—'} / {trainingJob?.totalEpochs ?? '—'}
+                  </div>
+                  <div style={{ height: 4, background: 'var(--border)' }}>
+                    <div
+                      style={{
+                        height: 4,
+                        width: `${trainingProgressPct}%`,
+                        background: '#0d9488',
+                        transition: 'width 0.2s',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {job.status === 'AUTO_ANNOTATING' && (
+                <span className="loading-state" style={{ padding: 0 }}>
+                  <span className="spinner" /> Auto-annotating…
+                </span>
+              )}
+            </div>
+
+            {job.status === 'AUTO_ANNOTATING' && (
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                Automated annotation: Point #{job.autoAnnotationProcessedCount ?? 0}
+                {job.autoAnnotationTotalCount != null ? ` / ${job.autoAnnotationTotalCount}` : ''}
+                {autoAnnotationCurrentFilename ? ` ${autoAnnotationCurrentFilename}` : ''}
+              </span>
+            )}
+
+            {job.status === 'SEED_LABELING' && allLabeled && (
+              <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
+                {training ? 'Starting…' : 'Train Model'}
+              </button>
+            )}
+
+            {job.status === 'TRAINING' && (
+              <button
+                className="btn btn-primary"
+                onClick={handleAutoAnnotate}
+                disabled={autoAnnotating || trainingJob?.status !== 'COMPLETED'}
+              >
+                {autoAnnotating ? 'Running…' : 'Run Auto-Annotation'}
+              </button>
+            )}
           </div>
         )}
         {(job.status === 'REVIEW' || job.status === 'COMPLETE') && (
@@ -301,8 +383,16 @@ export default function SeedLabeling() {
                         setCanvasNaturalSize(null)
                       }}
                     >
-                      <span className="queue-dot" style={{ background: dotColor }} />
-                      <span className="mono" style={{ fontSize: 12 }}>{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
+                      <span className="queue-list-item-thumb">
+                        <img src={imageFileUrlById(imgId)} alt="" loading="lazy" />
+                        <span className="queue-dot" style={{ background: dotColor }} />
+                      </span>
+                      <span className="queue-list-item-text">
+                        <span className="mono queue-list-item-filename">{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
+                        <span className="queue-list-item-progress">
+                          {labeled}/{imgPoints.length} labeled
+                        </span>
+                      </span>
                     </div>
                   )
                 })}
@@ -439,7 +529,7 @@ export default function SeedLabeling() {
                             }}
                           />
                           {canvasNaturalSize &&
-                            currentImagePoints.map((p) => {
+                            currentImagePoints.map((p, idx) => {
                               const dotClass =
                                 p.id === effectiveSelectedPointId
                                   ? 'dot-selected'
@@ -458,7 +548,7 @@ export default function SeedLabeling() {
                                   title={p.status === 'HUMAN_LABELED' ? `${p.finalLabelCode}` : 'Unlabeled'}
                                   onClick={() => setSelectedPointId(p.id)}
                                 >
-                                  {p.pointIndex}
+                                  {idx + 1}
                                 </div>
                               )
                             })}
@@ -482,10 +572,11 @@ export default function SeedLabeling() {
               </div>
 
               <div className="review-panel">
-                {currentImagePoints.map((point) => (
+                {currentImagePoints.map((point, idx) => (
                   <SeedPointCard
                     key={point.id}
                     point={point}
+                    pointNumber={idx + 1}
                     selected={point.id === effectiveSelectedPointId}
                     labelOptions={labelOptions}
                     onSelect={() => setSelectedPointId(point.id)}
@@ -503,12 +594,14 @@ export default function SeedLabeling() {
 
 function SeedPointCard({
   point,
+  pointNumber,
   selected,
   labelOptions,
   onSelect,
   onLabel,
 }: {
   point: GeneratedPoint
+  pointNumber: number
   selected: boolean
   labelOptions: LabelDefinition[]
   onSelect: () => void
@@ -519,7 +612,7 @@ function SeedPointCard({
   return (
     <div id={`seed-card-${point.id}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600 }}>Point #{point.pointIndex}</span>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>Point #{pointNumber}</span>
         {point.status === 'HUMAN_LABELED' ? (
           <span className="badge badge-green">{point.finalLabelCode}</span>
         ) : (
@@ -528,7 +621,7 @@ function SeedPointCard({
       </div>
 
       {point.status !== 'HUMAN_LABELED' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
           <LabelCombobox
             options={labelOptions}
             value={picked}

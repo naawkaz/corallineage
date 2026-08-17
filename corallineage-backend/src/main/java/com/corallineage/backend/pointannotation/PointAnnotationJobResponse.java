@@ -21,6 +21,9 @@ public class PointAnnotationJobResponse {
     private String initiatedBy;
     private Instant createdAt;
     private String errorMessage;
+    private Integer autoAnnotationProcessedCount;
+    private Integer autoAnnotationTotalCount;
+    private Long autoAnnotationCurrentPointId;
 
     public Long getJobId() { return jobId; }
     public void setJobId(Long jobId) { this.jobId = jobId; }
@@ -69,4 +72,13 @@ public class PointAnnotationJobResponse {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public Integer getAutoAnnotationProcessedCount() { return autoAnnotationProcessedCount; }
+    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) { this.autoAnnotationProcessedCount = autoAnnotationProcessedCount; }
+
+    public Integer getAutoAnnotationTotalCount() { return autoAnnotationTotalCount; }
+    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) { this.autoAnnotationTotalCount = autoAnnotationTotalCount; }
+
+    public Long getAutoAnnotationCurrentPointId() { return autoAnnotationCurrentPointId; }
+    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) { this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId; }
 }

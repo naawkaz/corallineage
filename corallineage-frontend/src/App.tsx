@@ -8,7 +8,6 @@ import DatasetDashboard from './pages/DatasetDashboard'
 import DatasetDiff from './pages/DatasetDiff'
 import Home from './pages/Home'
 import EventLog from './pages/EventLog'
-import Import from './pages/Import'
 import Login from './pages/Login'
 import ModelDetail from './pages/ModelDetail'
 import ModelRegistry from './pages/ModelRegistry'
@@ -19,8 +18,6 @@ import ProjectDetail from './pages/ProjectDetail'
 import Register from './pages/Register'
 import ReportGenerator from './pages/ReportGenerator'
 import SeedLabeling from './pages/SeedLabeling'
-import TrainingJobs from './pages/TrainingJobs'
-import VersionBrowser from './pages/VersionBrowser'
 import VersionDetail from './pages/VersionDetail'
 import { AuthProvider } from './lib/AuthContext'
 
@@ -38,13 +35,10 @@ function App() {
               <Route path="/report" element={<ReportGenerator />} />
               <Route path="/projects/:projectId" element={<ProjectDetail />} />
               <Route path="/sources/:sourceId" element={<DatasetDashboard />} />
-              <Route path="/sources/:sourceId/versions" element={<VersionBrowser />} />
               <Route path="/sources/:sourceId/versions/:id" element={<VersionDetail />} />
-              <Route path="/sources/:sourceId/import" element={<Import />} />
               <Route path="/sources/:sourceId/diff" element={<DatasetDiff />} />
               <Route path="/sources/:sourceId/models" element={<ModelRegistry />} />
               <Route path="/sources/:sourceId/models/:id" element={<ModelDetail />} />
-              <Route path="/sources/:sourceId/training" element={<TrainingJobs />} />
               <Route path="/sources/:sourceId/annotation" element={<AnnotationJobs />} />
               <Route path="/sources/:sourceId/annotation/jobs/:id/review" element={<AnnotationReview />} />
               <Route path="/sources/:sourceId/point-annotation" element={<PointAnnotationJobs />} />

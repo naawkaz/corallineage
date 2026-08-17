@@ -6,6 +6,8 @@ import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.registry.model.MlflowDetailsResponse;
+import com.corallineage.backend.registry.model.MlflowIntegrationService;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionService;
@@ -34,6 +36,7 @@ public class TrainingJobService {
     private final ArchitectureRegistry architectureRegistry;
     private final TrainingJobExecutor trainingJobExecutor;
     private final AnnotationEventLoggerService annotationEventLoggerService;
+    private final MlflowIntegrationService mlflowIntegrationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrainingJobService(DatasetRepository datasetRepository,
@@ -43,7 +46,8 @@ public class TrainingJobService {
                               TrainingJobMapper trainingJobMapper,
                               ArchitectureRegistry architectureRegistry,
                               TrainingJobExecutor trainingJobExecutor,
-                              AnnotationEventLoggerService annotationEventLoggerService) {
+                              AnnotationEventLoggerService annotationEventLoggerService,
+                              MlflowIntegrationService mlflowIntegrationService) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionService = datasetVersionService;
@@ -52,6 +56,7 @@ public class TrainingJobService {
         this.architectureRegistry = architectureRegistry;
         this.trainingJobExecutor = trainingJobExecutor;
         this.annotationEventLoggerService = annotationEventLoggerService;
+        this.mlflowIntegrationService = mlflowIntegrationService;
     }
 
     @Transactional
@@ -96,6 +101,23 @@ public class TrainingJobService {
     @Transactional(readOnly = true)
     public List<ArchitectureInfo> getArchitectures() {
         return architectureRegistry.getAll();
+    }
+
+    /**
+     * Epoch metrics keyed by training job id rather than a registered model id, so a still-RUNNING
+     * job (which has no ModelVersion row yet, only a TrainingJob.mlflowRunId once MLflow's run has
+     * started) can feed the same live loss curve the completed-model diagnostics view already uses.
+     * Returns an empty list, not an error, whenever the run id isn't known yet or MLflow is unreachable.
+     */
+    @Transactional(readOnly = true)
+    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(Long jobId) {
+        TrainingJob job = trainingJobRepository.findById(jobId)
+                .orElseThrow(() -> new NotFoundException("Training job not found: " + jobId));
+        if (job.getMlflowRunId() == null) {
+            return List.of();
+        }
+        List<MlflowDetailsResponse.EpochMetricPoint> points = mlflowIntegrationService.getEpochMetrics(job.getMlflowRunId());
+        return points != null ? points : List.of();
     }
 
     private DatasetVersion resolveDatasetVersion(Long datasetId, Long requestedVersionId) {

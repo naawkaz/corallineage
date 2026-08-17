@@ -51,7 +51,13 @@ public class PointGenerationService {
 
     /**
      * Lays out a cols x rows grid sized to roughly match the image's aspect ratio, inset by one
-     * grid cell from every edge, then takes the first {@code totalPoints} cells in reading order.
+     * grid cell from every edge. Always returns the complete cols x rows rectangle, never a
+     * partial row: truncating mid-row after {@code totalPoints} cells used to leave a single
+     * stray point hanging off the bottom of an otherwise-clean grid (e.g. 50 points at a typical
+     * aspect ratio produced a 7-wide by 8-tall layout cut off after just 1 point into row 8).
+     * The actual count returned can therefore be slightly above {@code totalPoints} when it isn't
+     * a perfect square for the chosen aspect-driven cols/rows; callers treat the returned list's
+     * size as authoritative rather than assuming exactly {@code totalPoints} points come back.
      * Returns {row, col} pixel coordinate pairs.
      */
     private List<int[]> computeGridCoordinates(int width, int height, int totalPoints) {
@@ -63,10 +69,8 @@ public class PointGenerationService {
         int cellHeight = height / (rows + 1);
 
         List<int[]> coordinates = new ArrayList<>();
-        outer:
         for (int r = 1; r <= rows; r++) {
             for (int c = 1; c <= cols; c++) {
-                if (coordinates.size() >= totalPoints) break outer;
                 int x = Math.min(width - 1, c * cellWidth);
                 int y = Math.min(height - 1, r * cellHeight);
                 coordinates.add(new int[]{y, x});

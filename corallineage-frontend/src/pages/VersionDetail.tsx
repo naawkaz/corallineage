@@ -17,7 +17,7 @@ export default function VersionDetail() {
   const navigate = useNavigate()
   const versionId = Number(id)
   const datasetId = Number(sourceIdParam)
-  const versionsListPath = `/sources/${sourceIdParam}/versions`
+  const versionsListPath = `/sources/${sourceIdParam}`
   const [version, setVersion] = useState<DatasetVersion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -565,7 +565,7 @@ function Lightbox({
                   <img
                     src={imageFileUrlById(image.id)}
                     alt={image.filename}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                     onLoad={(e) => {
                       const img = e.currentTarget
                       setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })

@@ -1,20 +1,11 @@
 ﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { ArrowLeftIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
 import { fetchMlflowDetails, fetchModel, updateModelStatus } from '../api/models'
 import { errorMessage } from '../api/client'
 import { useAuthContext } from '../lib/authContextCore'
+import LossCurveChart from '../components/LossCurveChart'
 import type { MlflowDetails, ModelStatus, ModelVersion } from '../types/model'
 
 const STATUS_BADGE: Record<ModelStatus, string> = {
@@ -109,13 +100,6 @@ export default function ModelDetail() {
   if (!model) return null
 
   const perClass = model.performanceMetrics?.perClass ?? []
-  const chartData = diagnostics.kind === 'ready'
-    ? diagnostics.details.epochMetrics.map((p) => ({ ...p, epochLabel: `Epoch ${p.epoch + 1}` }))
-    : []
-  // Models trained before the train/val split feature only have the old single loss
-  // series (trainLoss/valLoss are null for every point), fall back to that series
-  // instead of rendering a blank chart.
-  const hasValidationSplit = chartData.some((p) => p.trainLoss != null || p.valLoss != null)
 
   return (
     <>
@@ -329,32 +313,7 @@ export default function ModelDetail() {
                   )}
                 </div>
 
-                {chartData.length > 0 && (
-                  <div style={{ height: 260, marginBottom: 16 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="epochLabel" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        {hasValidationSplit ? (
-                          <>
-                            <Line type="monotone" dataKey="trainLoss" stroke="var(--navy, #1e3a5f)" name="Train loss" />
-                            <Line type="monotone" dataKey="valLoss" stroke="var(--warning, #d97706)" name="Validation loss" />
-                          </>
-                        ) : (
-                          <Line type="monotone" dataKey="loss" stroke="var(--navy, #1e3a5f)" name="Loss" />
-                        )}
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-                {chartData.length > 0 && !hasValidationSplit && (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
-                    This model was trained before the validation split feature, showing training loss only.
-                  </div>
-                )}
+                <LossCurveChart epochMetrics={diagnostics.details.epochMetrics} />
 
                 {diagnostics.details.artifactUrls.confusionMatrixPng && (
                   <div style={{ marginBottom: 16 }}>

@@ -22,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -32,7 +34,7 @@ import java.util.Set;
 @Service
 public class PointAnnotationJobService {
 
-    private static final int DEFAULT_POINTS_PER_IMAGE = 50;
+    private static final int DEFAULT_POINTS_PER_IMAGE = 49;
     private static final BigDecimal DEFAULT_CONFIDENCE_THRESHOLD = new BigDecimal("0.8500");
     private static final int DEFAULT_SEED_IMAGE_COUNT = 20;
 
@@ -49,7 +51,7 @@ public class PointAnnotationJobService {
     private final AnnotationPointBridge annotationPointBridge;
     private final TrainingJobService trainingJobService;
     private final TrainingJobRepository trainingJobRepository;
-    private final PointInferenceService pointInferenceService;
+    private final AutoAnnotationExecutor autoAnnotationExecutor;
 
     public PointAnnotationJobService(DatasetVersionRepository datasetVersionRepository,
                                      DatasetVersionImageRepository datasetVersionImageRepository,
@@ -64,7 +66,7 @@ public class PointAnnotationJobService {
                                      AnnotationPointBridge annotationPointBridge,
                                      TrainingJobService trainingJobService,
                                      TrainingJobRepository trainingJobRepository,
-                                     PointInferenceService pointInferenceService) {
+                                     AutoAnnotationExecutor autoAnnotationExecutor) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.imageRepository = imageRepository;
@@ -78,7 +80,7 @@ public class PointAnnotationJobService {
         this.annotationPointBridge = annotationPointBridge;
         this.trainingJobService = trainingJobService;
         this.trainingJobRepository = trainingJobRepository;
-        this.pointInferenceService = pointInferenceService;
+        this.autoAnnotationExecutor = autoAnnotationExecutor;
     }
 
     /**
@@ -280,9 +282,15 @@ public class PointAnnotationJobService {
     }
 
     /**
-     * Runs point-level inference on every non-seed point once the triggered training job has
-     * completed, applying the job's confidence threshold (auto-confirm above, queue for human
-     * review below). Runs synchronously within the request, same scope cut as {@link #submitJob}.
+     * Kicks off point-level inference on every non-seed point once the triggered training job has
+     * completed. Sets AUTO_ANNOTATING and saves synchronously (fast) so the HTTP response returns
+     * right away, then dispatches {@link AutoAnnotationExecutor} to run the actual inference batch
+     * (patch prep, the Python /annotate call, polling for progress, and applying predictions with
+     * the job's confidence threshold: auto-confirm above, queue for human review below) in the
+     * background. This used to run inference synchronously within the request, a known limitation
+     * documented on {@link #submitJob}; unlike submitJob's point generation (left as-is, out of
+     * scope for that fix), auto-annotate now goes through the same @Async dispatch-after-commit
+     * pattern TrainingJobService.initiateTrainingJob already established for training jobs.
      */
     @Transactional
     public PointAnnotationJobResponse startAutoAnnotate(Long jobId) {
@@ -302,18 +310,31 @@ public class PointAnnotationJobService {
 
         job.setModelVersion(model);
         job.setStatus("AUTO_ANNOTATING");
-        pointAnnotationJobRepository.save(job);
-
-        pointInferenceService.runInference(job);
-
-        long pendingReview = generatedPointRepository.countByJobIdAndSeedFalseAndStatus(jobId, "MODEL_PREDICTED");
-        job.setStatus(pendingReview > 0 ? "REVIEW" : "COMPLETE");
         PointAnnotationJob saved = pointAnnotationJobRepository.save(job);
 
-        annotationEventLoggerService.log(EventType.AUTO_ANNOTATION_COMPLETED, job.getDatasetVersion(), job.getInitiatedBy(),
-                "Auto-annotation completed with model " + model.getModelTag() + ", " + pendingReview + " point(s) pending review");
+        dispatchAutoAnnotateAfterCommit(jobId);
 
         return toResponse(saved, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
+    }
+
+    /**
+     * The @Async executor lives on a separate bean (AutoAnnotationExecutor) rather than a method on
+     * this class, and dispatch waits for the enclosing transaction to commit first — same reasoning
+     * as TrainingJobService.dispatchAfterCommit: a same-bean self-invocation would bypass Spring's
+     * @Async proxy, and dispatching before commit risks the background thread reading the job's
+     * pre-AUTO_ANNOTATING state if it runs before this transaction's write actually lands.
+     */
+    private void dispatchAutoAnnotateAfterCommit(Long jobId) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    autoAnnotationExecutor.executeAutoAnnotationAsync(jobId);
+                }
+            });
+        } else {
+            autoAnnotationExecutor.executeAutoAnnotationAsync(jobId);
+        }
     }
 
     private PointAnnotationJobResponse toResponse(PointAnnotationJob job, int totalImages) {

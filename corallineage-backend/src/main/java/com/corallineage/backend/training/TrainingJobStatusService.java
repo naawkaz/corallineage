@@ -61,6 +61,7 @@ public class TrainingJobStatusService {
         ModelVersion model = modelVersionService.registerFromTrainingResult(
                 job, mlflowRunId, weightsPath, accuracy, performanceMetricsJson, classMappingsJson);
         job.setModelVersion(model);
+        job.setMlflowRunId(mlflowRunId);
         job.setStatus("COMPLETED");
         job.setCompletedAt(Instant.now());
         return trainingJobRepository.save(job);
@@ -73,6 +74,37 @@ public class TrainingJobStatusService {
         job.setErrorMessage(errorMessage);
         job.setCompletedAt(Instant.now());
         trainingJobRepository.save(job);
+    }
+
+    /**
+     * Persists a live epoch-progress reading from the poller in TrainingJobExecutor. Silently
+     * no-ops if the job can't be found: this is expected under a real race (the poller's last
+     * in-flight request lands right after the job already reached a terminal state and, in tests,
+     * after cleanup deleted the row), not a genuine error to surface.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateProgress(Long jobId, Integer currentEpoch, Integer totalEpochs) {
+        trainingJobRepository.findById(jobId).ifPresent(job -> {
+            job.setCurrentEpoch(currentEpoch);
+            job.setTotalEpochs(totalEpochs);
+            trainingJobRepository.save(job);
+        });
+    }
+
+    /**
+     * Persists the MLflow run id as soon as the poller learns it, which may be well before the
+     * job reaches COMPLETED now that the Python side starts its MLflow run before the epoch loop.
+     * Kept as its own small method rather than folded into updateProgress's signature: the run id
+     * becomes known on an earlier poll tick than epoch/total (before any metric history exists to
+     * compute a current epoch from), so the two are genuinely written on different poll ticks.
+     * Same silent-no-op-if-missing behavior as updateProgress, for the same reason.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateMlflowRunId(Long jobId, String mlflowRunId) {
+        trainingJobRepository.findById(jobId).ifPresent(job -> {
+            job.setMlflowRunId(mlflowRunId);
+            trainingJobRepository.save(job);
+        });
     }
 
     private TrainingJob requireJob(Long jobId) {

@@ -20,6 +20,9 @@ export interface TrainingJob {
   modelVersionId: number | null
   modelTag: string | null
   errorMessage: string | null
+  currentEpoch: number | null
+  totalEpochs: number | null
+  mlflowRunId: string | null
 }
 
 export interface InitiateTrainingRequest {

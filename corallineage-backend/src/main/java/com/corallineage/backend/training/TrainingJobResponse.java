@@ -17,6 +17,9 @@ public class TrainingJobResponse {
     private Long modelVersionId;
     private String modelTag;
     private String errorMessage;
+    private Integer currentEpoch;
+    private Integer totalEpochs;
+    private String mlflowRunId;
 
     public Long getJobId() { return jobId; }
     public void setJobId(Long jobId) { this.jobId = jobId; }
@@ -56,4 +59,13 @@ public class TrainingJobResponse {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public Integer getCurrentEpoch() { return currentEpoch; }
+    public void setCurrentEpoch(Integer currentEpoch) { this.currentEpoch = currentEpoch; }
+
+    public Integer getTotalEpochs() { return totalEpochs; }
+    public void setTotalEpochs(Integer totalEpochs) { this.totalEpochs = totalEpochs; }
+
+    public String getMlflowRunId() { return mlflowRunId; }
+    public void setMlflowRunId(String mlflowRunId) { this.mlflowRunId = mlflowRunId; }
 }

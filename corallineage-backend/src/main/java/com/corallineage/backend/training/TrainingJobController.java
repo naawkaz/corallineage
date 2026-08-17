@@ -1,5 +1,6 @@
 package com.corallineage.backend.training;
 
+import com.corallineage.backend.registry.model.MlflowDetailsResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,6 +47,11 @@ public class TrainingJobController {
     @GetMapping("/jobs/{id}")
     public TrainingJobResponse getTrainingJob(@PathVariable Long id) {
         return trainingJobService.getTrainingJobById(id);
+    }
+
+    @GetMapping("/jobs/{id}/epoch-metrics")
+    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(@PathVariable Long id) {
+        return trainingJobService.getEpochMetrics(id);
     }
 
     @GetMapping("/architectures")

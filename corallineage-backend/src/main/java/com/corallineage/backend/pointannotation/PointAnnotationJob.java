@@ -59,6 +59,23 @@ public class PointAnnotationJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    // Live progress while AUTO_ANNOTATING, fed by AutoAnnotationExecutor polling the Python
+    // service's /annotate/{jobId}/status. All null before auto-annotate starts and while a point
+    // is being resolved to something other than RUNNING (COMPLETED/FAILED leave the last-seen
+    // values in place rather than resetting them, so the UI can still show "processed X of Y"
+    // after the job finishes).
+    @Column(name = "auto_annotation_processed_count")
+    private Integer autoAnnotationProcessedCount;
+
+    @Column(name = "auto_annotation_total_count")
+    private Integer autoAnnotationTotalCount;
+
+    // Actually a GeneratedPoint id, not a real image id: every patch is sent to the Python service
+    // as its own synthetic "image" (see PointInferenceService's class comment), so Flask's
+    // per-image progress field reports back a GeneratedPoint id here.
+    @Column(name = "auto_annotation_current_point_id")
+    private Long autoAnnotationCurrentPointId;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
@@ -98,4 +115,13 @@ public class PointAnnotationJob {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public Integer getAutoAnnotationProcessedCount() { return autoAnnotationProcessedCount; }
+    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) { this.autoAnnotationProcessedCount = autoAnnotationProcessedCount; }
+
+    public Integer getAutoAnnotationTotalCount() { return autoAnnotationTotalCount; }
+    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) { this.autoAnnotationTotalCount = autoAnnotationTotalCount; }
+
+    public Long getAutoAnnotationCurrentPointId() { return autoAnnotationCurrentPointId; }
+    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) { this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId; }
 }

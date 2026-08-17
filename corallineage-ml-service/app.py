@@ -2,6 +2,7 @@ import os
 import platform
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -48,6 +49,18 @@ IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 RANDOM_SEED = 42
 VALIDATION_SPLIT = 0.2
+
+# In-memory job status channel for polling GET /train/<job_id>/status while a training run is
+# in flight (and after it finishes, since /train now returns immediately and the run continues
+# in a background thread). Keyed by the caller-supplied jobId (backend's TrainingJob id, as a
+# string). Entries are never cleaned up: this is a long-lived dev process and job ids are unique
+# per training job, so unbounded growth is not a real concern at this codebase's scale.
+_training_jobs: dict[str, dict] = {}
+
+# Same idea for /annotate: keyed by the caller-supplied jobId (backend's point-annotation job id,
+# as a string). Tracks per-image progress while a batch of annotate predictions runs in the
+# background, plus the final result once complete.
+_annotate_jobs: dict[str, dict] = {}
 
 
 @app.route("/health", methods=["GET"])
@@ -157,7 +170,7 @@ def split_train_val(dataset: "ImageFolderDataset"):
     return random_split(dataset, [train_size, val_size], generator=generator)
 
 
-def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
+def run_training(architecture: str, dataset_path: str, hyperparameters: dict, job_id: str):
     learning_rate = float(hyperparameters.get("learningRate", 0.001))
     batch_size = int(hyperparameters.get("batchSize", 32))
     epochs = int(hyperparameters.get("epochs", 10))
@@ -189,6 +202,15 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
     per_class_total = {i: 0 for i in range(len(dataset.classes))}
 
     with mlflow.start_run() as run:
+        # Make the run id available to pollers as early as possible, before the epoch loop
+        # even starts, so GET /train/<job_id>/status can report mlflowRunId right away and
+        # the caller can start polling MLflow's own metric history for live epoch progress.
+        _training_jobs[job_id] = {
+            "status": "RUNNING",
+            "mlflowRunId": run.info.run_id,
+            "result": None,
+            "error": None,
+        }
         mlflow.log_param("architecture", architecture)
         mlflow.log_param("pythonVersion", platform.python_version())
         mlflow.log_param("pytorchVersion", torch.__version__)
@@ -273,7 +295,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
             ]
         }
 
-        return {
+        result = {
             "mlflowRunId": run.info.run_id,
             "weightsPath": str(weights_path),
             "accuracy": overall_accuracy,
@@ -281,20 +303,63 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict):
             "classMappings": class_mappings,
         }
 
+    _training_jobs[job_id] = {
+        "status": "COMPLETED",
+        "mlflowRunId": result["mlflowRunId"],
+        "result": result,
+        "error": None,
+    }
+    return result
 
-def run_mock_training(architecture: str, dataset_path: str, hyperparameters: dict):
-    """Canned fast response, bypasses torch/mlflow entirely — for demos or when MOCK_TRAINING is set."""
+
+def run_mock_training(architecture: str, dataset_path: str, hyperparameters: dict, job_id: str):
+    """Canned fast response, bypasses torch/mlflow entirely, for demos or when MOCK_TRAINING is set."""
+    mock_run_id = f"mock-{uuid.uuid4().hex[:12]}"
+    _training_jobs[job_id] = {
+        "status": "RUNNING",
+        "mlflowRunId": mock_run_id,
+        "result": None,
+        "error": None,
+    }
     time.sleep(1)
-    return {
-        "mlflowRunId": f"mock-{uuid.uuid4().hex[:12]}",
+    result = {
+        "mlflowRunId": mock_run_id,
         "weightsPath": f"{dataset_path}/mock-weights.pt",
         "accuracy": 0.85,
         "performanceMetrics": {"perClass": []},
         "classMappings": {"0": "ACROPORA", "1": "SAND"},
     }
+    _training_jobs[job_id] = {
+        "status": "COMPLETED",
+        "mlflowRunId": mock_run_id,
+        "result": result,
+        "error": None,
+    }
+    return result
 
 
-def run_annotate(architecture: str, weights_path: str, class_mappings: dict, images: list):
+def _run_training_job(architecture: str, dataset_path: str, hyperparameters: dict, job_id: str):
+    """Background-thread entry point for a training job: runs the real or mock trainer,
+
+    then reflects any failure into _training_jobs so pollers see a terminal FAILED status
+    instead of the job silently hanging at RUNNING forever.
+    """
+    try:
+        if MOCK_TRAINING:
+            run_mock_training(architecture, dataset_path, hyperparameters, job_id=job_id)
+        else:
+            run_training(architecture, dataset_path, hyperparameters, job_id=job_id)
+    except Exception as ex:
+        existing = _training_jobs.get(job_id, {})
+        _training_jobs[job_id] = {
+            "status": "FAILED",
+            "mlflowRunId": existing.get("mlflowRunId"),
+            "result": None,
+            "error": str(ex),
+        }
+
+
+def run_annotate(architecture: str, weights_path: str, class_mappings: dict, images: list, job_id: str):
     idx_to_label = {int(k): v for k, v in class_mappings.items()}
     num_classes = len(idx_to_label)
 
@@ -303,9 +368,10 @@ def run_annotate(architecture: str, weights_path: str, class_mappings: dict, ima
     model.load_state_dict(state_dict)
     model.eval()
 
+    total = len(images)
     predictions = []
     with torch.no_grad():
-        for image_entry in images:
+        for index, image_entry in enumerate(images):
             image_id = image_entry["imageId"]
             file_path = image_entry["filePath"]
             with Image.open(file_path) as img:
@@ -324,21 +390,74 @@ def run_annotate(architecture: str, weights_path: str, class_mappings: dict, ima
                     "confidenceScore": confidence,
                 }],
             })
-
-    return {"predictions": predictions}
-
-
-def run_mock_annotate(images: list):
-    """Canned instant response, bypasses torch entirely — mirrors run_mock_training's demo path."""
-    return {
-        "predictions": [
-            {
-                "imageId": image_entry["imageId"],
-                "points": [{"pointIndex": 0, "predictedLabelCode": "ACROPORA", "confidenceScore": 0.85}],
+            _annotate_jobs[job_id] = {
+                "status": "RUNNING",
+                "processedCount": index + 1,
+                "totalCount": total,
+                "currentImageId": image_id,
+                "result": None,
+                "error": None,
             }
-            for image_entry in images
-        ]
+
+    result = {"predictions": predictions}
+    _annotate_jobs[job_id] = {
+        "status": "COMPLETED",
+        "processedCount": total,
+        "totalCount": total,
+        "currentImageId": None,
+        "result": result,
+        "error": None,
     }
+    return result
+
+
+def run_mock_annotate(images: list, job_id: str):
+    """Canned instant response, bypasses torch entirely, mirrors run_mock_training's demo path."""
+    total = len(images)
+    predictions = []
+    for index, image_entry in enumerate(images):
+        predictions.append({
+            "imageId": image_entry["imageId"],
+            "points": [{"pointIndex": 0, "predictedLabelCode": "ACROPORA", "confidenceScore": 0.85}],
+        })
+        _annotate_jobs[job_id] = {
+            "status": "RUNNING",
+            "processedCount": index + 1,
+            "totalCount": total,
+            "currentImageId": image_entry["imageId"],
+            "result": None,
+            "error": None,
+        }
+
+    result = {"predictions": predictions}
+    _annotate_jobs[job_id] = {
+        "status": "COMPLETED",
+        "processedCount": total,
+        "totalCount": total,
+        "currentImageId": None,
+        "result": result,
+        "error": None,
+    }
+    return result
+
+
+def _run_annotate_job(architecture: str, weights_path: str, class_mappings: dict, images: list, job_id: str):
+    """Background-thread entry point for an annotate batch, mirrors _run_training_job's shape."""
+    try:
+        if MOCK_TRAINING:
+            run_mock_annotate(images, job_id)
+        else:
+            run_annotate(architecture, weights_path, class_mappings, images, job_id)
+    except Exception as ex:
+        existing = _annotate_jobs.get(job_id, {})
+        _annotate_jobs[job_id] = {
+            "status": "FAILED",
+            "processedCount": existing.get("processedCount", 0),
+            "totalCount": existing.get("totalCount", len(images)),
+            "currentImageId": None,
+            "result": None,
+            "error": str(ex),
+        }
 
 
 @app.route("/annotate", methods=["POST"])
@@ -348,6 +467,7 @@ def annotate():
     weights_path = payload.get("weightsPath")
     class_mappings = payload.get("classMappings")
     images = payload.get("images", [])
+    job_id = payload.get("jobId")
 
     if architecture not in ARCHITECTURE_IDS:
         return jsonify({"error": f"Unsupported architecture: {architecture}"}), 400
@@ -357,17 +477,29 @@ def annotate():
         return jsonify({"error": "classMappings is required"}), 400
     if not images:
         return jsonify({"error": "images list is empty"}), 400
+    if not job_id:
+        return jsonify({"error": "jobId is required"}), 400
 
-    try:
-        if MOCK_TRAINING:
-            result = run_mock_annotate(images)
-        else:
-            result = run_annotate(architecture, weights_path, class_mappings, images)
-        return jsonify(result), 200
-    except FileNotFoundError as ex:
-        return jsonify({"error": f"Image file not found: {ex}"}), 400
-    except Exception as ex:
-        return jsonify({"error": f"Inference failed: {ex}"}), 500
+    _annotate_jobs[job_id] = {
+        "status": "RUNNING",
+        "processedCount": 0,
+        "totalCount": len(images),
+        "currentImageId": None,
+        "result": None,
+        "error": None,
+    }
+    thread = threading.Thread(
+        target=_run_annotate_job,
+        args=(architecture, weights_path, class_mappings, images, job_id),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"status": "STARTED", "jobId": job_id}), 202
+
+
+@app.route("/annotate/<job_id>/status", methods=["GET"])
+def annotate_status(job_id):
+    return jsonify(_annotate_jobs.get(job_id, {"status": "UNKNOWN"})), 200
 
 
 @app.route("/train", methods=["POST"])
@@ -376,24 +508,36 @@ def train():
     architecture = payload.get("architecture")
     dataset_path = payload.get("datasetPath")
     hyperparameters = payload.get("hyperparameters", {})
+    job_id = payload.get("jobId")
 
     if architecture not in ARCHITECTURE_IDS:
         return jsonify({"error": f"Unsupported architecture: {architecture}"}), 400
     if not dataset_path or not Path(dataset_path).is_dir():
         return jsonify({"error": f"datasetPath does not exist: {dataset_path}"}), 400
+    if not MOCK_TRAINING and not job_id:
+        return jsonify({"error": "jobId is required"}), 400
 
-    try:
-        if MOCK_TRAINING:
-            result = run_mock_training(architecture, dataset_path, hyperparameters)
-        else:
-            result = run_training(architecture, dataset_path, hyperparameters)
-        return jsonify(result), 200
-    except ValueError as ex:
-        return jsonify({"error": str(ex)}), 400
-    except Exception as ex:
-        return jsonify({"error": f"Training failed: {ex}"}), 500
+    # Mock mode may not be given a jobId by every existing caller; synthesize one so the
+    # background thread and status dict still have a key to work with.
+    if not job_id:
+        job_id = f"mock-job-{uuid.uuid4().hex[:12]}"
+
+    thread = threading.Thread(
+        target=_run_training_job,
+        args=(architecture, dataset_path, hyperparameters, job_id),
+        daemon=True,
+    )
+    thread.start()
+    return jsonify({"status": "STARTED", "jobId": job_id}), 202
+
+
+@app.route("/train/<job_id>/status", methods=["GET"])
+def train_status(job_id):
+    return jsonify(_training_jobs.get(job_id, {"status": "UNKNOWN"})), 200
 
 
 if __name__ == "__main__":
-    # Force the server to run on port 5001 as specified by Phase 0
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    # Force the server to run on port 5001 as specified by Phase 0. threaded=True lets
+    # short-lived status-poll requests and job-kickoff requests be served concurrently
+    # with an in-flight background job thread, instead of queuing behind it.
+    app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)

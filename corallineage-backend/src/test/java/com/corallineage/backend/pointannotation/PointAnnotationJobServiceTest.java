@@ -58,7 +58,7 @@ class PointAnnotationJobServiceTest {
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private TrainingJobService trainingJobService;
     @Mock private TrainingJobRepository trainingJobRepository;
-    @Mock private PointInferenceService pointInferenceService;
+    @Mock private AutoAnnotationExecutor autoAnnotationExecutor;
 
     private final PointAnnotationMapper mapper = new PointAnnotationMapper();
 
@@ -69,7 +69,7 @@ class PointAnnotationJobServiceTest {
                 imageRepository, pointAnnotationJobRepository, generatedPointRepository,
                 pointGenerationService, mapper, annotationEventLoggerService,
                 labelDefinitionRepository, annotationPointRepository, annotationPointBridge,
-                trainingJobService, trainingJobRepository, pointInferenceService);
+                trainingJobService, trainingJobRepository, autoAnnotationExecutor);
     }
 
     private void writeTestImage(Path file) throws IOException {
@@ -167,9 +167,12 @@ class PointAnnotationJobServiceTest {
         org.mockito.ArgumentCaptor<List<GeneratedPoint>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
         verify(generatedPointRepository).saveAll(captor.capture());
         List<GeneratedPoint> saved = captor.getValue();
-        assertThat(saved).hasSize(150); // 3 images * 50 points
-        assertThat(saved.stream().filter(GeneratedPoint::isSeed).count()).isEqualTo(100); // first 2 images
-        assertThat(saved.stream().filter(p -> !p.isSeed()).count()).isEqualTo(50); // 3rd image
+        // requested pointsPerImage=50 on a 200x200 (square) image completes to a 7x8 = 56-point
+        // rectangle per image (see PointGenerationServiceTest's grid-completeness coverage), not a
+        // truncated 50, 3 images * 56 points.
+        assertThat(saved).hasSize(168);
+        assertThat(saved.stream().filter(GeneratedPoint::isSeed).count()).isEqualTo(112); // first 2 images
+        assertThat(saved.stream().filter(p -> !p.isSeed()).count()).isEqualTo(56); // 3rd image
 
         verify(annotationEventLoggerService).log(eq(EventType.POINTS_GENERATED), eq(version), eq("researcher_01"), any());
     }
@@ -256,7 +259,7 @@ class PointAnnotationJobServiceTest {
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
 
         assertThatThrownBy(() -> newService(workingDirectory).startAutoAnnotate(1L)).isInstanceOf(InvalidRequestException.class);
-        verify(pointInferenceService, never()).runInference(any());
+        verify(autoAnnotationExecutor, never()).executeAutoAnnotationAsync(any());
     }
 
     @Test
@@ -269,11 +272,20 @@ class PointAnnotationJobServiceTest {
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
 
         assertThatThrownBy(() -> newService(workingDirectory).startAutoAnnotate(1L)).isInstanceOf(InvalidRequestException.class);
-        verify(pointInferenceService, never()).runInference(any());
+        verify(autoAnnotationExecutor, never()).executeAutoAnnotationAsync(any());
     }
 
+    /**
+     * startAutoAnnotate now only sets AUTO_ANNOTATING and dispatches the background executor
+     * (no real Spring transaction/synchronization is active under Mockito, so
+     * dispatchAutoAnnotateAfterCommit's TransactionSynchronizationManager.isSynchronizationActive()
+     * check is false and the dispatch happens immediately, same as TrainingJobServiceTest's
+     * equivalent dispatch-after-commit coverage). The REVIEW/COMPLETE completion logic that used
+     * to run inline here moved to PointAnnotationJobStatusService.completeAutoAnnotation, exercised
+     * by AutoAnnotationExecutorTest instead.
+     */
     @Test
-    void startAutoAnnotate_success_pendingPointsRemain_setsReviewStatus(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
+    void startAutoAnnotate_success_setsAutoAnnotatingAndDispatchesExecutor(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
         PointAnnotationJob job = job(1L, "TRAINING", version(1L));
         TrainingJob trainingJob = new TrainingJob();
         trainingJob.setId(50L);
@@ -286,34 +298,13 @@ class PointAnnotationJobServiceTest {
 
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
         when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generatedPointRepository.countByJobIdAndSeedFalseAndStatus(1L, "MODEL_PREDICTED")).thenReturn(3L);
 
         PointAnnotationJobResponse response = newService(workingDirectory).startAutoAnnotate(1L);
 
-        assertThat(response.getStatus()).isEqualTo("REVIEW");
+        assertThat(response.getStatus()).isEqualTo("AUTO_ANNOTATING");
         assertThat(job.getModelVersion()).isSameAs(model);
-        verify(pointInferenceService).runInference(job);
-        verify(annotationEventLoggerService).log(eq(EventType.AUTO_ANNOTATION_COMPLETED), any(), eq("researcher_01"), any());
-    }
-
-    @Test
-    void startAutoAnnotate_success_noPendingPoints_setsCompleteStatus(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        PointAnnotationJob job = job(1L, "TRAINING", version(1L));
-        TrainingJob trainingJob = new TrainingJob();
-        trainingJob.setId(50L);
-        trainingJob.setStatus("COMPLETED");
-        ModelVersion model = new ModelVersion();
-        model.setId(9L);
-        trainingJob.setModelVersion(model);
-        job.setTrainingJob(trainingJob);
-
-        when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
-        when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generatedPointRepository.countByJobIdAndSeedFalseAndStatus(1L, "MODEL_PREDICTED")).thenReturn(0L);
-
-        PointAnnotationJobResponse response = newService(workingDirectory).startAutoAnnotate(1L);
-
-        assertThat(response.getStatus()).isEqualTo("COMPLETE");
+        verify(autoAnnotationExecutor).executeAutoAnnotationAsync(1L);
+        verify(annotationEventLoggerService, never()).log(eq(EventType.AUTO_ANNOTATION_COMPLETED), any(), any(), any());
     }
 
     private GeneratedPoint pendingReviewPoint(Long id, PointAnnotationJob job, LabelDefinition predicted) {

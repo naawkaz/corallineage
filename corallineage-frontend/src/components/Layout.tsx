@@ -9,11 +9,8 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   Squares2X2Icon,
-  RectangleStackIcon,
-  ArrowUpTrayIcon,
   ArrowsRightLeftIcon,
   CubeIcon,
-  CpuChipIcon,
   TagIcon,
   ViewfinderCircleIcon,
   Square3Stack3DIcon,
@@ -51,16 +48,13 @@ function sourceSections(sourceId: string): SourceNavSection[] {
     {
       label: 'Source',
       items: [
-        { to: `/sources/${sourceId}/versions`, icon: RectangleStackIcon, label: 'Dataset Versions' },
-        { to: `/sources/${sourceId}/import`, icon: ArrowUpTrayIcon, label: 'Import Data' },
         { to: `/sources/${sourceId}/diff`, icon: ArrowsRightLeftIcon, label: 'Compare Versions' },
       ],
     },
     {
       label: 'Models',
       items: [
-        { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Model Registry' },
-        { to: `/sources/${sourceId}/training`, icon: CpuChipIcon, label: 'Training Jobs' },
+        { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Models' },
       ],
     },
     {

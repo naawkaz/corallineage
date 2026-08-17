@@ -14,9 +14,9 @@ interface VersionsListProps {
 }
 
 /**
- * The Dataset Versions list (filters + table + pagination). Shared between the standalone
- * Dataset Versions route (VersionBrowser.tsx, kept for direct linking) and embedded inline
- * on the Source Dashboard below the stat cards (item 33).
+ * The Dataset Versions list (filters + table + pagination), embedded inline on the Source
+ * Dashboard below the stat cards (item 33). "New Version" opens CreateVersionModal, which
+ * now also carries the full import flow (formerly the standalone Import page).
  */
 export default function VersionsList({ sourceId }: VersionsListProps) {
   const navigate = useNavigate()

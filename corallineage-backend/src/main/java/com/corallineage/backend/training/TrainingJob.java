@@ -52,6 +52,18 @@ public class TrainingJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "current_epoch")
+    private Integer currentEpoch;
+
+    @Column(name = "total_epochs")
+    private Integer totalEpochs;
+
+    // Set as soon as the Python side's MLflow run starts, well before the job reaches COMPLETED,
+    // so the frontend's live loss-curve chart can start polling MlflowIntegrationService.getEpochMetrics
+    // while training is still RUNNING instead of waiting for the final registerFromTrainingResult write.
+    @Column(name = "mlflow_run_id", length = 100)
+    private String mlflowRunId;
+
     @PrePersist
     protected void onCreate() {
         if (initiatedAt == null) initiatedAt = Instant.now();
@@ -88,4 +100,13 @@ public class TrainingJob {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public Integer getCurrentEpoch() { return currentEpoch; }
+    public void setCurrentEpoch(Integer currentEpoch) { this.currentEpoch = currentEpoch; }
+
+    public Integer getTotalEpochs() { return totalEpochs; }
+    public void setTotalEpochs(Integer totalEpochs) { this.totalEpochs = totalEpochs; }
+
+    public String getMlflowRunId() { return mlflowRunId; }
+    public void setMlflowRunId(String mlflowRunId) { this.mlflowRunId = mlflowRunId; }
 }

@@ -28,6 +28,9 @@ public class PointAnnotationMapper {
         response.setInitiatedBy(job.getInitiatedBy());
         response.setCreatedAt(job.getCreatedAt());
         response.setErrorMessage(job.getErrorMessage());
+        response.setAutoAnnotationProcessedCount(job.getAutoAnnotationProcessedCount());
+        response.setAutoAnnotationTotalCount(job.getAutoAnnotationTotalCount());
+        response.setAutoAnnotationCurrentPointId(job.getAutoAnnotationCurrentPointId());
         return response;
     }
 

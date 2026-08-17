@@ -26,6 +26,9 @@ export interface PointAnnotationJob {
   initiatedBy: string
   createdAt: string
   errorMessage: string | null
+  autoAnnotationProcessedCount: number | null
+  autoAnnotationTotalCount: number | null
+  autoAnnotationCurrentPointId: number | null
 }
 
 export interface GeneratedPoint {

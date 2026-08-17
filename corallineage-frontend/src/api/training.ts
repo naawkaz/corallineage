@@ -1,5 +1,6 @@
 import { api } from './client'
 import type { Architecture, InitiateTrainingRequest, TrainingJob } from '../types/training'
+import type { MlflowEpochMetricPoint } from '../types/model'
 import type { Page } from '../types/version'
 
 export async function fetchArchitectures(): Promise<Architecture[]> {
@@ -19,5 +20,10 @@ export async function fetchTrainingJob(jobId: number): Promise<TrainingJob> {
 
 export async function fetchTrainingJobs(datasetId: number, page: number, size: number): Promise<Page<TrainingJob>> {
   const { data } = await api.get<Page<TrainingJob>>('/training/jobs', { params: { datasetId, page, size } })
+  return data
+}
+
+export async function fetchTrainingJobEpochMetrics(jobId: number): Promise<MlflowEpochMetricPoint[]> {
+  const { data } = await api.get<MlflowEpochMetricPoint[]>(`/training/jobs/${jobId}/epoch-metrics`)
   return data
 }

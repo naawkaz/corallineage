@@ -49,8 +49,8 @@ export default function PointAnnotationJobs() {
         <div className="impact-box" style={{ marginBottom: 16 }}>
           <span><InformationCircleIcon style={{ width: 16, height: 16 }} /></span>
           <span>
-            New point-annotation jobs start from the Import page — pick the "Blank / Unlabeled Dataset" format,
-            then continue straight into seed labeling.
+            New point-annotation jobs start from the "+ New Version" dialog on the Source Dashboard — pick the
+            "Blank / Unlabeled Dataset" format, then continue straight into seed labeling.
           </span>
         </div>
 

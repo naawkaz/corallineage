@@ -139,7 +139,12 @@ export default function PointAnnotationReview() {
         </button>
       </div>
 
-      <div style={{ height: 4, background: 'var(--border)', margin: '0 24px' }}>
+      <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+          {confirmedCount} / {totalCount} confirmed
+        </span>
+      </div>
+      <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
         <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
       </div>
 
@@ -180,8 +185,16 @@ export default function PointAnnotationReview() {
                       setCanvasNaturalSize(null)
                     }}
                   >
-                    <span className="queue-dot" style={{ background: dotColor }} />
-                    <span className="mono" style={{ fontSize: 12 }}>{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
+                    <span className="queue-list-item-thumb">
+                      <img src={imageFileUrlById(imgId)} alt="" loading="lazy" />
+                      <span className="queue-dot" style={{ background: dotColor }} />
+                    </span>
+                    <span className="queue-list-item-text">
+                      <span className="mono queue-list-item-filename">{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
+                      <span className="queue-list-item-progress">
+                        {confirmed}/{imgPoints.length} confirmed
+                      </span>
+                    </span>
                   </div>
                 )
               })}
@@ -211,7 +224,7 @@ export default function PointAnnotationReview() {
                             }}
                           />
                           {canvasNaturalSize &&
-                            currentImagePoints.map((p) => {
+                            currentImagePoints.map((p, idx) => {
                               const dotClass =
                                 p.id === effectiveSelectedPointId
                                   ? 'dot-selected'
@@ -230,7 +243,7 @@ export default function PointAnnotationReview() {
                                   title={`${p.predictedLabelCode ?? '?'} — conf ${p.confidenceScore?.toFixed(4) ?? 'n/a'}`}
                                   onClick={() => setSelectedPointId(p.id)}
                                 >
-                                  {p.pointIndex}
+                                  {idx + 1}
                                 </div>
                               )
                             })}
@@ -254,10 +267,11 @@ export default function PointAnnotationReview() {
               </div>
 
               <div className="review-panel">
-                {currentImagePoints.map((point) => (
+                {currentImagePoints.map((point, idx) => (
                   <ReviewPointCard
                     key={point.id}
                     point={point}
+                    pointNumber={idx + 1}
                     selected={point.id === effectiveSelectedPointId}
                     labelOptions={labelOptions}
                     onSelect={() => setSelectedPointId(point.id)}
@@ -276,6 +290,7 @@ export default function PointAnnotationReview() {
 
 function ReviewPointCard({
   point,
+  pointNumber,
   selected,
   labelOptions,
   onSelect,
@@ -283,6 +298,7 @@ function ReviewPointCard({
   onOverride,
 }: {
   point: GeneratedPoint
+  pointNumber: number
   selected: boolean
   labelOptions: LabelDefinition[]
   onSelect: () => void
@@ -295,7 +311,7 @@ function ReviewPointCard({
   return (
     <div id={`review-card-${point.id}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 600 }}>Point #{point.pointIndex}</span>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>Point #{pointNumber}</span>
         {point.status === 'CONFIRMED' ? (
           <span className="badge badge-green">{point.finalLabelCode}</span>
         ) : (
@@ -310,7 +326,7 @@ function ReviewPointCard({
           Confirmed{point.confidenceScore != null ? ` — conf ${point.confidenceScore.toFixed(4)}` : ''}
         </div>
       ) : (
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
           <div className="mono" style={{ fontSize: 13, marginBottom: 8 }}>
             Predicted: {point.predictedLabelCode} (conf {point.confidenceScore?.toFixed(4) ?? 'n/a'})
           </div>
@@ -330,7 +346,7 @@ function ReviewPointCard({
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <LabelCombobox options={labelOptions} value={picked} onChange={setPicked} placeholder="Search labels…" />
               <button
-                className="btn btn-secondary"
+                className="btn btn-primary"
                 disabled={!picked}
                 onClick={() => {
                   onOverride(point, picked)
