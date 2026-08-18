@@ -1,10 +1,12 @@
 package com.corallineage.backend.versioning.dataset;
 
+import com.corallineage.backend.datasets.DatasetService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,9 +19,11 @@ import java.util.List;
 public class ImageController {
 
     private final ImageService imageService;
+    private final DatasetService datasetService;
 
-    public ImageController(ImageService imageService) {
+    public ImageController(ImageService imageService, DatasetService datasetService) {
         this.imageService = imageService;
+        this.datasetService = datasetService;
     }
 
     @GetMapping("/api/v1/datasets/{datasetId}/versions/{versionId}/images")
@@ -28,7 +32,9 @@ public class ImageController {
             @PathVariable Long versionId,
             @RequestParam(defaultValue = "false") boolean humanLabeled,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "40") int size) {
+            @RequestParam(defaultValue = "40") int size,
+            Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
         Pageable pageable = PageRequest.of(page, size);
         return imageService.listImages(datasetId, versionId, humanLabeled, pageable);
     }
@@ -36,7 +42,9 @@ public class ImageController {
     @GetMapping("/api/v1/datasets/{datasetId}/versions/{versionId}/points")
     public List<AnnotationPointSummaryResponse> getAnnotationPoints(
             @PathVariable Long datasetId,
-            @PathVariable Long versionId) {
+            @PathVariable Long versionId,
+            Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
         return imageService.listAnnotationPoints(datasetId, versionId);
     }
 

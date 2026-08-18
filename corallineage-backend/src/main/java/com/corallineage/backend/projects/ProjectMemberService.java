@@ -219,6 +219,34 @@ public class ProjectMemberService {
                 .collect(Collectors.toSet()));
     }
 
+    /**
+     * Unions accessible Source (dataset) ids across every project the user is a member of.
+     * Used by unscoped listing endpoints (the Global Event Log, the ontology dirty queue) to
+     * filter results down to what the requester can see, rather than blocking the call outright
+     * when it's called with no scoping filter. For each membership: an unrestricted member
+     * (owner, or a collaborator with sourceAccessRestricted=false) contributes every dataset id
+     * in that project; a restricted collaborator contributes only their explicit allowlist.
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> getAllAccessibleDatasetIds(String actingUsername) {
+        User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
+        if (actingUser == null) return Set.of();
+
+        List<ProjectMember> memberships = projectMemberRepository.findByUserId(actingUser.getId());
+        Set<Long> accessible = new java.util.HashSet<>();
+        for (ProjectMember member : memberships) {
+            Long projectId = member.getProject().getId();
+            if (member.getRole() == ProjectRole.OWNER || !member.isSourceAccessRestricted()) {
+                datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(projectId)
+                        .forEach(d -> accessible.add(d.getId()));
+            } else {
+                sourceAccessRepository.findByProjectMemberId(member.getId())
+                        .forEach(a -> accessible.add(a.getDataset().getId()));
+            }
+        }
+        return accessible;
+    }
+
     private Project requireProject(Long projectId) {
         return projectRepository.findById(projectId)
                 .orElseThrow(() -> new NotFoundException("Project not found: " + projectId));

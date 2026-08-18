@@ -1,6 +1,7 @@
 package com.corallineage.backend.annotation;
 
 import com.corallineage.backend.datasets.Dataset;
+import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
@@ -56,6 +57,7 @@ public class AnnotationJobService {
     private final AnnotationPointRepository annotationPointRepository;
     private final LabelDefinitionRepository labelDefinitionRepository;
     private final DatasetVersionService datasetVersionService;
+    private final DatasetService datasetService;
 
     public AnnotationJobService(AnnotationJobRepository annotationJobRepository,
                                 AnnotationPredictionRepository annotationPredictionRepository,
@@ -68,7 +70,8 @@ public class AnnotationJobService {
                                 DatasetVersionImageRepository datasetVersionImageRepository,
                                 AnnotationPointRepository annotationPointRepository,
                                 LabelDefinitionRepository labelDefinitionRepository,
-                                DatasetVersionService datasetVersionService) {
+                                DatasetVersionService datasetVersionService,
+                                DatasetService datasetService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.modelVersionRepository = modelVersionRepository;
@@ -81,13 +84,14 @@ public class AnnotationJobService {
         this.annotationPointRepository = annotationPointRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
         this.datasetVersionService = datasetVersionService;
+        this.datasetService = datasetService;
     }
 
     // --- Legacy whole-image submit path (kept for backward compatibility; no longer exposed by
     // the frontend, which now submits through submitValidationJob/submitNewImagesJob instead). ---
 
     @Transactional
-    public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request) {
+    public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request, String actingUsername) {
         ModelVersion model = modelVersionRepository.findById(request.getModelVersionId())
                 .orElseThrow(() -> new NotFoundException("Model not found: " + request.getModelVersionId()));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -101,6 +105,7 @@ public class AnnotationJobService {
         }
 
         Dataset dataset = resolveCommonDataset(images);
+        datasetService.requireAccess(dataset.getId(), actingUsername);
 
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
@@ -120,7 +125,7 @@ public class AnnotationJobService {
     // --- Mode A: "Validate against human labels" ---
 
     @Transactional
-    public AnnotationJobResponse submitValidationJob(SubmitValidationJobRequest request) {
+    public AnnotationJobResponse submitValidationJob(SubmitValidationJobRequest request, String actingUsername) {
         ModelVersion model = modelVersionRepository.findById(request.getModelVersionId())
                 .orElseThrow(() -> new NotFoundException("Model not found: " + request.getModelVersionId()));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -130,6 +135,7 @@ public class AnnotationJobService {
 
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
                 .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+        datasetService.requireAccess(version.getDataset().getId(), actingUsername);
 
         List<Image> images = imageRepository.findAllById(request.getImageIds());
         if (images.size() != request.getImageIds().size()) {
@@ -315,6 +321,23 @@ public class AnnotationJobService {
                     label.setLabelName(code);
                     return labelDefinitionRepository.save(label);
                 });
+    }
+
+    /**
+     * Resolves the owning dataset id for a job, falling back to datasetVersion.dataset when
+     * job.dataset is null (legacy NEW_IMAGES rows before the executor resolves a target dataset,
+     * or other pre-backfill rows, see AnnotationJob's own field javadoc).
+     */
+    @Transactional(readOnly = true)
+    public Long getDatasetIdForJob(Long jobId) {
+        AnnotationJob job = findOrThrow(jobId);
+        if (job.getDataset() != null) {
+            return job.getDataset().getId();
+        }
+        if (job.getDatasetVersion() != null) {
+            return job.getDatasetVersion().getDataset().getId();
+        }
+        throw new NotFoundException("Annotation job " + jobId + " has no resolvable owning dataset");
     }
 
     @Transactional(readOnly = true)

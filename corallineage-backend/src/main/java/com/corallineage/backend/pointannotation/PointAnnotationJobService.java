@@ -1,5 +1,6 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
@@ -52,6 +53,7 @@ public class PointAnnotationJobService {
     private final TrainingJobService trainingJobService;
     private final TrainingJobRepository trainingJobRepository;
     private final AutoAnnotationExecutor autoAnnotationExecutor;
+    private final DatasetService datasetService;
 
     public PointAnnotationJobService(DatasetVersionRepository datasetVersionRepository,
                                      DatasetVersionImageRepository datasetVersionImageRepository,
@@ -66,7 +68,8 @@ public class PointAnnotationJobService {
                                      AnnotationPointBridge annotationPointBridge,
                                      TrainingJobService trainingJobService,
                                      TrainingJobRepository trainingJobRepository,
-                                     AutoAnnotationExecutor autoAnnotationExecutor) {
+                                     AutoAnnotationExecutor autoAnnotationExecutor,
+                                     DatasetService datasetService) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.imageRepository = imageRepository;
@@ -81,6 +84,7 @@ public class PointAnnotationJobService {
         this.trainingJobService = trainingJobService;
         this.trainingJobRepository = trainingJobRepository;
         this.autoAnnotationExecutor = autoAnnotationExecutor;
+        this.datasetService = datasetService;
     }
 
     /**
@@ -90,9 +94,10 @@ public class PointAnnotationJobService {
      * datasets use. Flagged as a known limitation to async-ify later if raw uploads grow large.
      */
     @Transactional
-    public PointAnnotationJobResponse submitJob(StartPointAnnotationJobRequest request) {
+    public PointAnnotationJobResponse submitJob(StartPointAnnotationJobRequest request, String actingUsername) {
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
                 .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+        datasetService.requireAccess(version.getDataset().getId(), actingUsername);
 
         Set<Long> imageIds = datasetVersionImageRepository.findImageIdsByDatasetVersionId(version.getId());
         if (imageIds.isEmpty()) {
@@ -139,6 +144,21 @@ public class PointAnnotationJobService {
                         + " image(s), " + seedImageCount + " seed image(s)");
 
         return toResponse(completedJob, images.size());
+    }
+
+    /** Resolves the owning dataset id for a point annotation job, for the membership check. */
+    @Transactional(readOnly = true)
+    public Long getDatasetIdForJob(Long jobId) {
+        PointAnnotationJob job = findOrThrow(jobId);
+        return job.getDatasetVersion().getDataset().getId();
+    }
+
+    /** Resolves the owning dataset id for a single generated point, via its parent job. */
+    @Transactional(readOnly = true)
+    public Long getDatasetIdForPoint(Long pointId) {
+        GeneratedPoint point = generatedPointRepository.findById(pointId)
+                .orElseThrow(() -> new NotFoundException("Generated point not found: " + pointId));
+        return point.getJob().getDatasetVersion().getDataset().getId();
     }
 
     @Transactional(readOnly = true)

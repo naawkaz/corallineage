@@ -1,5 +1,6 @@
 package com.corallineage.backend.ontology;
 
+import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
@@ -26,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -40,6 +42,7 @@ public class OntologyChangeService {
     private final OntologyChangeMapper ontologyChangeMapper;
     private final AnnotationEventLoggerService annotationEventLoggerService;
     private final AnnotationEventRepository annotationEventRepository;
+    private final DatasetService datasetService;
 
     public OntologyChangeService(OntologyChangeRepository ontologyChangeRepository,
                                  DirtyAnnotationRepository dirtyAnnotationRepository,
@@ -49,7 +52,8 @@ public class OntologyChangeService {
                                  AnnotationPointRepository annotationPointRepository,
                                  OntologyChangeMapper ontologyChangeMapper,
                                  AnnotationEventLoggerService annotationEventLoggerService,
-                                 AnnotationEventRepository annotationEventRepository) {
+                                 AnnotationEventRepository annotationEventRepository,
+                                 DatasetService datasetService) {
         this.ontologyChangeRepository = ontologyChangeRepository;
         this.dirtyAnnotationRepository = dirtyAnnotationRepository;
         this.datasetVersionRepository = datasetVersionRepository;
@@ -59,6 +63,7 @@ public class OntologyChangeService {
         this.ontologyChangeMapper = ontologyChangeMapper;
         this.annotationEventLoggerService = annotationEventLoggerService;
         this.annotationEventRepository = annotationEventRepository;
+        this.datasetService = datasetService;
     }
 
     /**
@@ -70,10 +75,11 @@ public class OntologyChangeService {
      * machinery) and then has the specific label mutation for {@code changeType} applied on top.
      */
     @Transactional
-    public OntologyChangeResponse recordChange(RecordOntologyChangeRequest request) {
+    public OntologyChangeResponse recordChange(RecordOntologyChangeRequest request, String actingUsername) {
         DatasetVersion basedOnVersion = datasetVersionRepository.findById(request.getBasedOnDatasetVersionId())
                 .orElseThrow(() -> new NotFoundException(
                         "Dataset version not found: " + request.getBasedOnDatasetVersionId()));
+        datasetService.requireAccess(basedOnVersion.getDataset().getId(), actingUsername);
 
         ChangeType changeType = request.getChangeType();
         String oldLabelCode = request.getOldLabelCode();
@@ -319,10 +325,53 @@ public class OntologyChangeService {
         return dirty.map(ontologyChangeMapper::toDirtyResponse);
     }
 
+    /**
+     * Resolves the owning dataset id for a scoped dirty-annotation query (ontologyChangeId takes
+     * precedence over imageId when both are given, matching getDirtyAnnotations' own precedence).
+     * Returns null when neither scoping filter was supplied.
+     */
+    @Transactional(readOnly = true)
+    public Long resolveDatasetIdForDirtyFilter(Long ontologyChangeId, Long imageId) {
+        if (ontologyChangeId != null) {
+            OntologyChange change = ontologyChangeRepository.findById(ontologyChangeId)
+                    .orElseThrow(() -> new NotFoundException("Ontology change not found: " + ontologyChangeId));
+            return change.getAffectedDatasetVersion().getDataset().getId();
+        }
+        if (imageId != null) {
+            List<DirtyAnnotation> forImage = dirtyAnnotationRepository.findByImageId(imageId, Pageable.unpaged()).getContent();
+            if (!forImage.isEmpty()) {
+                return forImage.get(0).getImage().getOriginDatasetVersion().getDataset().getId();
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /**
+     * Filters dirty-annotation rows down to the requester's accessible datasets, used only when
+     * getDirtyAnnotations is called with no scoping filter at all (see the special-case handling
+     * in OntologyChangeController mirroring AnnotationEventController's Global Event Log).
+     */
+    @Transactional(readOnly = true)
+    public Page<DirtyAnnotationResponse> getDirtyAnnotationsAccessibleWithNoFilter(java.util.Set<Long> accessibleDatasetIds, Pageable pageable) {
+        // Filters before paginating (not after) so page metadata (total elements, page count)
+        // stays correct for the filtered set rather than for the unfiltered table.
+        List<DirtyAnnotationResponse> filtered = dirtyAnnotationRepository.findAll().stream()
+                .filter(d -> accessibleDatasetIds.contains(d.getImage().getOriginDatasetVersion().getDataset().getId()))
+                .sorted(Comparator.comparing(DirtyAnnotation::getFlaggedAt).reversed())
+                .map(ontologyChangeMapper::toDirtyResponse)
+                .toList();
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        List<DirtyAnnotationResponse> pageContent = start >= filtered.size() ? List.of() : filtered.subList(start, end);
+        return new org.springframework.data.domain.PageImpl<>(pageContent, pageable, filtered.size());
+    }
+
     @Transactional
-    public DirtyAnnotationResponse resolveDirtyAnnotation(Long id, ResolveDirtyAnnotationRequest request) {
+    public DirtyAnnotationResponse resolveDirtyAnnotation(Long id, ResolveDirtyAnnotationRequest request, String actingUsername) {
         DirtyAnnotation dirty = dirtyAnnotationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Dirty annotation not found: " + id));
+        datasetService.requireAccess(dirty.getImage().getOriginDatasetVersion().getDataset().getId(), actingUsername);
         if (dirty.getResolvedAt() != null) {
             throw new ConflictException("Dirty annotation already resolved: " + id);
         }

@@ -1,8 +1,10 @@
 package com.corallineage.backend.datasets.importservice;
 
+import com.corallineage.backend.datasets.DatasetService;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,9 +22,11 @@ import java.util.List;
 public class DatasetImportController {
 
     private final DatasetImportService datasetImportService;
+    private final DatasetService datasetService;
 
-    public DatasetImportController(DatasetImportService datasetImportService) {
+    public DatasetImportController(DatasetImportService datasetImportService, DatasetService datasetService) {
         this.datasetImportService = datasetImportService;
+        this.datasetService = datasetService;
     }
 
     @PostMapping
@@ -36,7 +40,9 @@ public class DatasetImportController {
             @RequestParam(required = false) String notes,
             @RequestParam(required = false) String[] labelCodes,
             @RequestParam(required = false) String[] labelNames,
-            @RequestParam(required = false) String[] labelCategories) {
+            @RequestParam(required = false) String[] labelCategories,
+            Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
         List<LabelDeclarationRequest> labels = toLabelDeclarations(labelCodes, labelNames, labelCategories);
         ImportJobResponse response = datasetImportService.submitImport(
                 datasetId, files, relativePaths, format, versionTag, importedBy, notes, labels);
@@ -66,7 +72,8 @@ public class DatasetImportController {
     }
 
     @GetMapping("/{importJobId}")
-    public ImportJobResponse getImportJob(@PathVariable Long datasetId, @PathVariable Long importJobId) {
+    public ImportJobResponse getImportJob(@PathVariable Long datasetId, @PathVariable Long importJobId, Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
         return datasetImportService.getImportJob(datasetId, importJobId);
     }
 }

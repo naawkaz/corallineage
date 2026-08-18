@@ -1,6 +1,7 @@
 package com.corallineage.backend.datasets;
 
 import com.corallineage.backend.exception.ConflictException;
+import com.corallineage.backend.exception.ForbiddenException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.exception.UnauthorizedException;
 import com.corallineage.backend.projects.Project;
@@ -83,6 +84,31 @@ public class DatasetService {
                     return datasetMapper.toSummaryResponse(dataset, versionCount, latestVersionTag);
                 })
                 .toList();
+    }
+
+    /**
+     * Canonical membership/scope check for any operation on a single Dataset (Source).
+     * Verifies the acting user belongs to the dataset's owning project, then, if that
+     * user is a restricted collaborator, verifies this specific dataset is within their
+     * explicit allowlist. Every other service that touches dataset-scoped resources
+     * should resolve the relevant dataset id and call this before returning data or
+     * performing a mutation, rather than re-implementing the check.
+     */
+    @Transactional(readOnly = true)
+    public void requireAccess(Long datasetId, String actingUsername) {
+        Dataset dataset = datasetRepository.findById(datasetId)
+                .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
+
+        Long projectId = dataset.getProject().getId();
+
+        if (!projectMemberService.isMember(projectId, actingUsername)) {
+            throw new ForbiddenException("You are not a member of the project that owns this dataset");
+        }
+
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+        if (accessibleSourceIds.isPresent() && !accessibleSourceIds.get().contains(datasetId)) {
+            throw new ForbiddenException("You do not have access to this dataset");
+        }
     }
 
     @Transactional(readOnly = true)

@@ -1,6 +1,8 @@
 package com.corallineage.backend.annotation;
 
 import com.corallineage.backend.datasets.Dataset;
+import com.corallineage.backend.datasets.DatasetService;
+import com.corallineage.backend.exception.ForbiddenException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
@@ -50,6 +52,7 @@ class AnnotationJobServiceTest {
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private LabelDefinitionRepository labelDefinitionRepository;
     @Mock private DatasetVersionService datasetVersionService;
+    @Mock private DatasetService datasetService;
 
     private final AnnotationJobMapper annotationJobMapper = new AnnotationJobMapper();
 
@@ -57,7 +60,7 @@ class AnnotationJobServiceTest {
         return new AnnotationJobService(annotationJobRepository, annotationPredictionRepository,
                 modelVersionRepository, imageRepository, annotationJobMapper, annotationJobExecutor,
                 annotationEventLoggerService, datasetVersionRepository, datasetVersionImageRepository,
-                annotationPointRepository, labelDefinitionRepository, datasetVersionService);
+                annotationPointRepository, labelDefinitionRepository, datasetVersionService, datasetService);
     }
 
     private ModelVersion model(Long id, String status) {
@@ -97,7 +100,7 @@ class AnnotationJobServiceTest {
     void submitAnnotationJob_modelNotFound_throwsNotFound() {
         when(modelVersionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService().submitAnnotationJob(request(99L, List.of(1L))))
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(99L, List.of(1L)), "researcher_01"))
                 .isInstanceOf(NotFoundException.class);
         verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
     }
@@ -106,7 +109,7 @@ class AnnotationJobServiceTest {
     void submitAnnotationJob_modelNotActive_throwsInvalidRequest() {
         when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ARCHIVED")));
 
-        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L))))
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L)), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
         verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
     }
@@ -116,7 +119,7 @@ class AnnotationJobServiceTest {
         when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ACTIVE")));
         when(imageRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(image(1L)));
 
-        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L, 2L))))
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L, 2L)), "researcher_01"))
                 .isInstanceOf(NotFoundException.class);
         verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
     }
@@ -132,7 +135,7 @@ class AnnotationJobServiceTest {
             return job;
         });
 
-        AnnotationJobResponse response = newService().submitAnnotationJob(request(1L, List.of(1L, 2L)));
+        AnnotationJobResponse response = newService().submitAnnotationJob(request(1L, List.of(1L, 2L)), "researcher_01");
 
         assertThat(response.getJobId()).isEqualTo(5L);
         assertThat(response.getStatus()).isEqualTo("RUNNING");
@@ -153,11 +156,42 @@ class AnnotationJobServiceTest {
             return job;
         });
 
-        newService().submitAnnotationJob(request(1L, List.of(1L, 2L)));
+        newService().submitAnnotationJob(request(1L, List.of(1L, 2L)), "researcher_01");
 
         org.mockito.ArgumentCaptor<AnnotationJob> captor = org.mockito.ArgumentCaptor.forClass(AnnotationJob.class);
         verify(annotationJobRepository).save(captor.capture());
         assertThat(captor.getValue().getDataset().getId()).isEqualTo(42L);
+    }
+
+    @Test
+    void submitAnnotationJob_actingUserNotProjectMember_throwsForbidden() {
+        ModelVersion model = model(1L, "ACTIVE");
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model));
+        when(imageRepository.findAllById(List.of(1L))).thenReturn(List.of(image(1L, 42L)));
+        org.mockito.Mockito.doThrow(new ForbiddenException("You are not a member of the project that owns this dataset"))
+                .when(datasetService).requireAccess(42L, "outsider");
+
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L)), "outsider"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(annotationJobRepository, never()).save(any());
+        verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
+    }
+
+    @Test
+    void submitValidationJob_actingUserNotProjectMember_throwsForbidden() {
+        when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ACTIVE")));
+        DatasetVersion version = new DatasetVersion();
+        version.setId(10L);
+        Dataset dataset = new Dataset();
+        dataset.setId(42L);
+        version.setDataset(dataset);
+        when(datasetVersionRepository.findById(10L)).thenReturn(Optional.of(version));
+        org.mockito.Mockito.doThrow(new ForbiddenException("You are not a member of the project that owns this dataset"))
+                .when(datasetService).requireAccess(42L, "outsider");
+
+        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L)), "outsider"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(annotationJobRepository, never()).save(any());
     }
 
     @Test
@@ -166,7 +200,7 @@ class AnnotationJobServiceTest {
         when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model));
         when(imageRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(image(1L, 42L), image(2L, 43L)));
 
-        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L, 2L))))
+        assertThatThrownBy(() -> newService().submitAnnotationJob(request(1L, List.of(1L, 2L)), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
         verify(annotationJobRepository, never()).save(any());
         verify(annotationJobExecutor, never()).executeAnnotationAsync(any());
@@ -262,7 +296,7 @@ class AnnotationJobServiceTest {
         when(modelVersionRepository.findById(1L)).thenReturn(Optional.of(model(1L, "ACTIVE")));
         when(datasetVersionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 99L, List.of(1L))))
+        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 99L, List.of(1L)), "researcher_01"))
                 .isInstanceOf(NotFoundException.class);
         verify(annotationJobExecutor, never()).executeValidationAsync(any());
     }
@@ -279,7 +313,7 @@ class AnnotationJobServiceTest {
         when(imageRepository.findAllById(List.of(1L))).thenReturn(List.of(image(1L)));
         when(datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(10L, 1L)).thenReturn(false);
 
-        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L))))
+        assertThatThrownBy(() -> newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L)), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
         verify(annotationJobRepository, never()).save(any());
     }
@@ -302,7 +336,7 @@ class AnnotationJobServiceTest {
             return job;
         });
 
-        AnnotationJobResponse response = newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L)));
+        AnnotationJobResponse response = newService().submitValidationJob(validationRequest(1L, 10L, List.of(1L)), "researcher_01");
 
         assertThat(response.getJobId()).isEqualTo(7L);
         assertThat(response.getJobType()).isEqualTo("VALIDATION");

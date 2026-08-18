@@ -22,7 +22,8 @@ public class DatasetController {
     }
 
     @GetMapping("/api/v1/datasets/{id}")
-    public DatasetResponse getDataset(@PathVariable Long id) {
+    public DatasetResponse getDataset(@PathVariable Long id, Authentication authentication) {
+        datasetService.requireAccess(id, authentication.getName());
         return datasetService.getDatasetById(id);
     }
 

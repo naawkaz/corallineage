@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 
 public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent, Long> {
 
@@ -42,4 +43,53 @@ public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent
                                         @Param("from") Instant from,
                                         @Param("to") Instant to,
                                         Pageable pageable);
+
+    // Used only when the caller supplies no *dataset-scoping* filter (datasetId/datasetVersionId/
+    // modelVersionId all absent — see AnnotationEventController); eventType/from/to still apply
+    // normally. Rather than blocking the call, results are filtered down to rows whose derivable
+    // dataset id (via dataset_version_id directly, via the triggering model's trained-on version,
+    // or via the logged image's origin version) is in the requester's accessible set. A row with
+    // no derivable dataset id on any of the three (a genuinely cross-cutting event) stays visible
+    // to everyone - there is no ownership anchor to hide it behind.
+    @Query(value = """
+            SELECT e.* FROM annotation_events e
+            LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id
+            LEFT JOIN model_versions mv ON mv.id = e.model_version_id
+            LEFT JOIN dataset_versions mvdv ON mvdv.id = mv.trained_on_dataset_version_id
+            LEFT JOIN images img ON img.id = e.image_id
+            LEFT JOIN dataset_versions idv ON idv.id = img.origin_dataset_version_id
+            WHERE (CAST(:eventType AS varchar) IS NULL OR e.event_type = CAST(:eventType AS varchar))
+              AND (CAST(:from AS timestamptz) IS NULL OR e.occurred_at >= CAST(:from AS timestamptz))
+              AND (CAST(:to AS timestamptz) IS NULL OR e.occurred_at <= CAST(:to AS timestamptz))
+              AND (
+                (dv.dataset_id IS NULL AND mvdv.dataset_id IS NULL AND idv.dataset_id IS NULL)
+                OR dv.dataset_id IN (:accessibleDatasetIds)
+                OR mvdv.dataset_id IN (:accessibleDatasetIds)
+                OR idv.dataset_id IN (:accessibleDatasetIds)
+              )
+            ORDER BY e.occurred_at DESC
+            """,
+            countQuery = """
+            SELECT count(*) FROM annotation_events e
+            LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id
+            LEFT JOIN model_versions mv ON mv.id = e.model_version_id
+            LEFT JOIN dataset_versions mvdv ON mvdv.id = mv.trained_on_dataset_version_id
+            LEFT JOIN images img ON img.id = e.image_id
+            LEFT JOIN dataset_versions idv ON idv.id = img.origin_dataset_version_id
+            WHERE (CAST(:eventType AS varchar) IS NULL OR e.event_type = CAST(:eventType AS varchar))
+              AND (CAST(:from AS timestamptz) IS NULL OR e.occurred_at >= CAST(:from AS timestamptz))
+              AND (CAST(:to AS timestamptz) IS NULL OR e.occurred_at <= CAST(:to AS timestamptz))
+              AND (
+                (dv.dataset_id IS NULL AND mvdv.dataset_id IS NULL AND idv.dataset_id IS NULL)
+                OR dv.dataset_id IN (:accessibleDatasetIds)
+                OR mvdv.dataset_id IN (:accessibleDatasetIds)
+                OR idv.dataset_id IN (:accessibleDatasetIds)
+              )
+            """,
+            nativeQuery = true)
+    Page<AnnotationEvent> findAccessibleWithNoDatasetFilter(@Param("eventType") String eventType,
+                                                              @Param("from") Instant from,
+                                                              @Param("to") Instant to,
+                                                              @Param("accessibleDatasetIds") Collection<Long> accessibleDatasetIds,
+                                                              Pageable pageable);
 }

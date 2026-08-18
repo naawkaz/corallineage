@@ -1,5 +1,6 @@
 package com.corallineage.backend.training;
 
+import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.registry.model.MlflowDetailsResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -7,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,13 +25,17 @@ import java.util.Map;
 public class TrainingJobController {
 
     private final TrainingJobService trainingJobService;
+    private final DatasetService datasetService;
 
-    public TrainingJobController(TrainingJobService trainingJobService) {
+    public TrainingJobController(TrainingJobService trainingJobService, DatasetService datasetService) {
         this.trainingJobService = trainingJobService;
+        this.datasetService = datasetService;
     }
 
     @PostMapping("/jobs")
-    public ResponseEntity<TrainingJobResponse> initiateTrainingJob(@Valid @RequestBody InitiateTrainingRequest request) {
+    public ResponseEntity<TrainingJobResponse> initiateTrainingJob(@Valid @RequestBody InitiateTrainingRequest request,
+                                                                     Authentication authentication) {
+        datasetService.requireAccess(request.getDatasetId(), authentication.getName());
         TrainingJobResponse response = trainingJobService.initiateTrainingJob(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
@@ -39,18 +45,24 @@ public class TrainingJobController {
             @RequestParam Long datasetId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
         Pageable pageable = PageRequest.of(page, size);
         return trainingJobService.getTrainingJobs(datasetId, pageable, status);
     }
 
     @GetMapping("/jobs/{id}")
-    public TrainingJobResponse getTrainingJob(@PathVariable Long id) {
+    public TrainingJobResponse getTrainingJob(@PathVariable Long id, Authentication authentication) {
+        Long datasetId = trainingJobService.getDatasetIdForJob(id);
+        datasetService.requireAccess(datasetId, authentication.getName());
         return trainingJobService.getTrainingJobById(id);
     }
 
     @GetMapping("/jobs/{id}/epoch-metrics")
-    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(@PathVariable Long id) {
+    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(@PathVariable Long id, Authentication authentication) {
+        Long datasetId = trainingJobService.getDatasetIdForJob(id);
+        datasetService.requireAccess(datasetId, authentication.getName());
         return trainingJobService.getEpochMetrics(id);
     }
 

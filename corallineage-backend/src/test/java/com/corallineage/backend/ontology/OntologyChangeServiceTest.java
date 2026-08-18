@@ -1,7 +1,9 @@
 package com.corallineage.backend.ontology;
 
 import com.corallineage.backend.datasets.Dataset;
+import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.exception.ConflictException;
+import com.corallineage.backend.exception.ForbiddenException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEvent;
@@ -49,12 +51,13 @@ class OntologyChangeServiceTest {
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
     @Mock private AnnotationEventRepository annotationEventRepository;
+    @Mock private DatasetService datasetService;
 
     private OntologyChangeService newService() {
         return new OntologyChangeService(ontologyChangeRepository, dirtyAnnotationRepository,
                 datasetVersionRepository, datasetVersionService, labelDefinitionRepository,
                 annotationPointRepository, new OntologyChangeMapper(annotationPointRepository),
-                annotationEventLoggerService, annotationEventRepository);
+                annotationEventLoggerService, annotationEventRepository, datasetService);
     }
 
     private Dataset dataset(Long id) {
@@ -117,9 +120,37 @@ class OntologyChangeServiceTest {
     void recordChange_basedOnVersionNotFound_throwsNotFound() {
         when(datasetVersionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 99L, List.of(spec("NEW", "New", "CORAL")))))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 99L, List.of(spec("NEW", "New", "CORAL"))), "researcher_01"))
                 .isInstanceOf(NotFoundException.class);
         verify(ontologyChangeRepository, never()).save(any());
+    }
+
+    @Test
+    void recordChange_actingUserNotProjectMember_throwsForbidden() {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        org.mockito.Mockito.doThrow(new ForbiddenException("You are not a member of the project that owns this dataset"))
+                .when(datasetService).requireAccess(1L, "outsider");
+
+        assertThatThrownBy(() -> newService().recordChange(
+                request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL"))), "outsider"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(ontologyChangeRepository, never()).save(any());
+    }
+
+    @Test
+    void resolveDirtyAnnotation_actingUserNotProjectMember_throwsForbidden() {
+        DirtyAnnotation d = dirty(1L, 5L, version(1L));
+        when(dirtyAnnotationRepository.findById(1L)).thenReturn(Optional.of(d));
+        org.mockito.Mockito.doThrow(new ForbiddenException("You are not a member of the project that owns this dataset"))
+                .when(datasetService).requireAccess(1L, "outsider");
+
+        ResolveDirtyAnnotationRequest req = new ResolveDirtyAnnotationRequest();
+        req.setNewLabelCode("NEW");
+        req.setResolvedBy("outsider");
+
+        assertThatThrownBy(() -> newService().resolveDirtyAnnotation(1L, req, "outsider"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(dirtyAnnotationRepository, never()).save(any());
     }
 
     @Test
@@ -127,7 +158,7 @@ class OntologyChangeServiceTest {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
         when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(false);
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL")))))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL"))), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
         verify(ontologyChangeRepository, never()).save(any());
         verify(annotationEventLoggerService, never()).log(any(), any(), anyString(), anyString());
@@ -137,7 +168,7 @@ class OntologyChangeServiceTest {
     void recordChange_added_withOldCode_throwsInvalidRequest() {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_ADDED, "SHOULD_NOT_BE_SET", 1L, List.of(spec("NEW", "New", "CORAL")))))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_ADDED, "SHOULD_NOT_BE_SET", 1L, List.of(spec("NEW", "New", "CORAL"))), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
     }
 
@@ -146,7 +177,7 @@ class OntologyChangeServiceTest {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
         when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL")))))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of(spec("NEW", "New", "CORAL"))), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
     }
 
@@ -155,7 +186,7 @@ class OntologyChangeServiceTest {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
         when(labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(1L, "OLD")).thenReturn(true);
 
-        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_SPLIT, "OLD", 1L, List.of())))
+        assertThatThrownBy(() -> newService().recordChange(request(ChangeType.LABEL_SPLIT, "OLD", 1L, List.of()), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
     }
 
@@ -178,7 +209,7 @@ class OntologyChangeServiceTest {
         when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OntologyChangeResponse response = newService().recordChange(
-                request(ChangeType.LABEL_ADDED, null, 1L, List.of(spec("MACRO", "Macroalgae", "ALGAE"))));
+                request(ChangeType.LABEL_ADDED, null, 1L, List.of(spec("MACRO", "Macroalgae", "ALGAE"))), "researcher_01");
 
         assertThat(response.getDirtyAnnotationsFlagged()).isZero();
         assertThat(response.getAffectedDatasetVersionId()).isEqualTo(2L);
@@ -210,7 +241,7 @@ class OntologyChangeServiceTest {
         when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
 
         OntologyChangeResponse response = newService().recordChange(
-                request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New Name", "CORAL"))));
+                request(ChangeType.LABEL_RENAMED, "OLD", 1L, List.of(spec("NEW", "New Name", "CORAL"))), "researcher_01");
 
         assertThat(response.getDirtyAnnotationsFlagged()).isZero();
         assertThat(response.getChangeType()).isEqualTo(ChangeType.LABEL_RENAMED);
@@ -249,7 +280,7 @@ class OntologyChangeServiceTest {
                 .thenReturn(List.of(point(img, 0), point(img, 1), point(img, 2)));
 
         OntologyChangeResponse response = newService().recordChange(request(ChangeType.LABEL_SPLIT, "OLD", 1L,
-                List.of(spec("OLD_A", "Old A", "CORAL"), spec("OLD_B", "Old B", "CORAL"))));
+                List.of(spec("OLD_A", "Old A", "CORAL"), spec("OLD_B", "Old B", "CORAL"))), "researcher_01");
 
         assertThat(response.getDirtyAnnotationsFlagged()).isEqualTo(3);
         assertThat(copiedOld.getDeprecatedAt()).isNotNull();
@@ -290,7 +321,7 @@ class OntologyChangeServiceTest {
         RecordOntologyChangeRequest req = request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of());
         req.setReplacementLabelCode("REPLACEMENT");
 
-        OntologyChangeResponse response = newService().recordChange(req);
+        OntologyChangeResponse response = newService().recordChange(req, "researcher_01");
 
         assertThat(response.getDirtyAnnotationsFlagged()).isEqualTo(1);
         assertThat(response.getReplacementLabelCode()).isEqualTo("REPLACEMENT");
@@ -307,7 +338,7 @@ class OntologyChangeServiceTest {
         RecordOntologyChangeRequest req = request(ChangeType.LABEL_DEPRECATED, "OLD", 1L, List.of());
         req.setReplacementLabelCode("MISSING");
 
-        assertThatThrownBy(() -> newService().recordChange(req))
+        assertThatThrownBy(() -> newService().recordChange(req, "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class);
         verify(ontologyChangeRepository, never()).save(any());
     }
@@ -319,7 +350,9 @@ class OntologyChangeServiceTest {
     private DirtyAnnotation dirty(Long id, Long ontologyChangeId, DatasetVersion version) {
         DirtyAnnotation d = new DirtyAnnotation();
         d.setId(id);
-        d.setImage(image(101L, "moorea_001.jpg"));
+        Image img = image(101L, "moorea_001.jpg");
+        img.setOriginDatasetVersion(version);
+        d.setImage(img);
         d.setPointIndex(0);
         d.setCurrentLabelCode("OLD");
         OntologyChange change = new OntologyChange();
@@ -380,7 +413,7 @@ class OntologyChangeServiceTest {
         req.setNewLabelCode("NEW");
         req.setResolvedBy("researcher_01");
 
-        assertThatThrownBy(() -> newService().resolveDirtyAnnotation(1L, req))
+        assertThatThrownBy(() -> newService().resolveDirtyAnnotation(1L, req, "researcher_01"))
                 .isInstanceOf(ConflictException.class);
         verify(dirtyAnnotationRepository, never()).save(any());
     }
@@ -398,7 +431,7 @@ class OntologyChangeServiceTest {
         req.setNewLabelCode("NEW");
         req.setResolvedBy("researcher_01");
 
-        DirtyAnnotationResponse response = newService().resolveDirtyAnnotation(1L, req);
+        DirtyAnnotationResponse response = newService().resolveDirtyAnnotation(1L, req, "researcher_01");
 
         assertThat(response.isResolved()).isTrue();
         assertThat(response.getNewLabelCode()).isEqualTo("NEW");
@@ -444,7 +477,7 @@ class OntologyChangeServiceTest {
         req.setNewLabelCode("NEW");
         req.setResolvedBy("researcher_01");
 
-        newService().resolveDirtyAnnotation(1L, req);
+        newService().resolveDirtyAnnotation(1L, req, "researcher_01");
 
         verify(annotationEventLoggerService, never()).log(any(), any(), anyString(), anyString());
     }

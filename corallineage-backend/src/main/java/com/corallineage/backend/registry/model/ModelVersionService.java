@@ -99,6 +99,12 @@ public class ModelVersionService {
         return details;
     }
 
+    /** Resolves the owning dataset id for a model, for the membership check. */
+    @Transactional(readOnly = true)
+    public Long getDatasetIdForModel(Long id) {
+        return findOrThrow(id).getTrainedOnDatasetVersion().getDataset().getId();
+    }
+
     private ModelVersion findOrThrow(Long id) {
         return modelVersionRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Model not found: " + id));

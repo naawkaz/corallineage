@@ -90,6 +90,17 @@ public class TrainingJobService {
         return trainingJobMapper.toResponse(job);
     }
 
+    /**
+     * Resolves the owning dataset id for a training job so callers can run the membership
+     * check before returning any job data. Also used by getEpochMetrics.
+     */
+    @Transactional(readOnly = true)
+    public Long getDatasetIdForJob(Long jobId) {
+        TrainingJob job = trainingJobRepository.findById(jobId)
+                .orElseThrow(() -> new NotFoundException("Training job not found: " + jobId));
+        return job.getDatasetVersion().getDataset().getId();
+    }
+
     @Transactional(readOnly = true)
     public Page<TrainingJobResponse> getTrainingJobs(Long datasetId, Pageable pageable, String status) {
         Page<TrainingJob> jobs = status != null && !status.isBlank()

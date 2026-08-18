@@ -1,6 +1,8 @@
 package com.corallineage.backend.pointannotation;
 
 import com.corallineage.backend.datasets.Dataset;
+import com.corallineage.backend.datasets.DatasetService;
+import com.corallineage.backend.exception.ForbiddenException;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
@@ -59,6 +61,7 @@ class PointAnnotationJobServiceTest {
     @Mock private TrainingJobService trainingJobService;
     @Mock private TrainingJobRepository trainingJobRepository;
     @Mock private AutoAnnotationExecutor autoAnnotationExecutor;
+    @Mock private DatasetService datasetService;
 
     private final PointAnnotationMapper mapper = new PointAnnotationMapper();
 
@@ -69,7 +72,7 @@ class PointAnnotationJobServiceTest {
                 imageRepository, pointAnnotationJobRepository, generatedPointRepository,
                 pointGenerationService, mapper, annotationEventLoggerService,
                 labelDefinitionRepository, annotationPointRepository, annotationPointBridge,
-                trainingJobService, trainingJobRepository, autoAnnotationExecutor);
+                trainingJobService, trainingJobRepository, autoAnnotationExecutor, datasetService);
     }
 
     private void writeTestImage(Path file) throws IOException {
@@ -107,7 +110,7 @@ class PointAnnotationJobServiceTest {
     void submitJob_versionNotFound_throwsNotFound(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5)))
+        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5), "researcher_01"))
                 .isInstanceOf(NotFoundException.class);
     }
 
@@ -116,7 +119,7 @@ class PointAnnotationJobServiceTest {
         when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
         when(datasetVersionImageRepository.findImageIdsByDatasetVersionId(1L)).thenReturn(Set.of());
 
-        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5)))
+        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("no images");
     }
@@ -128,7 +131,7 @@ class PointAnnotationJobServiceTest {
         when(imageRepository.findAllById(Set.of(1L, 2L)))
                 .thenReturn(List.of(image(1L, "dataset/1.jpg"), image(2L, "dataset/2.jpg")));
 
-        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5)))
+        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("exceeds");
     }
@@ -156,7 +159,7 @@ class PointAnnotationJobServiceTest {
         req.setPointsPerImage(50);
         req.setConfidenceThreshold(new BigDecimal("0.9"));
 
-        PointAnnotationJobResponse response = newService(workingDirectory).submitJob(req);
+        PointAnnotationJobResponse response = newService(workingDirectory).submitJob(req, "researcher_01");
 
         assertThat(response.getJobId()).isEqualTo(7L);
         assertThat(response.getStatus()).isEqualTo("SEED_LABELING");
@@ -175,6 +178,17 @@ class PointAnnotationJobServiceTest {
         assertThat(saved.stream().filter(p -> !p.isSeed()).count()).isEqualTo(56); // 3rd image
 
         verify(annotationEventLoggerService).log(eq(EventType.POINTS_GENERATED), eq(version), eq("researcher_01"), any());
+    }
+
+    @Test
+    void submitJob_actingUserNotProjectMember_throwsForbidden(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        org.mockito.Mockito.doThrow(new ForbiddenException("You are not a member of the project that owns this dataset"))
+                .when(datasetService).requireAccess(99L, "outsider");
+
+        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5), "outsider"))
+                .isInstanceOf(ForbiddenException.class);
+        verify(pointAnnotationJobRepository, never()).save(any());
     }
 
     @Test
