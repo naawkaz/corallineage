@@ -1,6 +1,6 @@
 import sys
-import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 # MLflow prints an emoji run-summary banner to stdout; on Windows the console's
@@ -16,6 +16,16 @@ from ml_service import inference, training
 from ml_service.config import ARCHITECTURES, ARCHITECTURE_IDS, MOCK_TRAINING
 
 app = Flask(__name__)
+
+# One worker each for training and inference: each background job is CPU/RAM-heavy
+# PyTorch work with no true parallelism benefit from running two of the same kind at
+# once on a single machine, and an unbounded thread-per-request (the previous design)
+# let two overlapping submissions (an accidental double-click, or a training run
+# landing while an auto-annotation job is still in flight) genuinely fight over the
+# same cores with no queueing. A separate pool per job type still lets training and
+# inference run concurrently with each other, just never with themselves.
+_training_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="training")
+_annotate_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="annotate")
 
 
 @app.route("/health", methods=["GET"])
@@ -61,12 +71,9 @@ def annotate():
         "result": None,
         "error": None,
     }
-    thread = threading.Thread(
-        target=inference._run_annotate_job,
-        args=(architecture, weights_path, class_mappings, images, job_id),
-        daemon=True,
+    _annotate_executor.submit(
+        inference._run_annotate_job, architecture, weights_path, class_mappings, images, job_id
     )
-    thread.start()
     return jsonify({"status": "STARTED", "jobId": job_id}), 202
 
 
@@ -95,12 +102,7 @@ def train():
     if not job_id:
         job_id = f"mock-job-{uuid.uuid4().hex[:12]}"
 
-    thread = threading.Thread(
-        target=training._run_training_job,
-        args=(architecture, dataset_path, hyperparameters, job_id),
-        daemon=True,
-    )
-    thread.start()
+    _training_executor.submit(training._run_training_job, architecture, dataset_path, hyperparameters, job_id)
     return jsonify({"status": "STARTED", "jobId": job_id}), 202
 
 
