@@ -33,7 +33,7 @@ export default function Home() {
     <>
       <div className="page-actions">
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          ＋ New Project
+          + New Project
         </button>
       </div>
 

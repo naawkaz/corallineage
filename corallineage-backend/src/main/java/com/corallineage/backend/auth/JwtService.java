@@ -35,7 +35,7 @@ public class JwtService {
     }
 
     /**
-     * Returns the username (subject) encoded in the token, or null if the token is missing,
+     * Returns the username encoded in the token, or null if the token is missing,
      * malformed, expired, or has an invalid signature. Never throws.
      */
     public String extractUsername(String token) {

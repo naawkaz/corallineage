@@ -194,7 +194,7 @@ export default function DatasetDiffPage() {
                     <div className="diff-grid">
                       {diff.imagesAdded.map((img) => (
                         <div key={img.imageId} className="diff-thumb added" title={img.filename}>
-                          <div className="diff-badge">＋</div>
+                          <div className="diff-badge">+</div>
                           <img
                             src={imageFileUrlById(img.imageId)}
                             alt={img.filename}

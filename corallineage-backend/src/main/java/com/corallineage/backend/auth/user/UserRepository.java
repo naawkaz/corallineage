@@ -1,4 +1,4 @@
-package com.corallineage.backend.auth;
+package com.corallineage.backend.auth.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

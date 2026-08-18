@@ -64,7 +64,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
       <div className="section-header">
         <div className="section-title">Dataset Versions</div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-          ＋ New Version
+          + New Version
         </button>
       </div>
 

@@ -1,7 +1,7 @@
 package com.corallineage.backend.projects;
 
-import com.corallineage.backend.auth.User;
-import com.corallineage.backend.auth.UserRepository;
+import com.corallineage.backend.auth.user.User;
+import com.corallineage.backend.auth.user.UserRepository;
 import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;

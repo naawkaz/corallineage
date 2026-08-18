@@ -1,4 +1,4 @@
-package com.corallineage.backend.auth;
+package com.corallineage.backend.auth.user;
 
 import jakarta.persistence.*;
 import java.time.Instant;

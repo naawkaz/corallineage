@@ -1,5 +1,6 @@
 package com.corallineage.backend.auth;
 
+import com.corallineage.backend.auth.user.UserResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

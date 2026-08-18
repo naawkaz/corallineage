@@ -1,6 +1,6 @@
 package com.corallineage.backend.projects;
 
-import com.corallineage.backend.auth.User;
+import com.corallineage.backend.auth.user.User;
 import jakarta.persistence.*;
 import java.time.Instant;
 

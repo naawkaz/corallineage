@@ -100,7 +100,7 @@ export default function ProjectDetail() {
           All Projects
         </button>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          ＋ New Source
+          + New Source
         </button>
       </div>
 

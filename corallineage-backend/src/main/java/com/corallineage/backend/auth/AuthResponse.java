@@ -1,5 +1,7 @@
 package com.corallineage.backend.auth;
 
+import com.corallineage.backend.auth.user.UserResponse;
+
 public class AuthResponse {
 
     private String token;
