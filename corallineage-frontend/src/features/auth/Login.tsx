@@ -81,14 +81,15 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: 4 }}
-            disabled={submitting || !username.trim() || !password}
-          >
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting || !username.trim() || !password}
+            >
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </button>
+          </div>
         </form>
 
         <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>

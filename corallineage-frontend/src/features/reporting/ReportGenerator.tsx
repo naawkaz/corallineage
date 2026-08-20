@@ -296,7 +296,7 @@ export default function ReportGenerator() {
             <div ref={reportRef}>
               <div className="section-header">
                 <div className="section-title">
-                  <span className="mono">{report.reportId}</span> — generated {formatDate(report.generatedAt)} by{' '}
+                  <span className="mono">{report.reportId}</span> - generated {formatDate(report.generatedAt)} by{' '}
                   {report.requestedBy}
                 </div>
               </div>
@@ -367,8 +367,8 @@ export default function ReportGenerator() {
                           <thead>
                             <tr>
                               <th>Label</th>
-                              <th>Accuracy</th>
-                              <th>Samples</th>
+                              <th className="num">Accuracy</th>
+                              <th className="num">Samples</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -377,8 +377,8 @@ export default function ReportGenerator() {
                                 <td>
                                   <span className="mono">{m.labelCode}</span>
                                 </td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <td className="num">
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                                     <div
                                       style={{
                                         width: 80,
@@ -396,10 +396,10 @@ export default function ReportGenerator() {
                                         }}
                                       />
                                     </div>
-                                    <span>{m.accuracy != null ? `${(m.accuracy * 100).toFixed(0)}%` : '—'}</span>
+                                    <span>{m.accuracy != null ? `${(m.accuracy * 100).toFixed(0)}%` : '-'}</span>
                                   </div>
                                 </td>
-                                <td>{m.sampleCount ?? '—'}</td>
+                                <td className="num">{m.sampleCount ?? '-'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -412,7 +412,7 @@ export default function ReportGenerator() {
                     <div key={entry.mlflowRunId} style={{ marginBottom: 24 }}>
                       <div className="section-header">
                         <div className="section-title">
-                          MLflow Diagnostics — <span className="mono">{entry.modelTag}</span>
+                          MLflow Diagnostics - <span className="mono">{entry.modelTag}</span>
                         </div>
                       </div>
                       <div className="card" style={{ padding: 16 }}>
@@ -474,8 +474,8 @@ export default function ReportGenerator() {
                       <tr>
                         <th>Version</th>
                         <th>Trigger</th>
-                        <th>Images</th>
-                        <th>Points</th>
+                        <th className="num">Images</th>
+                        <th className="num">Points</th>
                         <th>Created</th>
                       </tr>
                     </thead>
@@ -486,8 +486,8 @@ export default function ReportGenerator() {
                             <span className="mono">{v.versionTag}</span>
                           </td>
                           <td>{v.triggerReason}</td>
-                          <td>{formatCount(v.imageCount)}</td>
-                          <td>{formatCount(v.annotationCount)}</td>
+                          <td className="num">{formatCount(v.imageCount)}</td>
+                          <td className="num">{formatCount(v.annotationCount)}</td>
                           <td style={{ color: 'var(--text-secondary)' }}>{formatDate(v.createdAt)}</td>
                         </tr>
                       ))}
@@ -503,7 +503,7 @@ export default function ReportGenerator() {
                       <tr>
                         <th>Model</th>
                         <th>Architecture</th>
-                        <th>Accuracy</th>
+                        <th className="num">Accuracy</th>
                         <th>Status</th>
                         <th>Trained</th>
                       </tr>
@@ -515,7 +515,7 @@ export default function ReportGenerator() {
                             <span className="mono">{m.modelTag}</span>
                           </td>
                           <td>{m.architecture}</td>
-                          <td>{m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '—'}</td>
+                          <td className="num">{m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '-'}</td>
                           <td>{m.status}</td>
                           <td style={{ color: 'var(--text-secondary)' }}>{formatDate(m.trainedAt)}</td>
                         </tr>
@@ -544,7 +544,7 @@ export default function ReportGenerator() {
                           </td>
                           <td>
                             <span className="mono" style={{ fontSize: 12 }}>
-                              {c.oldLabelCode ?? '—'} → {c.newLabelCodes?.join(', ') || '—'}
+                              {c.oldLabelCode ?? '-'} → {c.newLabelCodes?.join(', ') || '-'}
                             </span>
                           </td>
                           <td>{c.changedBy}</td>

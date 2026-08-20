@@ -171,7 +171,7 @@ function Table({
         <View style={styles.tableRow} key={ri} wrap={false}>
           {row.map((cell, ci) => (
             <Text key={ci} style={[styles.tableCell, colWidth(columns[ci].width)]}>
-              {cell === '' || cell == null ? '—' : String(cell)}
+              {cell === '' || cell == null ? '-' : String(cell)}
             </Text>
           ))}
         </View>
@@ -279,8 +279,8 @@ export default function ReportDocument({
               ]}
               rows={report.analytics.perClassMetrics.map((m) => [
                 m.labelCode,
-                m.accuracy != null ? `${(m.accuracy * 100).toFixed(0)}%` : '—',
-                m.sampleCount ?? '—',
+                m.accuracy != null ? `${(m.accuracy * 100).toFixed(0)}%` : '-',
+                m.sampleCount ?? '-',
               ])}
             />
           </View>
@@ -289,7 +289,7 @@ export default function ReportDocument({
         {report.analytics &&
           report.analytics.mlflowDetails.map((entry) => (
             <View key={entry.mlflowRunId} style={styles.section}>
-              <Text style={styles.sectionTitle}>MLflow Diagnostics — {entry.modelTag}</Text>
+              <Text style={styles.sectionTitle}>MLflow Diagnostics - {entry.modelTag}</Text>
               <View style={styles.tagRow}>
                 {entry.environment.pythonVersion && (
                   <Text style={styles.tag}>Python {entry.environment.pythonVersion}</Text>
@@ -325,10 +325,10 @@ export default function ReportDocument({
                     ]}
                     rows={entry.epochMetrics.map((p) => [
                       p.epoch,
-                      p.trainLoss != null ? p.trainLoss.toFixed(4) : '—',
-                      p.valLoss != null ? p.valLoss.toFixed(4) : '—',
-                      p.valAccuracy != null ? `${(p.valAccuracy * 100).toFixed(1)}%` : '—',
-                      p.loss != null ? p.loss.toFixed(4) : '—',
+                      p.trainLoss != null ? p.trainLoss.toFixed(4) : '-',
+                      p.valLoss != null ? p.valLoss.toFixed(4) : '-',
+                      p.valAccuracy != null ? `${(p.valAccuracy * 100).toFixed(1)}%` : '-',
+                      p.loss != null ? p.loss.toFixed(4) : '-',
                     ])}
                   />
                 </>
@@ -380,7 +380,7 @@ export default function ReportDocument({
               rows={report.modelRegistry.map((m) => [
                 m.modelTag,
                 m.architecture,
-                m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '—',
+                m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '-',
                 m.status,
                 formatDate(m.trainedAt),
               ])}
@@ -400,7 +400,7 @@ export default function ReportDocument({
               ]}
               rows={report.ontologyChanges.map((c) => [
                 changeTypeLabel(c.changeType),
-                `${c.oldLabelCode ?? '—'} -> ${c.newLabelCodes?.join(', ') || '—'}`,
+                `${c.oldLabelCode ?? '-'} -> ${c.newLabelCodes?.join(', ') || '-'}`,
                 c.changedBy,
                 formatDate(c.changedAt),
               ])}

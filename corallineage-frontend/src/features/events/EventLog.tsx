@@ -2,12 +2,16 @@
 import { useParams } from 'react-router-dom'
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline'
 import { fetchEvents } from '../events/eventsApi'
+import { fetchVersions } from '../datasets/versionsApi'
+import { fetchModels } from '../training/modelsApi'
 import { errorMessage } from '../../shared/api/client'
 import { EVENT_TYPES, eventTypeLabel } from '../../shared/constants'
 import { formatDate } from '../../shared/lib/format'
 import Pagination from '../../shared/components/Pagination'
 import type { AnnotationEvent, EventFilters, EventType } from '../events/eventsTypes'
 import type { Page } from '../datasets/versionsTypes'
+import type { DatasetVersion } from '../datasets/versionsTypes'
+import type { ModelVersion } from '../training/modelsTypes'
 
 const EVENT_PAGE_SIZE = 10
 
@@ -25,11 +29,31 @@ export default function EventLog() {
   const [modelVersionId, setModelVersionId] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [appliedFilters, setAppliedFilters] = useState<EventFilters>({})
+
+  const [datasetVersions, setDatasetVersions] = useState<DatasetVersion[]>([])
+  const [modelVersions, setModelVersions] = useState<ModelVersion[]>([])
+
+  const filters: EventFilters = {
+    eventType: eventType === '' ? undefined : (eventType as EventType),
+    datasetVersionId: datasetVersionId === '' ? undefined : Number(datasetVersionId),
+    modelVersionId: modelVersionId === '' ? undefined : Number(modelVersionId),
+    from: from === '' ? undefined : new Date(from).toISOString(),
+    to: to === '' ? undefined : new Date(to).toISOString(),
+  }
+
+  useEffect(() => {
+    if (!sourceId) return
+    fetchVersions(sourceId, 0, 50)
+      .then((res) => setDatasetVersions(res.content))
+      .catch(() => setDatasetVersions([]))
+    fetchModels(sourceId, 0, 50)
+      .then((res) => setModelVersions(res.content))
+      .catch(() => setModelVersions([]))
+  }, [sourceId])
 
   useEffect(() => {
     let cancelled = false
-    fetchEvents({ ...appliedFilters, datasetId: sourceId }, page, EVENT_PAGE_SIZE)
+    fetchEvents({ ...filters, datasetId: sourceId }, page, EVENT_PAGE_SIZE)
       .then((res) => {
         if (!cancelled) {
           setData(res)
@@ -45,35 +69,25 @@ export default function EventLog() {
     return () => {
       cancelled = true
     }
-  }, [appliedFilters, page, sourceId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventType, datasetVersionId, modelVersionId, from, to, page, sourceId])
 
-  function applyFilters() {
-    setPage(0)
-    setAppliedFilters({
-      eventType: eventType === '' ? undefined : (eventType as EventType),
-      datasetVersionId: datasetVersionId === '' ? undefined : Number(datasetVersionId),
-      modelVersionId: modelVersionId === '' ? undefined : Number(modelVersionId),
-      from: from === '' ? undefined : new Date(from).toISOString(),
-      to: to === '' ? undefined : new Date(to).toISOString(),
-    })
-  }
-
-  function clearFilters() {
-    setEventType('')
-    setDatasetVersionId('')
-    setModelVersionId('')
-    setFrom('')
-    setTo('')
-    setPage(0)
-    setAppliedFilters({})
-  }
+  const hasActiveFilters = Object.values(filters).some((v) => v !== undefined)
 
   return (
     <>
-      <div className="content">
+      <div className="content page-top-spacing">
         <div className="section-header">
           <div className="filter-bar" style={{ flexWrap: 'wrap', marginBottom: 0 }}>
-            <select className="form-select" value={eventType} onChange={(e) => setEventType(e.target.value)}>
+            <select
+              className="form-select"
+              style={{ width: 'auto' }}
+              value={eventType}
+              onChange={(e) => {
+                setPage(0)
+                setEventType(e.target.value)
+              }}
+            >
               <option value="">All event types</option>
               {EVENT_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -81,36 +95,60 @@ export default function EventLog() {
                 </option>
               ))}
             </select>
+            {sourceId && (
+              <select
+                className="form-select"
+                style={{ width: 'auto' }}
+                value={datasetVersionId}
+                onChange={(e) => {
+                  setPage(0)
+                  setDatasetVersionId(e.target.value)
+                }}
+              >
+                <option value="">All dataset versions</option>
+                {datasetVersions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.versionTag}
+                  </option>
+                ))}
+              </select>
+            )}
+            {sourceId && (
+              <select
+                className="form-select"
+                style={{ width: 'auto' }}
+                value={modelVersionId}
+                onChange={(e) => {
+                  setPage(0)
+                  setModelVersionId(e.target.value)
+                }}
+              >
+                <option value="">All model versions</option>
+                {modelVersions.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.modelTag}
+                  </option>
+                ))}
+              </select>
+            )}
             <input
-              placeholder="Dataset version ID"
-              style={{ width: 160 }}
-              value={datasetVersionId}
-              onChange={(e) => setDatasetVersionId(e.target.value.replace(/\D/g, ''))}
-            />
-            <input
-              placeholder="Model version ID"
-              style={{ width: 160 }}
-              value={modelVersionId}
-              onChange={(e) => setModelVersionId(e.target.value.replace(/\D/g, ''))}
-            />
-            <input
-              type="datetime-local"
+              type="date"
               aria-label="From"
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              onChange={(e) => {
+                setPage(0)
+                setFrom(e.target.value)
+              }}
             />
             <input
-              type="datetime-local"
+              type="date"
               aria-label="To"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => {
+                setPage(0)
+                setTo(e.target.value)
+              }}
             />
-            <button className="btn btn-primary" onClick={applyFilters}>
-              Apply
-            </button>
-            <button className="btn btn-secondary" onClick={clearFilters}>
-              Clear
-            </button>
           </div>
           {data && data.totalPages > 0 && (
             <Pagination
@@ -139,7 +177,7 @@ export default function EventLog() {
               <div className="empty-icon">
                 <ClipboardDocumentListIcon style={{ width: 32, height: 32 }} />
               </div>
-              <p>No events found{Object.keys(appliedFilters).length > 0 ? ' matching your filters' : ' yet'}.</p>
+              <p>No events found{hasActiveFilters ? ' matching your filters' : ' yet'}.</p>
             </div>
           ) : (
             <div>
@@ -148,13 +186,8 @@ export default function EventLog() {
                   <div className="event-content">
                     <div className="event-type">{eventTypeLabel(e.eventType)}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {e.description ?? '—'}
-                      {e.modelVersionId != null && (
-                        <>
-                          {' '}
-                          · model v<span className="mono">{e.modelVersionId}</span>
-                        </>
-                      )}
+                      {e.description ?? '-'}
+                      {e.modelVersionId != null && <> · model v{e.modelVersionId}</>}
                     </div>
                     <div className="event-meta">
                       {e.performedBy} · {formatDate(e.occurredAt)}
