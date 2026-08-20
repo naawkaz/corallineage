@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowRightIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { fetchAnnotationJob, fetchAnnotationJobs, submitNewImagesJob, submitValidationJob } from '../annotation/annotationApi'
 import { fetchImages, imageFileUrlById } from '../datasets/imagesApi'
 import { fetchModels } from '../training/modelsApi'
@@ -7,6 +8,8 @@ import { fetchVersions } from '../datasets/versionsApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
 import { useAuthContext } from '../../shared/lib/authContextCore'
+import TitledCard from '../../shared/components/TitledCard'
+import Pagination from '../../shared/components/Pagination'
 import type { AnnotationJob } from '../annotation/annotationTypes'
 import type { DatasetImage } from '../datasets/imagesTypes'
 import type { ModelVersion } from '../training/modelsTypes'
@@ -59,6 +62,8 @@ export default function AnnotationJobs() {
   const [images, setImages] = useState<DatasetImage[]>([])
   const [imagesLoading, setImagesLoading] = useState(false)
   const [selectedImageIds, setSelectedImageIds] = useState<number[]>([])
+  const [imagesPage, setImagesPage] = useState(0)
+  const IMAGES_PER_PAGE = 40
 
   // Mode B: new images
   const [pointsPerImage, setPointsPerImage] = useState(12)
@@ -71,6 +76,8 @@ export default function AnnotationJobs() {
   const [jobs, setJobs] = useState<AnnotationJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(true)
   const [jobsError, setJobsError] = useState<string | null>(null)
+
+  const [annotateDialogOpen, setAnnotateDialogOpen] = useState(false)
 
   const pollingRef = useRef<number | null>(null)
 
@@ -113,6 +120,7 @@ export default function AnnotationJobs() {
     fetchImages(sourceId, selectedVersionId, 0, 200, true)
       .then((res) => {
         setImages(res.content)
+        setImagesPage(0)
         // Filtered images (human-labeled points) are selected by default; user can deselect.
         setSelectedImageIds(res.content.map((img) => img.id))
       })
@@ -187,51 +195,64 @@ export default function AnnotationJobs() {
     }
   }
 
+  const imagesTotalPages = Math.ceil(images.length / IMAGES_PER_PAGE)
+  const visibleImages = images.slice(imagesPage * IMAGES_PER_PAGE, (imagesPage + 1) * IMAGES_PER_PAGE)
+
   return (
     <>
-      <div className="content">
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start' }}>
-          <div>
-            <div className="section-header">
-              <div className="section-title">New Annotation Job</div>
-            </div>
+      <div className="content page-top-spacing">
+        {/* item 42: "Recent Jobs" renamed to "Annotation History", full width */}
+        <TitledCard
+          title="Annotation History"
+          bodyClassName="no-padding"
+          actions={
+            <button
+              className="btn btn-primary"
+              onClick={() => setAnnotateDialogOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <PlusIcon style={{ width: 14, height: 14 }} />
+              Annotate
+            </button>
+          }
+        >
+          <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
+        </TitledCard>
+      </div>
 
-            <div className="card" style={{ padding: 16 }}>
+      {annotateDialogOpen && (
+        <div className="modal-overlay active">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">Annotate with model</div>
+              </div>
+              <button className="modal-close" onClick={() => setAnnotateDialogOpen(false)} aria-label="Close">
+                <XMarkIcon style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            <div className="modal-body">
               {/* item 41: mode choice as radio options inside the submit card, not a page-level tab */}
               <div className="form-row">
                 <label className="form-label">Mode</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="annotationMode"
                       checked={mode === 'validate'}
                       onChange={() => setMode('validate')}
-                      style={{ marginTop: 3 }}
                     />
-                    <span>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>Validate Against Human Labels</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Recheck a model's accuracy against real human-given labels already in a dataset version, no
-                        correction step, just a comparison.
-                      </div>
-                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>Validate against manual annotations</span>
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="annotationMode"
                       checked={mode === 'new-images'}
                       onChange={() => setMode('new-images')}
-                      style={{ marginTop: 3 }}
                     />
-                    <span>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>Annotate New Images</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Upload brand-new images that are not yet part of any dataset version, generate points, run
-                        inference, then review each prediction before adding it to a source.
-                      </div>
-                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>Upload and annotate new images</span>
                   </label>
                 </div>
               </div>
@@ -285,7 +306,8 @@ export default function AnnotationJobs() {
                         <p>No images with human-labeled points in this version.</p>
                       </div>
                     ) : (
-                      // item 43: grid layout matching the Dataset Versions image grid, not a row list
+                      <>
+                      {/* item 43: grid layout matching the Dataset Versions image grid, not a row list */}
                       <div
                         style={{
                           display: 'grid',
@@ -295,7 +317,7 @@ export default function AnnotationJobs() {
                           overflowY: 'auto',
                         }}
                       >
-                        {images.map((img) => {
+                        {visibleImages.map((img) => {
                           const selected = selectedImageIds.includes(img.id)
                           return (
                             <button
@@ -356,6 +378,12 @@ export default function AnnotationJobs() {
                           )
                         })}
                       </div>
+                      {imagesTotalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                          <Pagination page={imagesPage} totalPages={imagesTotalPages} onPageChange={setImagesPage} />
+                        </div>
+                      )}
+                      </>
                     )}
                   </div>
                 </>
@@ -390,26 +418,6 @@ export default function AnnotationJobs() {
                 </div>
               )}
 
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-                {mode === 'validate' ? (
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSubmitValidation}
-                    disabled={submitting || !selectedModelId || !selectedVersionId || selectedImageIds.length === 0}
-                  >
-                    {submitting ? 'Submitting...' : 'Run Validation'}
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSubmitNewImages}
-                    disabled={submitting || !selectedModelId || uploadFiles.length === 0}
-                  >
-                    {submitting ? 'Uploading...' : 'Upload and Annotate'}
-                  </button>
-                )}
-              </div>
-
               {activeJob && (
                 <div style={{ marginTop: 16, borderTop: '1px solid var(--border-md)', paddingTop: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -438,17 +446,31 @@ export default function AnnotationJobs() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* item 42: "Recent Jobs" renamed to "Review Jobs", 1/3 width, to the right */}
-          <div>
-            <div className="section-header">
-              <div className="section-title">Review Jobs</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setAnnotateDialogOpen(false)}>
+                Cancel
+              </button>
+              {mode === 'validate' ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSubmitValidation}
+                  disabled={submitting || !selectedModelId || !selectedVersionId || selectedImageIds.length === 0}
+                >
+                  {submitting ? 'Submitting...' : 'Run Validation'}
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSubmitNewImages}
+                  disabled={submitting || !selectedModelId || uploadFiles.length === 0}
+                >
+                  {submitting ? 'Uploading...' : 'Upload and Annotate'}
+                </button>
+              )}
             </div>
-            <JobsTable jobs={jobs} loading={jobsLoading} error={jobsError} navigate={navigate} sourceId={sourceId} />
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 }
@@ -467,7 +489,7 @@ function JobsTable({
   sourceId: number
 }) {
   return (
-    <div className="card">
+    <>
       {error && (
         <div className="alert alert-error" style={{ margin: 16 }}>
           {error}
@@ -489,15 +511,16 @@ function JobsTable({
               <th>Status</th>
               <th>Review</th>
               <th>Model</th>
-              <th>Images</th>
+              <th className="num">Images</th>
               <th>Started</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {jobs.map((job) => (
               <tr
                 key={job.jobId}
-                style={{ cursor: job.status === 'COMPLETED' ? 'pointer' : 'default' }}
+                className={job.status === 'COMPLETED' ? 'clickable' : undefined}
                 onClick={() => job.status === 'COMPLETED' && navigate(`/sources/${sourceId}/annotation/jobs/${job.jobId}/review`)}
               >
                 <td>
@@ -526,13 +549,20 @@ function JobsTable({
                   )}
                 </td>
                 <td>{job.modelTag ?? 'n/a'}</td>
-                <td>{job.imageCount}</td>
+                <td className="num">{job.imageCount}</td>
                 <td style={{ color: 'var(--text-secondary)' }}>{formatDate(job.initiatedAt)}</td>
+                <td>
+                  {job.status === 'COMPLETED' && (
+                    <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                      View <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                    </span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-    </div>
+    </>
   )
 }

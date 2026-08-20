@@ -2,7 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
-import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   addToProject,
   fetchAnnotationJob,
@@ -42,6 +42,8 @@ export default function AnnotationReview() {
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
   const [selectedPredictionId, setSelectedPredictionId] = useState<number | null>(null)
   const [canvasNaturalSize, setCanvasNaturalSize] = useState<{ width: number; height: number } | null>(null)
+  const [labelsVisible, setLabelsVisible] = useState(false)
+  const [dotsVisible, setDotsVisible] = useState(true)
   const transformRef = useRef<ReactZoomPanPinchContentRef>(null)
 
   const [addOpen, setAddOpen] = useState(false)
@@ -189,16 +191,24 @@ export default function AnnotationReview() {
 
   return (
     <>
-      <div className="page-actions">
-        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/annotation`)}>
-          Back to jobs
+      <div style={{ padding: '36px 28px 0' }}>
+        <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+          Back
         </button>
       </div>
 
       {!isValidation && (
-        <div style={{ height: 4, background: 'var(--border)', margin: '0 24px' }}>
-          <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
-        </div>
+        <>
+          <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+              {job.reviewedPredictions} / {job.totalPredictions} reviewed
+            </span>
+          </div>
+          <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
+            <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
+          </div>
+        </>
       )}
 
       <div className="content">
@@ -286,7 +296,8 @@ export default function AnnotationReview() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
-            <div className="card" style={{ padding: 0, maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="card" style={{ padding: 0 }}>
               {imageIds.map((imgId) => {
                 const imgPredictions = predictionsByImage.get(imgId) ?? []
                 let dotColor: string
@@ -307,15 +318,31 @@ export default function AnnotationReview() {
                       setCanvasNaturalSize(null)
                     }}
                   >
-                    <span className="queue-dot" style={{ background: dotColor }} />
-                    <span className="mono" style={{ fontSize: 12 }}>{imgPredictions[0]?.filename ?? `image ${imgId}`}</span>
+                    <span className="queue-list-item-thumb">
+                      <img src={imageFileUrlById(imgId)} alt="" loading="lazy" />
+                      <span className="queue-dot" style={{ background: dotColor }} />
+                    </span>
+                    <span className="queue-list-item-text">
+                      <span className="queue-list-item-filename">{imgPredictions[0]?.filename ?? `image ${imgId}`}</span>
+                    </span>
                   </div>
                 )
               })}
             </div>
+            </div>
 
             <div className="review-layout">
               <div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <label className="toggle-checkbox">
+                    <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
+                    Points
+                  </label>
+                  <label className="toggle-checkbox">
+                    <input type="checkbox" checked={labelsVisible} onChange={(e) => setLabelsVisible(e.target.checked)} />
+                    Labels
+                  </label>
+                </div>
                 <div className="image-canvas">
                   {selectedImageId != null ? (
                     <TransformWrapper key={selectedImageId} ref={transformRef} initialScale={1} minScale={1} maxScale={4} centerOnInit>
@@ -330,7 +357,7 @@ export default function AnnotationReview() {
                               setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
                             }}
                           />
-                          {currentImagePredictions.map((p) => {
+                          {dotsVisible && currentImagePredictions.map((p) => {
                             const hasPosition = p.rowPosition != null && p.colPosition != null && canvasNaturalSize
                             const top = hasPosition ? `${((p.rowPosition as number) / canvasNaturalSize!.height) * 100}%` : '50%'
                             const left = hasPosition ? `${((p.colPosition as number) / canvasNaturalSize!.width) * 100}%` : '50%'
@@ -344,6 +371,22 @@ export default function AnnotationReview() {
                                 onClick={() => setSelectedPredictionId(p.predictionId)}
                               >
                                 {p.pointIndex}
+                                {labelsVisible && (
+                                  <span
+                                    className="mono"
+                                    style={{
+                                      position: 'absolute',
+                                      top: -22,
+                                      left: '50%',
+                                      transform: 'translateX(-50%)',
+                                      whiteSpace: 'nowrap',
+                                      fontSize: 10,
+                                      padding: '1px 5px',
+                                    }}
+                                  >
+                                    {p.accepted === false ? p.correctedLabelCode : p.predictedLabelCode}
+                                  </span>
+                                )}
                               </div>
                             )
                           })}
@@ -385,19 +428,21 @@ export default function AnnotationReview() {
                 </div>
               </div>
 
-              <div className="review-panel">
-                {currentImagePredictions.map((prediction) => (
-                  <PredictionCard
-                    key={prediction.predictionId}
-                    prediction={prediction}
-                    isValidation={isValidation}
-                    selected={prediction.predictionId === effectiveSelectedId}
-                    labelOptions={labelOptions}
-                    onSelect={() => setSelectedPredictionId(prediction.predictionId)}
-                    onAccept={acceptPrediction}
-                    onOverride={overridePrediction}
-                  />
-                ))}
+              <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
+                  {currentImagePredictions.map((prediction) => (
+                    <PredictionCard
+                      key={prediction.predictionId}
+                      prediction={prediction}
+                      isValidation={isValidation}
+                      selected={prediction.predictionId === effectiveSelectedId}
+                      labelOptions={labelOptions}
+                      onSelect={() => setSelectedPredictionId(prediction.predictionId)}
+                      onAccept={acceptPrediction}
+                      onOverride={overridePrediction}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -426,6 +471,8 @@ function PredictionCard({
 }) {
   const [overrideOpen, setOverrideOpen] = useState(false)
   const [picked, setPicked] = useState('')
+  const canReview = !isValidation && prediction.accepted === null
+  const editing = canReview && overrideOpen
 
   return (
     <div id={`review-card-${prediction.predictionId}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
@@ -446,12 +493,22 @@ function PredictionCard({
         )}
       </div>
 
-      <div className="mono" style={{ fontSize: 13, marginBottom: 4 }}>
-        Predicted: {prediction.predictedLabelCode} (conf {prediction.confidenceScore.toFixed(4)})
+      <div onClick={(e) => canReview && e.stopPropagation()}>
+        <LabelCombobox
+          options={labelOptions}
+          value={editing ? picked : ''}
+          onChange={editing ? setPicked : () => {}}
+          disabled={!editing}
+          placeholder={
+            editing
+              ? 'Search labels…'
+              : `Predicted: ${prediction.predictedLabelCode} (conf ${prediction.confidenceScore.toFixed(4)})`
+          }
+        />
       </div>
 
       {isValidation ? (
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 }}>
           {prediction.agreesWithHuman ? (
             <>
               <CheckIcon style={{ width: 12, height: 12 }} /> Matches human label
@@ -463,29 +520,25 @@ function PredictionCard({
           )}
         </div>
       ) : prediction.accepted !== null ? (
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
           {prediction.accepted ? 'Accepted' : `Overridden: ${prediction.correctedLabelCode}`}
           {prediction.reviewedBy ? ` by ${prediction.reviewedBy}` : ''}
         </div>
       ) : (
-        <div onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button
-              className="btn btn-primary"
-              style={{ color: 'var(--success)', borderColor: '#86EFAC' }}
-              onClick={() => onAccept(prediction)}
-            >
-              Accept
-            </button>
-            <button className="btn btn-secondary" onClick={() => setOverrideOpen((v) => !v)}>
-              Override
-            </button>
-          </div>
-          {overrideOpen && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <LabelCombobox options={labelOptions} value={picked} onChange={setPicked} placeholder="Search labels..." />
+        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          {editing ? (
+            <>
               <button
                 className="btn btn-secondary"
+                onClick={() => {
+                  setOverrideOpen(false)
+                  setPicked('')
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-accept"
                 disabled={!picked}
                 onClick={() => {
                   onOverride(prediction, picked)
@@ -494,7 +547,16 @@ function PredictionCard({
               >
                 Confirm Override
               </button>
-            </div>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-secondary" onClick={() => setOverrideOpen(true)}>
+                Override
+              </button>
+              <button className="btn btn-accept" onClick={() => onAccept(prediction)}>
+                Accept
+              </button>
+            </>
           )}
         </div>
       )}
