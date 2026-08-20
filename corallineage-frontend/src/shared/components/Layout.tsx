@@ -12,16 +12,17 @@ import {
   ArrowsRightLeftIcon,
   CubeIcon,
   TagIcon,
-  ViewfinderCircleIcon,
   Square3Stack3DIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthContext } from '../lib/authContextCore'
+import { useDatasetContext } from '../lib/datasetContextCore'
 
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>
 
 const globalLinks: { to: string; icon: IconType; label: string }[] = [
-  { to: '/', icon: HomeIcon, label: 'Home' },
+  { to: '/', icon: HomeIcon, label: 'Projects' },
   { to: '/events', icon: ClipboardDocumentListIcon, label: 'Global Event Log' },
   { to: '/report', icon: DocumentTextIcon, label: 'Report Generator' },
 ]
@@ -33,45 +34,14 @@ interface SourceNavItem {
   exact?: boolean
 }
 
-interface SourceNavSection {
-  label: string
-  items: SourceNavItem[]
-}
-
-function sourceSections(sourceId: string): SourceNavSection[] {
+function sourceNavItems(sourceId: string): SourceNavItem[] {
   return [
-    {
-      label: 'Overview',
-      items: [
-        { to: `/sources/${sourceId}`, icon: Squares2X2Icon, label: 'Dashboard', exact: true },
-      ],
-    },
-    {
-      label: 'Source',
-      items: [
-        { to: `/sources/${sourceId}/diff`, icon: ArrowsRightLeftIcon, label: 'Compare Versions' },
-      ],
-    },
-    {
-      label: 'Models',
-      items: [
-        { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Models' },
-      ],
-    },
-    {
-      label: 'Annotation',
-      items: [
-        { to: `/sources/${sourceId}/annotation`, icon: TagIcon, label: 'Annotation Jobs' },
-        { to: `/sources/${sourceId}/point-annotation`, icon: ViewfinderCircleIcon, label: 'Point Annotation' },
-      ],
-    },
-    {
-      label: 'Provenance',
-      items: [
-        { to: `/sources/${sourceId}/events`, icon: ClipboardDocumentListIcon, label: 'Event Log' },
-        { to: `/sources/${sourceId}/ontology`, icon: Square3Stack3DIcon, label: 'Ontology Changes' },
-      ],
-    },
+    { to: `/sources/${sourceId}`, icon: Squares2X2Icon, label: 'Overview', exact: true },
+    { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Models' },
+    { to: `/sources/${sourceId}/ontology`, icon: Square3Stack3DIcon, label: 'Ontology Changes' },
+    { to: `/sources/${sourceId}/annotation`, icon: TagIcon, label: 'Annotation Jobs' },
+    { to: `/sources/${sourceId}/diff`, icon: ArrowsRightLeftIcon, label: 'Compare Versions' },
+    { to: `/sources/${sourceId}/events`, icon: ClipboardDocumentListIcon, label: 'Event Log' },
   ]
 }
 
@@ -79,6 +49,7 @@ export default function Layout() {
   const match = useMatch('/sources/:sourceId/*')
   const sourceId = match?.params.sourceId
   const { user, logout } = useAuthContext()
+  const { datasets } = useDatasetContext()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -97,7 +68,9 @@ export default function Layout() {
         .toUpperCase()
     : ''
 
-  const sections = sourceId ? sourceSections(sourceId) : null
+  const sourceItems = sourceId ? sourceNavItems(sourceId) : null
+  const currentDataset = sourceId ? datasets.find((d) => String(d.id) === sourceId) : undefined
+  const backToProjectPath = currentDataset?.projectId != null ? `/projects/${currentDataset.projectId}` : '/'
 
   return (
     <>
@@ -119,27 +92,31 @@ export default function Layout() {
           </button>
         </div>
 
-        {sections ? (
-          sections.map((section) => (
-            <div className="sidebar-section" key={section.label}>
-              <div className="sidebar-section-label">{section.label}</div>
-              {section.items.map((item) => {
-                const Icon = item.icon
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.exact}
-                    className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <Icon className="icon" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                )
-              })}
-            </div>
-          ))
+        {sourceItems && (
+          <NavLink to={backToProjectPath} className="sidebar-back-link" title={collapsed ? 'Sources' : undefined}>
+            <ArrowLeftIcon style={{ width: 13, height: 13 }} />
+            <span>Sources</span>
+          </NavLink>
+        )}
+
+        {sourceItems ? (
+          <div className="sidebar-section">
+            {sourceItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.exact}
+                  className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <Icon className="icon" />
+                  <span>{item.label}</span>
+                </NavLink>
+              )
+            })}
+          </div>
         ) : (
           <div className="sidebar-section">
             {globalLinks.map((item) => {

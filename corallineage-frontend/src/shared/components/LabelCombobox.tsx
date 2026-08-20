@@ -11,7 +11,7 @@ interface LabelComboboxProps {
 }
 
 /**
- * Searchable typeahead over a set of LabelDefinitions — text input + filtered option list with
+ * Searchable typeahead over a set of LabelDefinitions - text input + filtered option list with
  * keyboard nav. No combobox library exists anywhere in this codebase, so this is plain state +
  * .filter(), styled to match .form-input sizing (see index.css .combobox-*).
  */
@@ -93,6 +93,7 @@ export default function LabelCombobox({ options, value, onChange, placeholder, d
         value={query}
         disabled={disabled}
         onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
         onChange={(e) => {
           setQuery(e.target.value)
           setOpen(true)
