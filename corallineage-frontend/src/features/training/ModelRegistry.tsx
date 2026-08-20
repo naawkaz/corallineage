@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CubeIcon } from '@heroicons/react/24/outline'
+import { ArrowRightIcon, CubeIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   fetchArchitectures,
   fetchTrainingJob,
@@ -15,6 +15,7 @@ import { PAGE_SIZE } from '../../shared/constants'
 import { formatDate } from '../../shared/lib/format'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import Pagination from '../../shared/components/Pagination'
+import TitledCard from '../../shared/components/TitledCard'
 import LossCurveChart from '../training/LossCurveChart'
 import type { ModelStatus, ModelVersion, MlflowEpochMetricPoint } from '../training/modelsTypes'
 import type { Architecture, TrainingJob } from '../training/trainingTypes'
@@ -56,7 +57,6 @@ export default function ModelRegistry() {
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
   const [architecture, setArchitecture] = useState('efficientnet_b0')
-  const [versionMode, setVersionMode] = useState<'latest' | 'specific'>('latest')
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
   const [learningRate, setLearningRate] = useState('0.001')
   const [batchSize, setBatchSize] = useState('32')
@@ -71,6 +71,8 @@ export default function ModelRegistry() {
   const [jobs, setJobs] = useState<TrainingJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(true)
   const [jobsError, setJobsError] = useState<string | null>(null)
+
+  const [trainDialogOpen, setTrainDialogOpen] = useState(false)
 
   const pollingRef = useRef<number | null>(null)
 
@@ -147,7 +149,7 @@ export default function ModelRegistry() {
           }
         })
         .catch(() => {
-          // transient poll failure — try again next tick
+          // transient poll failure - try again next tick
         })
     }, 3000)
     pollingRef.current = intervalId
@@ -164,7 +166,7 @@ export default function ModelRegistry() {
     try {
       const created = await submitTrainingJob({
         datasetId: sourceId,
-        datasetVersionId: versionMode === 'specific' && selectedVersionId ? selectedVersionId : undefined,
+        datasetVersionId: selectedVersionId ?? undefined,
         architecture,
         learningRate: Number(learningRate),
         batchSize: Number(batchSize),
@@ -183,13 +185,161 @@ export default function ModelRegistry() {
 
   return (
     <>
-      <div className="content">
+      <div className="content page-top-spacing">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div>
-            <div className="section-header">
-              <div className="section-title">New Training Job</div>
+          {error && <div className="alert alert-error">{error}</div>}
+
+          <TitledCard
+            title="Model Registry"
+            bodyClassName="no-padding"
+            actions={
+              <button
+                className="btn btn-primary"
+                onClick={() => setTrainDialogOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <PlusIcon style={{ width: 14, height: 14 }} />
+                Train New Model
+              </button>
+            }
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
+              <select
+                className="form-select"
+                style={{ width: 'auto' }}
+                value={status}
+                onChange={(e) => {
+                  setLoading(true)
+                  setStatus(e.target.value)
+                  setPage(0)
+                }}
+              >
+                <option value="ALL">All statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="ARCHIVED">Archived</option>
+                <option value="DEPRECATED">Deprecated</option>
+              </select>
+              {data && data.totalPages > 0 && (
+                <Pagination
+                  page={page}
+                  totalPages={data.totalPages}
+                  onPageChange={(p) => {
+                    setLoading(true)
+                    setPage(p)
+                  }}
+                  totalElements={data.totalElements}
+                  pageSize={PAGE_SIZE}
+                />
+              )}
             </div>
-            <div className="card" style={{ padding: 16 }}>
+
+            {loading ? (
+              <div className="loading-state">
+                <span className="spinner" /> Loading models…
+              </div>
+            ) : !data || data.content.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">
+                  <CubeIcon style={{ width: 32, height: 32 }} />
+                </div>
+                <p>No models registered yet. Complete a training job to register one.</p>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Architecture</th>
+                    <th className="num">Accuracy</th>
+                    <th>Dataset version</th>
+                    <th>Status</th>
+                    <th>Trained</th>
+                    <th>By</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.content.map((m) => (
+                    <tr key={m.id} className="clickable" onClick={() => navigate(`/sources/${sourceId}/models/${m.id}`)}>
+                      <td>{m.modelTag}</td>
+                      <td>{m.architecture}</td>
+                      <td className="num">{m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '-'}</td>
+                      <td>
+                        {m.trainedOnDatasetVersion ? (
+                          <span className="mono">{m.trainedOnDatasetVersion.versionTag}</span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${MODEL_STATUS_BADGE[m.status]}`}>{m.status}</span>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{formatDate(m.trainedAt)}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{m.trainedBy}</td>
+                      <td>
+                        <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                          View <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TitledCard>
+
+          <TitledCard title="Training History" bodyClassName="no-padding">
+            {jobsError && (
+              <div className="alert alert-error" style={{ margin: 16 }}>
+                {jobsError}
+              </div>
+            )}
+            {jobsLoading ? (
+              <div className="loading-state">
+                <span className="spinner" /> Loading jobs…
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="empty-state">
+                <p>No training jobs yet.</p>
+              </div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jobs.map((job) => (
+                    <tr key={job.jobId}>
+                      <td>{job.modelTag ?? '-'}</td>
+                      <td>
+                        <span className={`badge ${trainingStatusBadge(job.status)}`}>{job.status}</span>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{formatDate(job.initiatedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TitledCard>
+        </div>
+      </div>
+
+      {trainDialogOpen && (
+        <div className="modal-overlay active">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">Train New Model</div>
+              </div>
+              <button className="modal-close" onClick={() => setTrainDialogOpen(false)} aria-label="Close">
+                <XMarkIcon style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            <div className="modal-body">
               <div className="form-row">
                 <label className="form-label">Architecture</label>
                 <select className="form-select" value={architecture} onChange={(e) => setArchitecture(e.target.value)}>
@@ -205,46 +355,28 @@ export default function ModelRegistry() {
               </div>
 
               <div className="form-row">
-                <label className="form-label">Dataset version</label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <input
-                    type="radio"
-                    name="versionMode"
-                    checked={versionMode === 'latest'}
-                    onChange={() => setVersionMode('latest')}
-                  />
-                  Latest version
+                <label className="form-label" htmlFor="datasetVersion">
+                  Dataset version
                 </label>
-                {versionMode === 'latest' && versions.some((v) => !v.complete) && (
-                  <div className="form-hint" style={{ marginBottom: 6 }}>
-                    Some recent versions have unresolved ontology-change dirty flags and will be skipped —
+                <select
+                  id="datasetVersion"
+                  className="form-select"
+                  value={selectedVersionId ?? ''}
+                  onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">Latest version</option>
+                  {versions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.versionTag}
+                      {!v.complete ? ' (incomplete - training will be rejected)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {selectedVersionId == null && versions.some((v) => !v.complete) && (
+                  <div className="form-hint" style={{ marginTop: 6 }}>
+                    Some recent versions have unresolved ontology-change dirty flags and will be skipped,
                     training will silently fall back to the newest complete version.
                   </div>
-                )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="radio"
-                    name="versionMode"
-                    checked={versionMode === 'specific'}
-                    onChange={() => setVersionMode('specific')}
-                  />
-                  Specific version
-                </label>
-                {versionMode === 'specific' && (
-                  <select
-                    className="form-select"
-                    style={{ marginTop: 8 }}
-                    value={selectedVersionId ?? ''}
-                    onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">Select a version…</option>
-                    {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.versionTag}
-                        {!v.complete ? ' (incomplete — training will be rejected)' : ''}
-                      </option>
-                    ))}
-                  </select>
                 )}
               </div>
 
@@ -287,16 +419,6 @@ export default function ModelRegistry() {
                   {submitError}
                 </div>
               )}
-
-              <div style={{ marginTop: 16 }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSubmit}
-                  disabled={submitting || (versionMode === 'specific' && !selectedVersionId)}
-                >
-                  {submitting ? 'Submitting…' : 'Start Training'}
-                </button>
-              </div>
 
               {activeJob && (
                 <div style={{ marginTop: 16, borderTop: '1px solid var(--border-md)', paddingTop: 16 }}>
@@ -347,153 +469,14 @@ export default function ModelRegistry() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div>
-            <div className="section-header">
-              <div className="section-title">Job History</div>
-            </div>
-            <div className="card">
-              {jobsError && (
-                <div className="alert alert-error" style={{ margin: 16 }}>
-                  {jobsError}
-                </div>
-              )}
-              {jobsLoading ? (
-                <div className="loading-state">
-                  <span className="spinner" /> Loading jobs…
-                </div>
-              ) : jobs.length === 0 ? (
-                <div className="empty-state">
-                  <p>No training jobs yet.</p>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Status</th>
-                      <th>Architecture</th>
-                      <th>Dataset version</th>
-                      <th>Model</th>
-                      <th>Started</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobs.map((job) => (
-                      <tr key={job.jobId}>
-                        <td>
-                          <span className={`badge ${trainingStatusBadge(job.status)}`}>{job.status}</span>
-                        </td>
-                        <td>
-                          <span className="mono">{job.architecture}</span>
-                        </td>
-                        <td>
-                          <span className="mono">{job.datasetVersionTag}</span>
-                        </td>
-                        <td>{job.modelTag ?? '—'}</td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{formatDate(job.initiatedAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <div className="section-header">
-              <div className="section-title">Model Registry</div>
-            </div>
-            {error && (
-              <div className="alert alert-error" style={{ marginBottom: 16 }}>
-                {error}
-              </div>
-            )}
-
-            <div className="card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
-                <select
-                  className="form-select"
-                  style={{ width: 'auto' }}
-                  value={status}
-                  onChange={(e) => {
-                    setLoading(true)
-                    setStatus(e.target.value)
-                    setPage(0)
-                  }}
-                >
-                  <option value="ALL">All statuses</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="ARCHIVED">Archived</option>
-                  <option value="DEPRECATED">Deprecated</option>
-                </select>
-                {data && data.totalPages > 0 && (
-                  <Pagination
-                    page={page}
-                    totalPages={data.totalPages}
-                    onPageChange={(p) => {
-                      setLoading(true)
-                      setPage(p)
-                    }}
-                    totalElements={data.totalElements}
-                    pageSize={PAGE_SIZE}
-                  />
-                )}
-              </div>
-
-              {loading ? (
-                <div className="loading-state">
-                  <span className="spinner" /> Loading models…
-                </div>
-              ) : !data || data.content.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">
-                    <CubeIcon style={{ width: 32, height: 32 }} />
-                  </div>
-                  <p>No models registered yet. Complete a training job to register one.</p>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Model</th>
-                      <th>Architecture</th>
-                      <th>Accuracy</th>
-                      <th>Dataset version</th>
-                      <th>Status</th>
-                      <th>Trained</th>
-                      <th>By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.content.map((m) => (
-                      <tr key={m.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/sources/${sourceId}/models/${m.id}`)}>
-                        <td>
-                          <span className="mono">{m.modelTag}</span>
-                        </td>
-                        <td>{m.architecture}</td>
-                        <td>{m.accuracy != null ? `${(m.accuracy * 100).toFixed(1)}%` : '—'}</td>
-                        <td>
-                          {m.trainedOnDatasetVersion ? (
-                            <span className="mono">{m.trainedOnDatasetVersion.versionTag}</span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td>
-                          <span className={`badge ${MODEL_STATUS_BADGE[m.status]}`}>{m.status}</span>
-                        </td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{formatDate(m.trainedAt)}</td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{m.trainedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Start Training'}
+              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 }

@@ -47,11 +47,7 @@ export default function LossCurveChart({ epochMetrics }: LossCurveChartProps) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-      {!hasValidationSplit && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: -8, marginBottom: 16 }}>
-          This model was trained before the validation split feature, showing training loss only.
-        </div>
-      )}
+
     </>
   )
 }

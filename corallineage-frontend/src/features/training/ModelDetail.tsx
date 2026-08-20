@@ -1,11 +1,18 @@
 ﻿import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeftIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowLeftIcon,
+  ArrowTopRightOnSquareIcon,
+  ArchiveBoxIcon,
+  NoSymbolIcon,
+  ArrowPathIcon,
+} from '@heroicons/react/24/outline'
 import { fetchMlflowDetails, fetchModel, updateModelStatus } from '../training/modelsApi'
 import { errorMessage } from '../../shared/api/client'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import LossCurveChart from '../training/LossCurveChart'
+import TitledCard from '../../shared/components/TitledCard'
 import type { MlflowDetails, ModelStatus, ModelVersion } from '../training/modelsTypes'
 
 const STATUS_BADGE: Record<ModelStatus, string> = {
@@ -103,21 +110,60 @@ export default function ModelDetail() {
 
   return (
     <>
-      <div className="page-actions with-back">
-        <span className="mono" style={{ fontSize: 14 }}>{model.modelTag}</span>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate(modelsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
-          Back
-        </button>
-      </div>
-
       <div className="content">
+        <div className="page-back-row">
+          <button className="btn btn-secondary" onClick={() => navigate(modelsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+            Back
+          </button>
+        </div>
+
+        <div className="page-title-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div className="page-title">Model Version: {model.modelTag}</div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {model.status !== 'ARCHIVED' && (
+              <button
+                className="btn btn-secondary"
+                disabled={statusChanging}
+                onClick={() => handleStatusChange('ARCHIVED')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ArchiveBoxIcon style={{ width: 14, height: 14 }} />
+                Archive
+              </button>
+            )}
+            {model.status !== 'DEPRECATED' && (
+              <button
+                className="btn"
+                disabled={statusChanging}
+                onClick={() => handleStatusChange('DEPRECATED')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--danger-700)', color: '#fff', borderColor: 'var(--danger-700)' }}
+              >
+                <NoSymbolIcon style={{ width: 14, height: 14 }} />
+                Deprecate
+              </button>
+            )}
+            {model.status !== 'ACTIVE' && (
+              <button
+                className="btn btn-primary"
+                disabled={statusChanging}
+                onClick={() => handleStatusChange('ACTIVE')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <ArrowPathIcon style={{ width: 14, height: 14 }} />
+                Reactivate
+              </button>
+            )}
+          </div>
+        </div>
+        {statusError && (
+          <div className="alert alert-error" style={{ marginBottom: 16 }}>
+            {statusError}
+          </div>
+        )}
+
         <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
-          <div>
-            <div className="section-header">
-              <div className="section-title">Model metadata</div>
-            </div>
-            <div className="card" style={{ padding: 16 }}>
+          <TitledCard title="Model Metadata">
               <div className="detail-grid">
                 <div className="detail-row">
                   <div className="detail-key">Architecture</div>
@@ -133,7 +179,7 @@ export default function ModelDetail() {
                 </div>
                 <div className="detail-row">
                   <div className="detail-key">Accuracy</div>
-                  <div>{model.accuracy != null ? `${(model.accuracy * 100).toFixed(1)}%` : '—'}</div>
+                  <div>{model.accuracy != null ? `${(model.accuracy * 100).toFixed(1)}%` : '-'}</div>
                 </div>
                 <div className="detail-row">
                   <div className="detail-key">Dataset version</div>
@@ -147,7 +193,7 @@ export default function ModelDetail() {
                         {model.trainedOnDatasetVersion.versionTag}
                       </Link>
                     ) : (
-                      '—'
+                      '-'
                     )}
                   </div>
                 </div>
@@ -158,59 +204,19 @@ export default function ModelDetail() {
                       ? Object.entries(model.hyperparameters)
                           .map(([k, v]) => `${k}: ${v}`)
                           .join(', ')
-                      : '—'}
+                      : '-'}
                   </div>
                 </div>
                 <div className="detail-row">
                   <div className="detail-key">MLflow run</div>
                   <div>
-                    <span className="mono">{model.mlflowRunId ?? '—'}</span>
+                    <span className="mono">{model.mlflowRunId ?? '-'}</span>
                   </div>
                 </div>
               </div>
+          </TitledCard>
 
-              <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                {model.status !== 'ARCHIVED' && (
-                  <button
-                    className="btn btn-secondary"
-                    disabled={statusChanging}
-                    onClick={() => handleStatusChange('ARCHIVED')}
-                  >
-                    Archive
-                  </button>
-                )}
-                {model.status !== 'DEPRECATED' && (
-                  <button
-                    className="btn btn-secondary"
-                    disabled={statusChanging}
-                    onClick={() => handleStatusChange('DEPRECATED')}
-                  >
-                    Deprecate
-                  </button>
-                )}
-                {model.status !== 'ACTIVE' && (
-                  <button
-                    className="btn btn-primary"
-                    disabled={statusChanging}
-                    onClick={() => handleStatusChange('ACTIVE')}
-                  >
-                    Reactivate
-                  </button>
-                )}
-              </div>
-              {statusError && (
-                <div className="alert alert-error" style={{ marginTop: 12 }}>
-                  {statusError}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <div className="section-header">
-              <div className="section-title">Class mappings &amp; per-class metrics</div>
-            </div>
-            <div className="card">
+          <TitledCard title="Class mappings & per-class metrics" bodyClassName="no-padding">
               {model.classMappings && (
                 <div style={{ padding: 16, borderBottom: '1px solid var(--border-md)' }}>
                   {Object.entries(model.classMappings).map(([idx, code]) => (
@@ -225,8 +231,8 @@ export default function ModelDetail() {
                   <thead>
                     <tr>
                       <th>Label</th>
-                      <th>Accuracy</th>
-                      <th>Samples</th>
+                      <th className="num">Accuracy</th>
+                      <th className="num">Samples</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -235,8 +241,8 @@ export default function ModelDetail() {
                         <td>
                           <span className="mono">{c.labelCode}</span>
                         </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <td className="num">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                             <div
                               style={{
                                 width: 80,
@@ -254,10 +260,10 @@ export default function ModelDetail() {
                                 }}
                               />
                             </div>
-                            <span>{c.accuracy != null ? `${(c.accuracy * 100).toFixed(0)}%` : '—'}</span>
+                            <span>{c.accuracy != null ? `${(c.accuracy * 100).toFixed(0)}%` : '-'}</span>
                           </div>
                         </td>
-                        <td>{c.sampleCount ?? '—'}</td>
+                        <td className="num">{c.sampleCount ?? '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -267,15 +273,27 @@ export default function ModelDetail() {
                   <p>No per-class metrics recorded.</p>
                 </div>
               )}
-            </div>
-          </div>
+          </TitledCard>
         </div>
 
-        <div style={{ marginTop: 24 }}>
-          <div className="section-header">
-            <div className="section-title">MLflow diagnostics</div>
-          </div>
-          <div className="card" style={{ padding: 16 }}>
+        <TitledCard
+          title="MLflow Diagnostics"
+          style={{ marginTop: 24 }}
+          actions={
+            diagnostics.kind === 'ready' && (
+              <a
+                className="btn btn-primary"
+                href={diagnostics.details.mlflowUiUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                Open in MLflow
+                <ArrowTopRightOnSquareIcon style={{ width: 14, height: 14 }} />
+              </a>
+            )
+          }
+        >
             {diagnostics.kind === 'loading' && (
               <div className="loading-state">
                 <span className="spinner" /> Loading MLflow details…
@@ -288,7 +306,7 @@ export default function ModelDetail() {
             )}
             {diagnostics.kind === 'unavailable' && (
               <div className="alert alert-error">
-                MLflow tracking server is unreachable — training metadata is still shown above, but
+                MLflow tracking server is unreachable - training metadata is still shown above, but
                 deep diagnostics (environment, loss curve, confusion matrix) can't be loaded right now.
               </div>
             )}
@@ -325,21 +343,9 @@ export default function ModelDetail() {
                     />
                   </div>
                 )}
-
-                <a
-                  className="btn btn-secondary"
-                  href={diagnostics.details.mlflowUiUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                >
-                  Open in MLflow
-                  <ArrowTopRightOnSquareIcon style={{ width: 14, height: 14 }} />
-                </a>
               </>
             )}
-          </div>
-        </div>
+        </TitledCard>
       </div>
     </>
   )
