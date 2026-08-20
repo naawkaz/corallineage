@@ -12,7 +12,7 @@ import Login from './features/auth/Login'
 import ModelDetail from './features/training/ModelDetail'
 import ModelRegistry from './features/training/ModelRegistry'
 import OntologyChanges from './features/ontology/OntologyChanges'
-import PointAnnotationJobs from './features/pointannotation/PointAnnotationJobs'
+import OntologyChangeReview from './features/ontology/OntologyChangeReview'
 import PointAnnotationReview from './features/pointannotation/PointAnnotationReview'
 import ProjectDetail from './features/projects/ProjectDetail'
 import Register from './features/auth/Register'
@@ -41,11 +41,11 @@ function App() {
               <Route path="/sources/:sourceId/models/:id" element={<ModelDetail />} />
               <Route path="/sources/:sourceId/annotation" element={<AnnotationJobs />} />
               <Route path="/sources/:sourceId/annotation/jobs/:id/review" element={<AnnotationReview />} />
-              <Route path="/sources/:sourceId/point-annotation" element={<PointAnnotationJobs />} />
-              <Route path="/sources/:sourceId/point-annotation/jobs/:id/label" element={<SeedLabeling />} />
-              <Route path="/sources/:sourceId/point-annotation/jobs/:id/review" element={<PointAnnotationReview />} />
+              <Route path="/sources/:sourceId/blank-import/jobs/:id/label" element={<SeedLabeling />} />
+              <Route path="/sources/:sourceId/blank-import/jobs/:id/review" element={<PointAnnotationReview />} />
               <Route path="/sources/:sourceId/events" element={<EventLog />} />
               <Route path="/sources/:sourceId/ontology" element={<OntologyChanges />} />
+              <Route path="/sources/:sourceId/ontology/:changeId" element={<OntologyChangeReview />} />
               <Route path="*" element={<ComingSoon />} />
             </Route>
           </Route>

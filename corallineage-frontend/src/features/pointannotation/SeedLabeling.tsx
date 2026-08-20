@@ -9,7 +9,7 @@ import {
   labelPoint,
   trainPointAnnotationJob,
 } from '../pointannotation/pointAnnotationApi'
-import { CheckIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { fetchTrainingJob } from '../training/trainingApi'
 import { createLabelDefinition, fetchVersion } from '../datasets/versionsApi'
 import { imageFileUrlById } from '../datasets/imagesApi'
@@ -36,6 +36,7 @@ export default function SeedLabeling() {
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
   const [selectedPointId, setSelectedPointId] = useState<number | null>(null)
   const [canvasNaturalSize, setCanvasNaturalSize] = useState<{ width: number; height: number } | null>(null)
+  const [dotsVisible, setDotsVisible] = useState(true)
   const transformRef = useRef<ReactZoomPanPinchContentRef>(null)
 
   const [training, setTraining] = useState(false)
@@ -88,7 +89,7 @@ export default function SeedLabeling() {
   }, [points])
 
   // Re-selects the first image whenever the point set changes for a different reason than one
-  // point flipping status (e.g. initial load) — same derived-during-render pattern the Dirty
+  // point flipping status (e.g. initial load) - same derived-during-render pattern the Dirty
   // Annotations Queue uses for its equivalent sync.
   const imageKey = imageIds.join(',')
   const [syncedImageKey, setSyncedImageKey] = useState('')
@@ -160,7 +161,7 @@ export default function SeedLabeling() {
   }
 
   // Polls the underlying (real, unmodified) Training Job while this point-annotation job is
-  // TRAINING — reuses the existing Training Jobs page's own 3s-polling convention.
+  // TRAINING - reuses the existing Training Jobs page's own 3s-polling convention.
   useEffect(() => {
     if (!job || job.status !== 'TRAINING' || job.trainingJobId == null) return
     let cancelled = false
@@ -170,7 +171,7 @@ export default function SeedLabeling() {
           if (!cancelled) setTrainingJob(tj)
         })
         .catch(() => {
-          /* transient poll failure — try again next tick */
+          /* transient poll failure - try again next tick */
         })
     }, 3000)
     return () => {
@@ -192,11 +193,11 @@ export default function SeedLabeling() {
           if (cancelled) return
           setJob(updated)
           if (updated.status === 'REVIEW') {
-            navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)
+            navigate(`/sources/${sourceId}/blank-import/jobs/${jobId}/review`)
           }
         })
         .catch(() => {
-          /* transient poll failure — try again next tick */
+          /* transient poll failure - try again next tick */
         })
     }, 1000)
     return () => {
@@ -251,92 +252,45 @@ export default function SeedLabeling() {
       ? (trainingJob.currentEpoch / trainingJob.totalEpochs) * 100
       : 0
 
+  const displayPct = job.status === 'TRAINING' ? trainingProgressPct : progressPct
+  const statusText =
+    job.status === 'TRAINING'
+      ? `Training, epoch ${trainingJob?.currentEpoch ?? '-'} / ${trainingJob?.totalEpochs ?? '-'}`
+      : job.status === 'AUTO_ANNOTATING'
+        ? `Automated annotation: Point #${job.autoAnnotationProcessedCount ?? 0}${job.autoAnnotationTotalCount != null ? ` / ${job.autoAnnotationTotalCount}` : ''}${autoAnnotationCurrentFilename ? ` ${autoAnnotationCurrentFilename}` : ''}`
+        : `${labeledCount} / ${totalCount} labeled`
+
   return (
     <>
-      <div className="page-actions">
-        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
+      <div style={{ padding: '36px 28px 0' }}>
+        <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
       </div>
 
-      <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-          {labeledCount} / {totalCount} labeled
-        </span>
+      <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{statusText}</span>
+        {job.status === 'SEED_LABELING' && allLabeled && (
+          <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
+            {training ? 'Starting…' : 'Train Model'}
+          </button>
+        )}
+        {job.status === 'TRAINING' && (
+          <button
+            className="btn btn-primary"
+            onClick={handleAutoAnnotate}
+            disabled={autoAnnotating || trainingJob?.status !== 'COMPLETED'}
+          >
+            {autoAnnotating ? 'Running…' : 'Run Auto-Annotation'}
+          </button>
+        )}
       </div>
       <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
-        <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
+        <div style={{ height: 4, width: `${displayPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
       </div>
 
       <div className="content">
-        {(job.status === 'SEED_LABELING' || job.status === 'TRAINING' || job.status === 'AUTO_ANNOTATING') && (
-          <div
-            className="impact-box"
-            style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-              {job.status === 'SEED_LABELING' &&
-                (allLabeled ? (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <CheckIcon style={{ width: 16, height: 16 }} />
-                    All seed points are labeled, ready to train.
-                  </span>
-                ) : (
-                  <span>
-                    {job.seedImageCount} seed image{job.seedImageCount === 1 ? '' : 's'}, confidence threshold{' '}
-                    {Math.round(job.confidenceThreshold * 100)}%, {totalCount} point{totalCount === 1 ? '' : 's'}{' '}
-                    generated.
-                  </span>
-                ))}
-              {job.status === 'TRAINING' && (
-                <div style={{ flex: 1, minWidth: 0, maxWidth: 320 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    Training, epoch {trainingJob?.currentEpoch ?? '—'} / {trainingJob?.totalEpochs ?? '—'}
-                  </div>
-                  <div style={{ height: 4, background: 'var(--border)' }}>
-                    <div
-                      style={{
-                        height: 4,
-                        width: `${trainingProgressPct}%`,
-                        background: '#0d9488',
-                        transition: 'width 0.2s',
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-              {job.status === 'AUTO_ANNOTATING' && (
-                <span className="loading-state" style={{ padding: 0 }}>
-                  <span className="spinner" /> Auto-annotating…
-                </span>
-              )}
-            </div>
-
-            {job.status === 'AUTO_ANNOTATING' && (
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                Automated annotation: Point #{job.autoAnnotationProcessedCount ?? 0}
-                {job.autoAnnotationTotalCount != null ? ` / ${job.autoAnnotationTotalCount}` : ''}
-                {autoAnnotationCurrentFilename ? ` ${autoAnnotationCurrentFilename}` : ''}
-              </span>
-            )}
-
-            {job.status === 'SEED_LABELING' && allLabeled && (
-              <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
-                {training ? 'Starting…' : 'Train Model'}
-              </button>
-            )}
-
-            {job.status === 'TRAINING' && (
-              <button
-                className="btn btn-primary"
-                onClick={handleAutoAnnotate}
-                disabled={autoAnnotating || trainingJob?.status !== 'COMPLETED'}
-              >
-                {autoAnnotating ? 'Running…' : 'Run Auto-Annotation'}
-              </button>
-            )}
-          </div>
-        )}
         {(job.status === 'REVIEW' || job.status === 'COMPLETE') && (
           <div className="impact-box" style={{ marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
             <span>
@@ -346,7 +300,7 @@ export default function SeedLabeling() {
             {job.status === 'REVIEW' && (
               <button
                 className="btn btn-primary"
-                onClick={() => navigate(`/sources/${sourceId}/point-annotation/jobs/${jobId}/review`)}
+                onClick={() => navigate(`/sources/${sourceId}/blank-import/jobs/${jobId}/review`)}
               >
                 Go to Review Queue
               </button>
@@ -368,7 +322,8 @@ export default function SeedLabeling() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div className="card" style={{ padding: 0, maxHeight: '40vh', overflowY: 'auto' }}>
+              <div className="inset-container" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+              <div className="card" style={{ padding: 0 }}>
                 {imageIds.map((imgId) => {
                   const imgPoints = pointsByImage.get(imgId) ?? []
                   const labeled = imgPoints.filter((p) => p.status === 'HUMAN_LABELED').length
@@ -388,7 +343,7 @@ export default function SeedLabeling() {
                         <span className="queue-dot" style={{ background: dotColor }} />
                       </span>
                       <span className="queue-list-item-text">
-                        <span className="mono queue-list-item-filename">{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
+                        <span className="queue-list-item-filename">{imgPoints[0]?.filename ?? `image ${imgId}`}</span>
                         <span className="queue-list-item-progress">
                           {labeled}/{imgPoints.length} labeled
                         </span>
@@ -396,6 +351,7 @@ export default function SeedLabeling() {
                     </div>
                   )
                 })}
+              </div>
               </div>
 
               <div className="card" style={{ padding: 0 }}>
@@ -411,9 +367,9 @@ export default function SeedLabeling() {
                   <span style={{ fontSize: 12, fontWeight: 600 }}>Label set ({labelOptions.length})</span>
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-primary btn-sm"
                     onClick={() => {
-                      setAddLabelOpen((prev) => !prev)
+                      setAddLabelOpen(true)
                       setAddLabelError(null)
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
@@ -422,61 +378,6 @@ export default function SeedLabeling() {
                     New label
                   </button>
                 </div>
-
-                {addLabelOpen && (
-                  <div style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                      Declares a new vocabulary entry on this dataset version, for a genuinely new class found
-                      mid-session, not as a shortcut for picking from the existing list.
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
-                      <input
-                        className="form-input"
-                        placeholder="Code, e.g. BLEACHED_ACRO"
-                        value={newLabelCode}
-                        onChange={(e) => setNewLabelCode(e.target.value)}
-                      />
-                      <input
-                        className="form-input"
-                        placeholder="Name, e.g. Bleached Acropora"
-                        value={newLabelName}
-                        onChange={(e) => setNewLabelName(e.target.value)}
-                      />
-                      <input
-                        className="form-input"
-                        placeholder="Category (optional), e.g. Coral"
-                        value={newLabelCategory}
-                        onChange={(e) => setNewLabelCategory(e.target.value)}
-                      />
-                    </div>
-                    {addLabelError && (
-                      <div className="alert alert-error" style={{ marginBottom: 8 }}>
-                        {addLabelError}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={handleAddLabel}
-                        disabled={addingLabel || !newLabelCode.trim() || !newLabelName.trim()}
-                      >
-                        {addingLabel ? 'Creating…' : 'Create Label'}
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setAddLabelOpen(false)
-                          setAddLabelError(null)
-                          setNewLabelCode('')
-                          setNewLabelName('')
-                          setNewLabelCategory('')
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 <div style={{ maxHeight: '30vh', overflowY: 'auto' }}>
                   {labelOptions.length === 0 ? (
@@ -507,6 +408,12 @@ export default function SeedLabeling() {
 
             <div className="review-layout">
               <div>
+                <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <label className="toggle-checkbox">
+                    <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
+                    Points
+                  </label>
+                </div>
                 <div className="image-canvas">
                   {selectedImageId != null ? (
                     <TransformWrapper
@@ -528,7 +435,8 @@ export default function SeedLabeling() {
                               setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
                             }}
                           />
-                          {canvasNaturalSize &&
+                          {dotsVisible &&
+                            canvasNaturalSize &&
                             currentImagePoints.map((p, idx) => {
                               const dotClass =
                                 p.id === effectiveSelectedPointId
@@ -571,23 +479,105 @@ export default function SeedLabeling() {
                 </div>
               </div>
 
-              <div className="review-panel">
-                {currentImagePoints.map((point, idx) => (
-                  <SeedPointCard
-                    key={point.id}
-                    point={point}
-                    pointNumber={idx + 1}
-                    selected={point.id === effectiveSelectedPointId}
-                    labelOptions={labelOptions}
-                    onSelect={() => setSelectedPointId(point.id)}
-                    onLabel={handleLabel}
-                  />
-                ))}
+              <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
+                  {currentImagePoints.map((point, idx) => (
+                    <SeedPointCard
+                      key={point.id}
+                      point={point}
+                      pointNumber={idx + 1}
+                      selected={point.id === effectiveSelectedPointId}
+                      labelOptions={labelOptions}
+                      onSelect={() => setSelectedPointId(point.id)}
+                      onLabel={handleLabel}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {addLabelOpen && (
+        <div className="modal-overlay active">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <div className="modal-title">New label</div>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => {
+                  setAddLabelOpen(false)
+                  setAddLabelError(null)
+                  setNewLabelCode('')
+                  setNewLabelName('')
+                  setNewLabelCategory('')
+                }}
+                aria-label="Close"
+              >
+                <XMarkIcon style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {addLabelError && (
+                <div className="alert alert-error" style={{ marginBottom: 16 }}>
+                  {addLabelError}
+                </div>
+              )}
+              <div className="form-row">
+                <label className="form-label">Code</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. BLEACHED_ACRO"
+                  value={newLabelCode}
+                  onChange={(e) => setNewLabelCode(e.target.value)}
+                />
+              </div>
+              <div className="form-row">
+                <label className="form-label">Name</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. Bleached Acropora"
+                  value={newLabelName}
+                  onChange={(e) => setNewLabelName(e.target.value)}
+                />
+              </div>
+              <div className="form-row" style={{ marginBottom: 0 }}>
+                <label className="form-label">Category (optional)</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. Coral"
+                  value={newLabelCategory}
+                  onChange={(e) => setNewLabelCategory(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setAddLabelOpen(false)
+                  setAddLabelError(null)
+                  setNewLabelCode('')
+                  setNewLabelName('')
+                  setNewLabelCategory('')
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleAddLabel}
+                disabled={addingLabel || !newLabelCode.trim() || !newLabelName.trim()}
+              >
+                {addingLabel ? 'Creating…' : 'Create Label'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -621,16 +611,18 @@ function SeedPointCard({
       </div>
 
       {point.status !== 'HUMAN_LABELED' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
+        <div onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
           <LabelCombobox
             options={labelOptions}
             value={picked}
             onChange={setPicked}
             placeholder="Search labels…"
           />
-          <button className="btn btn-secondary" disabled={!picked} onClick={() => onLabel(point, picked)}>
-            Label
-          </button>
+          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-accept" disabled={!picked} onClick={() => onLabel(point, picked)}>
+              Label
+            </button>
+          </div>
         </div>
       )}
     </div>

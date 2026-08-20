@@ -2,7 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
-import { CheckIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { fetchGeneratedPoints, fetchPointAnnotationJob, reviewGeneratedPoint } from '../pointannotation/pointAnnotationApi'
 import { fetchVersion } from '../datasets/versionsApi'
 import { imageFileUrlById } from '../datasets/imagesApi'
@@ -133,8 +133,9 @@ export default function PointAnnotationReview() {
 
   return (
     <>
-      <div className="page-actions">
-        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}/point-annotation`)}>
+      <div style={{ padding: '36px 28px 0' }}>
+        <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
       </div>
@@ -152,7 +153,7 @@ export default function PointAnnotationReview() {
         {pendingCount === 0 && totalCount > 0 && (
           <div className="impact-box" style={{ marginBottom: 16 }}>
             <span><CheckIcon style={{ width: 16, height: 16 }} /></span>
-            <span>All points reviewed — this point-annotation job is complete.</span>
+            <span>All points reviewed, this blank import job is complete.</span>
           </div>
         )}
         {error && (
@@ -240,7 +241,7 @@ export default function PointAnnotationReview() {
                                     top: `${(p.rowPosition / canvasNaturalSize.height) * 100}%`,
                                     left: `${(p.colPosition / canvasNaturalSize.width) * 100}%`,
                                   }}
-                                  title={`${p.predictedLabelCode ?? '?'} — conf ${p.confidenceScore?.toFixed(4) ?? 'n/a'}`}
+                                  title={`${p.predictedLabelCode ?? '?'} - conf ${p.confidenceScore?.toFixed(4) ?? 'n/a'}`}
                                   onClick={() => setSelectedPointId(p.id)}
                                 >
                                   {idx + 1}
@@ -323,7 +324,7 @@ function ReviewPointCard({
 
       {point.status === 'CONFIRMED' ? (
         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Confirmed{point.confidenceScore != null ? ` — conf ${point.confidenceScore.toFixed(4)}` : ''}
+          Confirmed{point.confidenceScore != null ? ` - conf ${point.confidenceScore.toFixed(4)}` : ''}
         </div>
       ) : (
         <div onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
