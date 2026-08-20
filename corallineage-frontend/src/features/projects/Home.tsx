@@ -5,6 +5,7 @@ import { fetchProjects } from '../projects/projectsApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatCount, formatDate } from '../../shared/lib/format'
 import CreateProjectModal from '../projects/CreateProjectModal'
+import TitledCard from '../../shared/components/TitledCard'
 import type { Project } from '../projects/projectsTypes'
 
 export default function Home() {
@@ -31,12 +32,6 @@ export default function Home() {
 
   return (
     <>
-      <div className="page-actions">
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + New Project
-        </button>
-      </div>
-
       <div className="content">
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
@@ -44,42 +39,45 @@ export default function Home() {
           </div>
         )}
 
-        <div className="section-header">
-          <div className="section-title">Projects</div>
-        </div>
-
-        {loading ? (
-          <div className="loading-state">
-            <span className="spinner" /> Loading projects…
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="card">
+        <TitledCard
+          title="Projects"
+          actions={
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              + New Project
+            </button>
+          }
+        >
+          {loading ? (
+            <div className="loading-state">
+              <span className="spinner" /> Loading projects…
+            </div>
+          ) : projects.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">
                 <InboxIcon style={{ width: 32, height: 32 }} />
               </div>
               <p>No projects yet. Create your first project to get started.</p>
             </div>
-          </div>
-        ) : (
-          <div className="list-rows">
-            {projects.map((p) => (
-              <div key={p.id} className="list-row" onClick={() => navigate(`/projects/${p.id}`)}>
-                <div className="list-row-main">
-                  <div className="list-row-name">{p.projectName}</div>
-                  <div className="list-row-desc">{p.description || 'No description'}</div>
-                </div>
-                <div className="list-row-meta">
-                  <div className="list-row-owner">{p.ownerDisplayName ?? p.createdBy}</div>
-                  <div className="list-row-date">Updated {formatDate(p.updatedAt)}</div>
-                  <div className="list-row-sub">
-                    {formatCount(p.sourceCount)} source{p.sourceCount === 1 ? '' : 's'}
+          ) : (
+            <div className="list-rows">
+              {projects.map((p) => (
+                <div key={p.id} className="list-row clickable" onClick={() => navigate(`/projects/${p.id}`)}>
+                  <div className="list-row-main">
+                    <div className="list-row-name">{p.projectName}</div>
+                    <div className="list-row-desc">{p.description || 'No description'}</div>
+                  </div>
+                  <div className="list-row-meta">
+                    <div className="list-row-owner">{p.ownerDisplayName ?? p.createdBy}</div>
+                    <div className="list-row-date">Updated {formatDate(p.updatedAt)}</div>
+                    <div className="list-row-sub">
+                      {formatCount(p.sourceCount)} source{p.sourceCount === 1 ? '' : 's'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </TitledCard>
       </div>
 
       <CreateProjectModal

@@ -12,6 +12,7 @@ import AddCollaboratorModal from '../projects/AddCollaboratorModal'
 import ManageAccessModal from '../projects/ManageAccessModal'
 import ConfirmDialog from '../projects/ConfirmDialog'
 import RowMenu from '../projects/RowMenu'
+import TitledCard from '../../shared/components/TitledCard'
 import type { Project } from '../projects/projectsTypes'
 import type { Dataset } from '../datasets/datasetsTypes'
 import type { ProjectMember } from '../projects/membersTypes'
@@ -90,21 +91,18 @@ export default function ProjectDetail() {
 
   return (
     <>
-      <div className="page-actions with-back">
-        <button
-          onClick={() => navigate('/')}
-          className="btn btn-secondary btn-sm"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-        >
-          <ArrowLeftIcon style={{ width: 12, height: 12 }} />
-          All Projects
-        </button>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + New Source
-        </button>
-      </div>
-
       <div className="content">
+        <div className="page-back-row">
+          <button
+            onClick={() => navigate('/')}
+            className="btn btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+            All Projects
+          </button>
+        </div>
+
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             {error}
@@ -118,33 +116,34 @@ export default function ProjectDetail() {
         ) : (
           <>
           {project && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 18, fontWeight: 600 }}>{project.projectName}</div>
+            <div className="page-title-row">
+              <div className="page-title">{project.projectName}</div>
               {project.description && (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{project.description}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{project.description}</div>
               )}
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
             {/* Sources: 2/3 width, list-row layout matching the Home projects list */}
-            <div>
-              <div className="section-header">
-                <div className="section-title">Sources</div>
-              </div>
-
+            <TitledCard
+              title="Sources"
+              actions={
+                <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                  + New Source
+                </button>
+              }
+            >
               {sources.length === 0 ? (
-                <div className="card">
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <InboxIcon style={{ width: 32, height: 32 }} />
-                    </div>
-                    <p>No sources yet. Create your first source to get started.</p>
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    <InboxIcon style={{ width: 32, height: 32 }} />
                   </div>
+                  <p>No sources yet. Create your first source to get started.</p>
                 </div>
               ) : (
                 <div className="list-rows">
                   {sources.map((d) => (
-                    <div key={d.id} className="list-row" onClick={() => navigate(`/sources/${d.id}`)}>
+                    <div key={d.id} className="list-row clickable" onClick={() => navigate(`/sources/${d.id}`)}>
                       <div className="list-row-main">
                         <div className="list-row-name">{d.datasetName}</div>
                         <div className="list-row-desc">{d.description || 'No description'}</div>
@@ -160,13 +159,13 @@ export default function ProjectDetail() {
                   ))}
                 </div>
               )}
-            </div>
+            </TitledCard>
 
             {/* Collaborators: 1/3 width, to the right */}
-            <div>
-              <div className="section-header">
-                <div className="section-title">Collaborators</div>
-                {isOwner && (
+            <TitledCard
+              title="Collaborators"
+              actions={
+                isOwner && (
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={() => setShowAddCollaborator(true)}
@@ -175,49 +174,48 @@ export default function ProjectDetail() {
                     <UserPlusIcon style={{ width: 13, height: 13 }} />
                     Add
                   </button>
-                )}
-              </div>
-              <div className="card" style={{ padding: 16 }}>
-                {membersError && (
-                  <div className="alert alert-error" style={{ marginBottom: 12 }}>
-                    {membersError}
-                  </div>
-                )}
-                {membersLoading ? (
-                  <div className="loading-state">
-                    <span className="spinner" /> Loading collaborators…
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {members.map((member) => (
-                      <div
-                        key={member.userId}
-                        style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{member.displayName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                            {member.role === 'OWNER'
-                              ? 'Owner'
-                              : member.sourceAccessRestricted
-                                ? 'Collaborator, limited access'
-                                : 'Collaborator, full access'}
-                          </div>
+                )
+              }
+            >
+              {membersError && (
+                <div className="alert alert-error" style={{ marginBottom: 12 }}>
+                  {membersError}
+                </div>
+              )}
+              {membersLoading ? (
+                <div className="loading-state">
+                  <span className="spinner" /> Loading collaborators…
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {members.map((member) => (
+                    <div
+                      key={member.userId}
+                      style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{member.displayName}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {member.role === 'OWNER'
+                            ? 'Owner'
+                            : member.sourceAccessRestricted
+                              ? 'Collaborator, limited access'
+                              : 'Collaborator, full access'}
                         </div>
-                        {isOwner && member.role !== 'OWNER' && (
-                          <RowMenu
-                            items={[
-                              { label: 'Manage access', onClick: () => setManageAccessTarget(member) },
-                              { label: 'Remove', danger: true, onClick: () => setRemoveTarget(member) },
-                            ]}
-                          />
-                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+                      {isOwner && member.role !== 'OWNER' && (
+                        <RowMenu
+                          items={[
+                            { label: 'Manage access', onClick: () => setManageAccessTarget(member) },
+                            { label: 'Remove', danger: true, onClick: () => setRemoveTarget(member) },
+                          ]}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TitledCard>
           </div>
           </>
         )}
