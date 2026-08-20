@@ -33,7 +33,7 @@ function jobNumericId(job: ImportJob): number {
  * a bare manual snapshot (no files picked, triggerReason hardcoded to MANUAL_SNAPSHOT, no UI
  * control for it) and a full dataset import (MLC/CoralNet CSV/COCO JSON/Blank formats, directory
  * upload, Blank-format label declaration with cross-source label reuse, and a post-import "start
- * point annotation" step) — folded in from what used to be the standalone Import page.
+ * point annotation" step) - folded in from what used to be the standalone Import page.
  */
 export default function CreateVersionModal({ datasetId, open, onClose, onCreated }: CreateVersionModalProps) {
   const navigate = useNavigate()
@@ -232,7 +232,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
     setPollError(null)
     try {
       if (files.length === 0) {
-        // Bare manual snapshot — no files picked, no import job needed. Trigger reason is
+        // Bare manual snapshot - no files picked, no import job needed. Trigger reason is
         // always MANUAL_SNAPSHOT here since this path has no other way to have been reached.
         const request: CreateVersionRequest = {
           versionTag: versionTag.trim(),
@@ -267,7 +267,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
         initiatedBy: user?.username ?? '',
       })
       handleClose()
-      navigate(`/sources/${datasetId}/point-annotation/jobs/${pointJob.jobId}/label`)
+      navigate(`/sources/${datasetId}/blank-import/jobs/${pointJob.jobId}/label`)
     } catch (err) {
       setPointAnnotationError(errorMessage(err))
     } finally {
@@ -280,11 +280,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
       <div className="modal" style={{ width: 680, maxWidth: '100%' }}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">Create new dataset version</div>
-            <div className="modal-subtitle">
-              Import a dataset directory, or leave the file picker empty to record a manual snapshot of the
-              current state
-            </div>
+            <div className="modal-title">Import images</div>
           </div>
           <button className="modal-close" onClick={handleClose} aria-label="Close">
             <XMarkIcon style={{ width: 16, height: 16 }} />
@@ -313,7 +309,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
 
               <div className="form-row">
                 <label className="form-label" htmlFor="importFile">
-                  Dataset directory (optional, leave empty for a manual snapshot)
+                  Dataset directory
                 </label>
                 <input
                   id="importFile"
@@ -453,7 +449,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  {/* <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div>
                       <label className="form-label" htmlFor="newLabelCode">
                         Label code
@@ -498,12 +494,12 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                     >
                       Add
                     </button>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
+                  </div> */}
+                  {/* <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
                     {declaredLabels.length > 0
                       ? `${declaredLabels.length} label(s) declared`
                       : 'Declare the label set upfront, reused from another version or added by hand'}
-                  </div>
+                  </div> */}
                 </div>
               )}
 
@@ -518,7 +514,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                   value={versionTag}
                   onChange={(e) => setVersionTag(e.target.value)}
                 />
-                <div className="form-hint">Must be unique within this dataset.</div>
+                <div className="form-hint">Must be unique within this source.</div>
               </div>
 
               <div className="form-row" style={{ marginBottom: 0 }}>
@@ -582,7 +578,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
               {job.format === 'BLANK' && (
                 <>
                   <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Start Point Annotation</div>
+                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Start Blank Import</div>
                   <div className="form-row">
                     <label className="form-label" htmlFor="seedImageCount">
                       Seed images to label manually
@@ -611,8 +607,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                       onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
                     />
                     <div className="form-hint">
-                      Points the trained model predicts above this confidence auto-confirm; the rest go to a
-                      human review queue. Grid is fixed at 49 points/image (7x7).
+                      Points the trained model predicts above this confidence auto-confirm. Rest reviewed manually. 49 points/image (7x7) grid.
                     </div>
                   </div>
                   {pointAnnotationError && (

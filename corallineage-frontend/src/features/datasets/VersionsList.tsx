@@ -7,6 +7,7 @@ import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } fr
 import { formatCount, formatDate, shortHash } from '../../shared/lib/format'
 import CreateVersionModal from './CreateVersionModal'
 import Pagination from '../../shared/components/Pagination'
+import TitledCard from '../../shared/components/TitledCard'
 import type { DatasetVersion, Page } from '../datasets/versionsTypes'
 
 interface VersionsListProps {
@@ -61,48 +62,54 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
 
   return (
     <div>
-      <div className="section-header">
-        <div className="section-title">Dataset Versions</div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-          + New Version
-        </button>
-      </div>
-
-      <div className="section-header">
-        <div className="filter-bar" style={{ marginBottom: 0 }}>
-          <input
-            placeholder="Search version tag or notes…"
-            style={{ width: 260 }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select className="form-select" value={trigger} onChange={(e) => setTrigger(e.target.value)}>
-            <option value="ALL">All triggers</option>
-            {TRIGGER_REASONS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+      <TitledCard
+        title="Dataset Versions"
+        actions={
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            + New Version
+          </button>
+        }
+      >
+        <div className="filter-row">
+          <div className="filter-row-filters">
+            <input
+              className="form-input"
+              placeholder="Search version tag or notes…"
+              style={{ width: 260 }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="form-select"
+              style={{ width: 'auto' }}
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
+            >
+              <option value="ALL">All triggers</option>
+              {TRIGGER_REASONS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {data && data.totalPages > 0 && (
+            <Pagination
+              page={page}
+              totalPages={data.totalPages}
+              onPageChange={setPage}
+              totalElements={data.totalElements}
+              pageSize={PAGE_SIZE}
+            />
+          )}
         </div>
-        {data && data.totalPages > 0 && (
-          <Pagination
-            page={page}
-            totalPages={data.totalPages}
-            onPageChange={setPage}
-            totalElements={data.totalElements}
-            pageSize={PAGE_SIZE}
-          />
+
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: 16 }}>
+            {error}
+          </div>
         )}
-      </div>
 
-      {error && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
-
-      <div className="card">
         {loading ? (
           <div className="loading-state">
             <span className="spinner" /> Loading versions…
@@ -124,8 +131,8 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
               <tr>
                 <th>Version</th>
                 <th>Trigger</th>
-                <th>Images</th>
-                <th>Points</th>
+                <th className="num">Images</th>
+                <th className="num">Points</th>
                 <th>DVC Hash</th>
                 <th>Created</th>
                 <th>By</th>
@@ -136,7 +143,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
               {filtered.map((v) => (
                 <tr
                   key={v.id}
-                  style={{ cursor: 'pointer' }}
+                  className="clickable"
                   onClick={() => navigate(`/sources/${sourceId}/versions/${v.id}`)}
                 >
                   <td>
@@ -158,8 +165,8 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                       </Link>
                     )}
                   </td>
-                  <td>{formatCount(v.imageCount)}</td>
-                  <td>{formatCount(v.annotationCount)}</td>
+                  <td className="num">{formatCount(v.imageCount)}</td>
+                  <td className="num">{formatCount(v.annotationCount)}</td>
                   <td>
                     <span className="mono">{shortHash(v.dvcCommitHash)}</span>
                   </td>
@@ -175,7 +182,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
             </tbody>
           </table>
         )}
-      </div>
+      </TitledCard>
 
       <CreateVersionModal
         datasetId={sourceId}

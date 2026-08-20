@@ -7,6 +7,7 @@ import { errorMessage } from '../../shared/api/client'
 import { fetchAnnotationPoints, fetchImages, imageFileUrl, imageFileUrlById } from '../datasets/imagesApi'
 import { triggerReasonBadge, triggerReasonLabel } from '../../shared/constants'
 import { formatCount, formatDate } from '../../shared/lib/format'
+import TitledCard from '../../shared/components/TitledCard'
 import type { DatasetVersion } from '../datasets/versionsTypes'
 import type { AnnotationPointSummary, DatasetImage } from '../datasets/imagesTypes'
 import type { LabelDeclaration } from '../datasets/importsTypes'
@@ -166,15 +167,18 @@ export default function VersionDetail() {
 
   return (
     <>
-      <div className="page-actions with-back">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {version ? (
-            <span className="mono" style={{ fontSize: 14 }}>
-              {version.versionTag}
-            </span>
-          ) : (
-            <span>…</span>
-          )}
+      <div className="content">
+        <div className="page-back-row">
+          <button className="btn btn-secondary" onClick={() => navigate(versionsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <ArrowLeftIcon style={{ width: 14, height: 14 }} />
+            Back
+          </button>
+        </div>
+
+        <div className="page-title-row" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="page-title">
+            {version ? `Version: ${version.versionTag}` : 'Version'}
+          </div>
           {version && !version.complete && (
             <Link
               to={`/sources/${sourceIdParam}/ontology?datasetVersionId=${version.id}`}
@@ -186,13 +190,7 @@ export default function VersionDetail() {
             </Link>
           )}
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => navigate(versionsListPath)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <ArrowLeftIcon style={{ width: 14, height: 14 }} />
-          Back
-        </button>
-      </div>
 
-      <div className="content">
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             {error}
@@ -206,64 +204,59 @@ export default function VersionDetail() {
 
         {version && (
           <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
-            <div>
-              <div className="section-header">
-                <div className="section-title">Version metadata</div>
-              </div>
-              <div className="card" style={{ padding: 16 }}>
-                <div className="detail-grid">
-                  <div className="detail-row">
-                    <div className="detail-key">Version tag</div>
-                    <div>
-                      <span className="mono">{version.versionTag}</span>
-                    </div>
+            <TitledCard title="Version metadata">
+              <div className="detail-grid">
+                <div className="detail-row">
+                  <div className="detail-key">Version tag</div>
+                  <div>
+                    <span className="mono">{version.versionTag}</span>
                   </div>
-                  <div className="detail-row">
-                    <div className="detail-key">DVC commit</div>
-                    <div>
-                      <span className="mono">{version.dvcCommitHash}</span>
-                    </div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">DVC commit</div>
+                  <div>
+                    <span className="mono">{version.dvcCommitHash}</span>
                   </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Trigger</div>
-                    <div>
-                      <span className={`badge ${triggerReasonBadge(version.triggerReason)}`}>
-                        {triggerReasonLabel(version.triggerReason)}
-                      </span>
-                    </div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Trigger</div>
+                  <div>
+                    <span className={`badge ${triggerReasonBadge(version.triggerReason)}`}>
+                      {triggerReasonLabel(version.triggerReason)}
+                    </span>
                   </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Images</div>
-                    <div>{formatCount(version.imageCount)}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Images</div>
+                  <div>{formatCount(version.imageCount)}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Points</div>
+                  <div>{formatCount(version.annotationCount)}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Created by</div>
+                  <div>{version.createdBy}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Created at</div>
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    {formatDate(version.createdAt)}
                   </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Points</div>
-                    <div>{formatCount(version.annotationCount)}</div>
-                  </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Created by</div>
-                    <div>{version.createdBy}</div>
-                  </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Created at</div>
-                    <div style={{ color: 'var(--text-secondary)' }}>
-                      {formatDate(version.createdAt)}
-                    </div>
-                  </div>
-                  <div className="detail-row">
-                    <div className="detail-key">Notes</div>
-                    <div style={{ color: 'var(--text-secondary)' }}>
-                      {version.notes ?? '—'}
-                    </div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-key">Notes</div>
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    {version.notes ?? '-'}
                   </div>
                 </div>
               </div>
-            </div>
+            </TitledCard>
 
-            <div>
-              <div className="section-header">
-                <div className="section-title">Label definitions at this version</div>
-                <div style={{ display: 'flex', gap: 8 }}>
+            <TitledCard
+              title="Label definitions at this version"
+              actions={
+                <>
                   <button
                     className="btn btn-secondary"
                     onClick={handleExportLabelSet}
@@ -282,10 +275,12 @@ export default function VersionDetail() {
                   >
                     {addLabelOpen ? 'Cancel' : 'Add Label'}
                   </button>
-                </div>
-              </div>
+                </>
+              }
+              bodyClassName={version.labelDefinitions && version.labelDefinitions.length > 0 && !addLabelOpen ? 'no-padding' : undefined}
+            >
               {addLabelOpen && (
-                <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+                <div style={{ padding: 16, marginBottom: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
                   {addLabelError && (
                     <div className="alert alert-error" style={{ marginBottom: 12 }}>
                       {addLabelError}
@@ -339,49 +334,47 @@ export default function VersionDetail() {
                   </div>
                 </div>
               )}
-              <div className="card">
-                {version.labelDefinitions && version.labelDefinitions.length > 0 ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Code</th>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Status</th>
+              {version.labelDefinitions && version.labelDefinitions.length > 0 ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Name</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {version.labelDefinitions.map((label) => (
+                      <tr key={label.labelCode}>
+                        <td>
+                          <span className="mono">{label.labelCode}</span>
+                        </td>
+                        <td>{label.labelName}</td>
+                        <td>
+                          {label.labelCategory ? (
+                            <span className="tag">{label.labelCategory}</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>-</span>
+                          )}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${label.deprecated ? 'badge-gray' : 'badge-green'}`}
+                          >
+                            {label.deprecated ? 'Deprecated' : 'Active'}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {version.labelDefinitions.map((label) => (
-                        <tr key={label.labelCode}>
-                          <td>
-                            <span className="mono">{label.labelCode}</span>
-                          </td>
-                          <td>{label.labelName}</td>
-                          <td>
-                            {label.labelCategory ? (
-                              <span className="tag">{label.labelCategory}</span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            )}
-                          </td>
-                          <td>
-                            <span
-                              className={`badge ${label.deprecated ? 'badge-gray' : 'badge-green'}`}
-                            >
-                              {label.deprecated ? 'Deprecated' : 'Active'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="empty-state">
-                    <p>No label definitions recorded for this version.</p>
-                  </div>
-                )}
-              </div>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="empty-state">
+                  <p>No label definitions recorded for this version.</p>
+                </div>
+              )}
+            </TitledCard>
           </div>
         )}
 

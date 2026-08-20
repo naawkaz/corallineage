@@ -15,6 +15,7 @@ import { fetchVersions } from '../datasets/versionsApi'
 import { imageFileUrlById } from '../datasets/imagesApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatCount } from '../../shared/lib/format'
+import TitledCard from '../../shared/components/TitledCard'
 import type { DatasetDiff } from '../datasets/diffTypes'
 import type { DatasetVersion } from '../datasets/versionsTypes'
 
@@ -61,8 +62,8 @@ export default function DatasetDiffPage() {
 
   return (
     <>
-      <div className="content">
-        <div className="card" style={{ padding: 16, marginBottom: 24 }}>
+      <div className="content page-top-spacing">
+        <TitledCard title="Compare Versions" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div className="form-row" style={{ marginBottom: 0, width: 180 }}>
               <label className="form-label">From version</label>
@@ -107,38 +108,26 @@ export default function DatasetDiffPage() {
               {error}
             </div>
           )}
-        </div>
+        </TitledCard>
 
         {diff && (
           <>
-            <div className="section-header">
-              <div className="section-title">
-                <span className="mono">{diff.fromVersion.versionTag}</span> →{' '}
-                <span className="mono">{diff.toVersion.versionTag}</span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
-                gap: 12,
-                marginBottom: 24,
-              }}
-            >
-              <StatCard label="Images added" value={diff.summary.imagesAdded} />
-              <StatCard label="Images removed" value={diff.summary.imagesRemoved} />
-              <StatCard label="Annotations modified" value={diff.summary.annotationsModified} />
-              <StatCard label="Labels added" value={diff.summary.labelsAdded} />
-              <StatCard label="Labels deprecated" value={diff.summary.labelsDeprecated} />
-            </div>
-
             {diff.labelChanges.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <div className="section-header">
-                  <div className="section-title">Label Changes</div>
-                </div>
-                <div className="card" style={{ padding: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <TitledCard
+                title={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>Label Changes</span>
+                    {diff.summary.labelsAdded > 0 && (
+                      <span className="badge badge-green">+{diff.summary.labelsAdded}</span>
+                    )}
+                    {diff.summary.labelsDeprecated > 0 && (
+                      <span className="badge badge-gray">-{diff.summary.labelsDeprecated}</span>
+                    )}
+                  </div>
+                }
+                style={{ marginBottom: 24 }}
+              >
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {diff.labelChanges.map((c) => (
                     <span
                       key={c.labelCode}
@@ -149,13 +138,10 @@ export default function DatasetDiffPage() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </TitledCard>
             )}
 
-            <div style={{ marginBottom: 24 }}>
-              <div className="section-header">
-                <div className="section-title">Image Changes</div>
-              </div>
+            <TitledCard title="Image Changes" bodyClassName="no-padding" style={{ marginBottom: 24 }}>
               <div className="diff-layout">
                 <div className="diff-side">
                   <div className="diff-header">
@@ -206,12 +192,9 @@ export default function DatasetDiffPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </TitledCard>
 
-            <div className="section-header">
-              <div className="section-title">Class Distribution Delta</div>
-            </div>
-            <div className="card" style={{ padding: 16 }}>
+            <TitledCard title={`Class Distribution Data · Δ ${formatCount(diff.summary.annotationsModified)}`}>
               {diff.classDistributionDiff.length === 0 ? (
                 <div className="empty-state">
                   <p>No annotation data to compare.</p>
@@ -236,21 +219,10 @@ export default function DatasetDiffPage() {
                   </ResponsiveContainer>
                 </div>
               )}
-            </div>
+            </TitledCard>
           </>
         )}
       </div>
     </>
-  )
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
-      <div className="mono" style={{ fontSize: 22, fontWeight: 600 }}>
-        {formatCount(value)}
-      </div>
-    </div>
   )
 }
