@@ -2,11 +2,13 @@ package com.corallineage.backend.versioning.dataset;
 
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetRepository;
+import com.corallineage.backend.datasets.importservice.ImportJobRepository;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.ontology.DirtyAnnotationRepository;
+import com.corallineage.backend.pointannotation.PointAnnotationJobRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -49,6 +51,10 @@ class DatasetVersionServiceTest {
     private DvcIntegrationService dvcIntegrationService;
     @Mock
     private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock
+    private ImportJobRepository importJobRepository;
+    @Mock
+    private PointAnnotationJobRepository pointAnnotationJobRepository;
 
     @InjectMocks
     private DatasetVersionService datasetVersionService;

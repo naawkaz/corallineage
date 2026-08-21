@@ -42,23 +42,17 @@ final class AnnotationPatchUtil {
     }
 
     /**
-     * Lays out a cols x rows grid sized to roughly match the image's aspect ratio, inset by one
-     * grid cell from every edge, then takes the first {@code totalPoints} cells in reading order.
-     * Returns {row, col} pixel coordinate pairs. Mirrors PointGenerationService.computeGridCoordinates.
+     * Lays out an explicit rows x cols grid, inset by one grid cell from every edge. Returns
+     * {row, col} pixel coordinate pairs, always exactly {@code rows * cols} of them. Mirrors
+     * PointGenerationService.computeGridCoordinates.
      */
-    static List<int[]> computeGridCoordinates(int width, int height, int totalPoints) {
-        double aspect = (double) width / height;
-        int cols = Math.max(1, (int) Math.round(Math.sqrt(totalPoints * aspect)));
-        int rows = Math.max(1, (int) Math.ceil((double) totalPoints / cols));
-
+    static List<int[]> computeGridCoordinates(int width, int height, int rows, int cols) {
         int cellWidth = width / (cols + 1);
         int cellHeight = height / (rows + 1);
 
         List<int[]> coordinates = new ArrayList<>();
-        outer:
         for (int r = 1; r <= rows; r++) {
             for (int c = 1; c <= cols; c++) {
-                if (coordinates.size() >= totalPoints) break outer;
                 int x = Math.min(width - 1, c * cellWidth);
                 int y = Math.min(height - 1, r * cellHeight);
                 coordinates.add(new int[]{y, x});

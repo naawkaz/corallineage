@@ -246,7 +246,7 @@ public class AnnotationJobExecutor {
      */
     @Async
     @Transactional
-    public void executeNewImagesAsync(Long jobId, Long datasetId, Path uploadDir, int pointsPerImage) {
+    public void executeNewImagesAsync(Long jobId, Long datasetId, Path uploadDir, int gridRows, int gridCols) {
         AnnotationJob job = annotationJobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Annotation job not found: " + jobId));
         Path patchDir = workingDirectory.resolve("training-data").resolve("annotation-newimages-" + jobId);
@@ -316,7 +316,7 @@ public class AnnotationJobExecutor {
             for (Image image : savedImages) {
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 sourceByImage.put(image, source);
-                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), pointsPerImage);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
                 int pointIndex = 0;
                 for (int[] coordinate : coordinates) {
                     AnnotationPrediction prediction = new AnnotationPrediction();

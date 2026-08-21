@@ -11,7 +11,8 @@ public class PointAnnotationMapper {
         response.setJobId(job.getId());
         response.setDatasetVersionId(job.getDatasetVersion().getId());
         response.setVersionTag(job.getDatasetVersion().getVersionTag());
-        response.setPointsPerImage(job.getPointsPerImage());
+        response.setGridRows(job.getGridRows());
+        response.setGridCols(job.getGridCols());
         response.setConfidenceThreshold(job.getConfidenceThreshold());
         response.setSeedImageCount(job.getSeedImageCount());
         response.setStatus(job.getStatus());

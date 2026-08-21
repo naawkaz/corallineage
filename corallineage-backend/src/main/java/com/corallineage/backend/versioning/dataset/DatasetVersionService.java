@@ -2,11 +2,14 @@ package com.corallineage.backend.versioning.dataset;
 
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetRepository;
+import com.corallineage.backend.datasets.importservice.ImportJob;
+import com.corallineage.backend.datasets.importservice.ImportJobRepository;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.ontology.DirtyAnnotationRepository;
+import com.corallineage.backend.pointannotation.PointAnnotationJobRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +32,8 @@ public class DatasetVersionService {
     private final DvcIntegrationService dvcIntegrationService;
     private final AnnotationEventLoggerService annotationEventLoggerService;
     private final DatasetVersionMapper datasetVersionMapper;
+    private final ImportJobRepository importJobRepository;
+    private final PointAnnotationJobRepository pointAnnotationJobRepository;
 
     public DatasetVersionService(DatasetRepository datasetRepository,
                                  DatasetVersionRepository datasetVersionRepository,
@@ -38,7 +43,9 @@ public class DatasetVersionService {
                                  DirtyAnnotationRepository dirtyAnnotationRepository,
                                  DvcIntegrationService dvcIntegrationService,
                                  AnnotationEventLoggerService annotationEventLoggerService,
-                                 DatasetVersionMapper datasetVersionMapper) {
+                                 DatasetVersionMapper datasetVersionMapper,
+                                 ImportJobRepository importJobRepository,
+                                 PointAnnotationJobRepository pointAnnotationJobRepository) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
@@ -48,6 +55,8 @@ public class DatasetVersionService {
         this.dvcIntegrationService = dvcIntegrationService;
         this.annotationEventLoggerService = annotationEventLoggerService;
         this.datasetVersionMapper = datasetVersionMapper;
+        this.importJobRepository = importJobRepository;
+        this.pointAnnotationJobRepository = pointAnnotationJobRepository;
     }
 
     @Transactional
@@ -134,7 +143,7 @@ public class DatasetVersionService {
             throw new NotFoundException("Dataset version not found: " + id);
         }
         List<LabelDefinition> labels = labelDefinitionRepository.findByDatasetVersionId(id);
-        return attachCompleteness(datasetVersionMapper.toResponseWithLabels(version, labels));
+        return attachImportStatus(attachCompleteness(datasetVersionMapper.toResponseWithLabels(version, labels)));
     }
 
     @Transactional
@@ -164,7 +173,7 @@ public class DatasetVersionService {
             throw new NotFoundException("Dataset not found: " + datasetId);
         }
         return datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(datasetId, pageable)
-                .map(version -> attachCompleteness(datasetVersionMapper.toResponse(version)));
+                .map(version -> attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version))));
     }
 
     /**
@@ -176,6 +185,23 @@ public class DatasetVersionService {
                 .countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(response.getId());
         response.setUnresolvedDirtyCount(unresolved);
         response.setComplete(unresolved == 0);
+        return response;
+    }
+
+    /**
+     * Populates {@code importStatus}/{@code importFormat}/{@code blankImportStarted} from the most
+     * recent {@link ImportJob} that produced this version, if any (a manually snapshotted or
+     * ontology-branched version has none, both stay null/false). Lets the version list show a
+     * spinner while an import is still processing, and offer "Resolve" for a completed BLANK
+     * import that hasn't had blank-import started on it yet.
+     */
+    private DatasetVersionResponse attachImportStatus(DatasetVersionResponse response) {
+        importJobRepository.findTopByCreatedDatasetVersionIdOrderBySubmittedAtDesc(response.getId())
+                .ifPresent(job -> {
+                    response.setImportStatus(job.getStatus());
+                    response.setImportFormat(job.getFormat());
+                });
+        response.setBlankImportStarted(pointAnnotationJobRepository.existsByDatasetVersion_Id(response.getId()));
         return response;
     }
 

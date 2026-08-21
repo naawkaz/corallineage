@@ -35,7 +35,8 @@ import java.util.Set;
 @Service
 public class PointAnnotationJobService {
 
-    private static final int DEFAULT_POINTS_PER_IMAGE = 49;
+    private static final int DEFAULT_GRID_ROWS = 7;
+    private static final int DEFAULT_GRID_COLS = 7;
     private static final BigDecimal DEFAULT_CONFIDENCE_THRESHOLD = new BigDecimal("0.8500");
     private static final int DEFAULT_SEED_IMAGE_COUNT = 20;
 
@@ -106,7 +107,8 @@ public class PointAnnotationJobService {
         List<Image> images = new ArrayList<>(imageRepository.findAllById(imageIds));
         images.sort(Comparator.comparing(Image::getId));
 
-        int pointsPerImage = request.getPointsPerImage() != null ? request.getPointsPerImage() : DEFAULT_POINTS_PER_IMAGE;
+        int gridRows = request.getGridRows() != null ? request.getGridRows() : DEFAULT_GRID_ROWS;
+        int gridCols = request.getGridCols() != null ? request.getGridCols() : DEFAULT_GRID_COLS;
         BigDecimal confidenceThreshold = request.getConfidenceThreshold() != null
                 ? request.getConfidenceThreshold() : DEFAULT_CONFIDENCE_THRESHOLD;
         int seedImageCount = request.getSeedImageCount() != null ? request.getSeedImageCount() : DEFAULT_SEED_IMAGE_COUNT;
@@ -120,7 +122,8 @@ public class PointAnnotationJobService {
 
         PointAnnotationJob job = new PointAnnotationJob();
         job.setDatasetVersion(version);
-        job.setPointsPerImage(pointsPerImage);
+        job.setGridRows(gridRows);
+        job.setGridCols(gridCols);
         job.setConfidenceThreshold(confidenceThreshold);
         job.setSeedImageCount(seedImageCount);
         job.setStatus("GENERATING");
@@ -140,7 +143,7 @@ public class PointAnnotationJobService {
         PointAnnotationJob completedJob = pointAnnotationJobRepository.save(savedJob);
 
         annotationEventLoggerService.log(EventType.POINTS_GENERATED, version, request.getInitiatedBy(),
-                allPoints.size() + " points generated (" + pointsPerImage + "/image) across " + images.size()
+                allPoints.size() + " points generated (" + gridRows + "x" + gridCols + " grid/image) across " + images.size()
                         + " image(s), " + seedImageCount + " seed image(s)");
 
         return toResponse(completedJob, images.size());

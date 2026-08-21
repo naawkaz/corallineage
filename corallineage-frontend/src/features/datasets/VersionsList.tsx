@@ -6,6 +6,7 @@ import { errorMessage } from '../../shared/api/client'
 import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../../shared/constants'
 import { formatCount, formatDate, shortHash } from '../../shared/lib/format'
 import CreateVersionModal from './CreateVersionModal'
+import StartBlankImportDialog from './StartBlankImportDialog'
 import Pagination from '../../shared/components/Pagination'
 import TitledCard from '../../shared/components/TitledCard'
 import type { DatasetVersion, Page } from '../datasets/versionsTypes'
@@ -28,6 +29,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
   const [search, setSearch] = useState('')
   const [trigger, setTrigger] = useState('ALL')
   const [showCreate, setShowCreate] = useState(false)
+  const [resolveVersion, setResolveVersion] = useState<DatasetVersion | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -63,7 +65,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
   return (
     <div>
       <TitledCard
-        title="Dataset Versions"
+        title="Dataset versions"
         actions={
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             + New Version
@@ -140,11 +142,21 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((v) => (
+              {filtered.map((v) => {
+                const processing = v.importStatus === 'PROCESSING'
+                const needsResolve = !processing && v.importFormat === 'BLANK' && !v.blankImportStarted
+                return (
                 <tr
                   key={v.id}
-                  className="clickable"
-                  onClick={() => navigate(`/sources/${sourceId}/versions/${v.id}`)}
+                  className={processing ? undefined : 'clickable'}
+                  onClick={() => {
+                    if (processing) return
+                    if (needsResolve) {
+                      setResolveVersion(v)
+                      return
+                    }
+                    navigate(`/sources/${sourceId}/versions/${v.id}`)
+                  }}
                 >
                   <td>
                     <span className="mono">{v.versionTag}</span>
@@ -173,12 +185,21 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                   <td style={{ color: 'var(--text-secondary)' }}>{formatDate(v.createdAt)}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{v.createdBy}</td>
                   <td>
-                    <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                      View <ArrowRightIcon style={{ width: 12, height: 12 }} />
-                    </span>
+                    {processing ? (
+                      <span className="spinner" style={{ width: 14, height: 14 }} />
+                    ) : needsResolve ? (
+                      <span style={{ color: 'var(--warning)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        Resolve <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                        View <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                      </span>
+                    )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         )}
@@ -193,6 +214,16 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
           navigate(`/sources/${sourceId}/versions/${v.id}`)
         }}
       />
+
+      {resolveVersion && (
+        <StartBlankImportDialog
+          sourceId={sourceId}
+          datasetVersionId={resolveVersion.id}
+          imageCount={resolveVersion.imageCount}
+          open={resolveVersion != null}
+          onClose={() => setResolveVersion(null)}
+        />
+      )}
     </div>
   )
 }

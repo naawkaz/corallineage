@@ -26,6 +26,12 @@ export interface DatasetVersion {
   labelDefinitions?: LabelDefinition[]
   complete: boolean
   unresolvedDirtyCount: number
+  // Only set when this version was created by an import: importStatus mirrors the originating
+  // ImportJob's status ('PROCESSING'/'COMPLETED'/'FAILED'), importFormat its format (e.g. 'BLANK').
+  // blankImportStarted is true once a PointAnnotationJob already exists for this version.
+  importStatus: string | null
+  importFormat: string | null
+  blankImportStarted: boolean
 }
 
 export interface CreateVersionRequest {

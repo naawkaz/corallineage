@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRightIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { fetchAnnotationJob, fetchAnnotationJobs, submitNewImagesJob, submitValidationJob } from '../annotation/annotationApi'
 import { fetchImages, imageFileUrlById } from '../datasets/imagesApi'
@@ -7,6 +7,7 @@ import { fetchModels } from '../training/modelsApi'
 import { fetchVersions } from '../datasets/versionsApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
+import { scrollToAndHighlightAll } from '../../shared/lib/highlight'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import TitledCard from '../../shared/components/TitledCard'
 import Pagination from '../../shared/components/Pagination'
@@ -50,6 +51,7 @@ export default function AnnotationJobs() {
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
   const { user } = useAuthContext()
+  const [searchParams] = useSearchParams()
 
   const [mode, setMode] = useState<'validate' | 'new-images'>('validate')
 
@@ -66,7 +68,8 @@ export default function AnnotationJobs() {
   const IMAGES_PER_PAGE = 40
 
   // Mode B: new images
-  const [pointsPerImage, setPointsPerImage] = useState(12)
+  const [gridRows, setGridRows] = useState(3)
+  const [gridCols, setGridCols] = useState(4)
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
 
   const [submitting, setSubmitting] = useState(false)
@@ -95,6 +98,18 @@ export default function AnnotationJobs() {
     loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId])
+
+  // Arriving from the Overview page's "Predicted annotations to resolve" ring's Go button
+  // (?highlight=pending) scrolls to and flashes every job with unreviewed predictions once the
+  // table has actually loaded.
+  useEffect(() => {
+    if (searchParams.get('highlight') !== 'pending' || jobsLoading) return
+    const pendingIds = jobs
+      .filter((j) => j.totalPredictions - j.reviewedPredictions > 0)
+      .map((j) => `annotation-job-row-${j.jobId}`)
+    scrollToAndHighlightAll(pendingIds)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobsLoading])
 
   useEffect(() => {
     fetchModels(sourceId, 0, 50, 'ACTIVE')
@@ -155,6 +170,23 @@ export default function AnnotationJobs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJob])
 
+  // Dialog shouldn't remember state from a previous open (mode, image selection, points per
+  // image, uploaded files, etc), reset whenever it's opened rather than only on submit success.
+  useEffect(() => {
+    if (!annotateDialogOpen) return
+    setMode('validate')
+    setSelectedModelId(models[0]?.id ?? null)
+    setSelectedVersionId(versions[0]?.id ?? null)
+    setSelectedImageIds([])
+    setImagesPage(0)
+    setGridRows(3)
+    setGridCols(4)
+    setUploadFiles([])
+    setSubmitError(null)
+    setActiveJob(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annotateDialogOpen])
+
   function toggleImage(id: number) {
     setSelectedImageIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
@@ -184,7 +216,7 @@ export default function AnnotationJobs() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const created = await submitNewImagesJob(selectedModelId, sourceId, user?.username ?? '', pointsPerImage, uploadFiles)
+      const created = await submitNewImagesJob(selectedModelId, sourceId, user?.username ?? '', gridRows, gridCols, uploadFiles)
       setActiveJob(created)
       setUploadFiles([])
       loadJobs()
@@ -203,7 +235,7 @@ export default function AnnotationJobs() {
       <div className="content page-top-spacing">
         {/* item 42: "Recent Jobs" renamed to "Annotation History", full width */}
         <TitledCard
-          title="Annotation History"
+          title="Annotation history"
           bodyClassName="no-padding"
           actions={
             <button
@@ -240,19 +272,19 @@ export default function AnnotationJobs() {
                     <input
                       type="radio"
                       name="annotationMode"
-                      checked={mode === 'validate'}
-                      onChange={() => setMode('validate')}
+                      checked={mode === 'new-images'}
+                      onChange={() => setMode('new-images')}
                     />
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>Validate against manual annotations</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>Annotate new images and add to dataset</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="annotationMode"
-                      checked={mode === 'new-images'}
-                      onChange={() => setMode('new-images')}
+                      checked={mode === 'validate'}
+                      onChange={() => setMode('validate')}
                     />
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>Upload and annotate new images</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>Validate model performance</span>
                   </label>
                 </div>
               </div>
@@ -390,15 +422,30 @@ export default function AnnotationJobs() {
               ) : (
                 <>
                   <div className="form-row">
-                    <label className="form-label">Points per image</label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={pointsPerImage}
-                      onChange={(e) => setPointsPerImage(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
-                    />
+                    <label className="form-label">Grid size</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min={1}
+                        max={20}
+                        style={{ width: 80 }}
+                        value={gridRows}
+                        onChange={(e) => setGridRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                      />
+                      <span>rows x</span>
+                      <input
+                        className="form-input"
+                        type="number"
+                        min={1}
+                        max={20}
+                        style={{ width: 80 }}
+                        value={gridCols}
+                        onChange={(e) => setGridCols(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                      />
+                      <span>cols</span>
+                    </div>
+                    <div className="form-hint">{gridRows * gridCols} points per image</div>
                   </div>
                   <div className="form-row" style={{ marginBottom: 0 }}>
                     <label className="form-label">Images ({uploadFiles.length} selected)</label>
@@ -520,6 +567,7 @@ function JobsTable({
             {jobs.map((job) => (
               <tr
                 key={job.jobId}
+                id={`annotation-job-row-${job.jobId}`}
                 className={job.status === 'COMPLETED' ? 'clickable' : undefined}
                 onClick={() => job.status === 'COMPLETED' && navigate(`/sources/${sourceId}/annotation/jobs/${job.jobId}/review`)}
               >

@@ -6,14 +6,18 @@ import { fetchVersions } from '../datasets/versionsApi'
 import { fetchModels } from '../training/modelsApi'
 import { fetchPointAnnotationJobs } from '../pointannotation/pointAnnotationApi'
 import { fetchOntologyChanges } from '../ontology/ontologyApi'
+import { fetchAnnotationJobs } from '../annotation/annotationApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
 import { changeTypeBadge, changeTypeLabel } from '../../shared/constants'
+import { scrollToAndHighlightAll } from '../../shared/lib/highlight'
 import VersionsList from '../datasets/VersionsList'
 import TitledCard from '../../shared/components/TitledCard'
+import StatRingCard from '../../shared/components/StatRingCard'
 import type { Dataset } from '../datasets/datasetsTypes'
 import type { PointAnnotationJob, PointAnnotationJobStatus } from '../pointannotation/pointAnnotationTypes'
 import type { OntologyChange } from '../ontology/ontologyTypes'
+import type { AnnotationJob } from '../annotation/annotationTypes'
 
 function pointJobStatusBadge(status: PointAnnotationJobStatus): string {
   switch (status) {
@@ -40,9 +44,12 @@ export default function DatasetDashboard() {
   const [pointJobsLoading, setPointJobsLoading] = useState(true)
   const [pointJobsError, setPointJobsError] = useState<string | null>(null)
 
+  const [ontologyChanges, setOntologyChanges] = useState<OntologyChange[]>([])
   const [dirtyChanges, setDirtyChanges] = useState<OntologyChange[]>([])
   const [dirtyChangesLoading, setDirtyChangesLoading] = useState(true)
   const [dirtyChangesError, setDirtyChangesError] = useState<string | null>(null)
+
+  const [annotationJobs, setAnnotationJobs] = useState<AnnotationJob[]>([])
 
   useEffect(() => {
     if (!sourceId) return
@@ -96,6 +103,7 @@ export default function DatasetDashboard() {
     fetchOntologyChanges(sourceId, 0, 50)
       .then((res) => {
         if (!cancelled) {
+          setOntologyChanges(res.content)
           setDirtyChanges(res.content.filter((c) => c.dirtyAnnotationsFlagged - c.resolvedCount > 0))
           setDirtyChangesError(null)
         }
@@ -110,6 +118,32 @@ export default function DatasetDashboard() {
       cancelled = true
     }
   }, [sourceId])
+
+  useEffect(() => {
+    if (!sourceId) return
+    let cancelled = false
+    fetchAnnotationJobs(sourceId, 0, 50)
+      .then((res) => {
+        if (!cancelled) setAnnotationJobs(res.content)
+      })
+      .catch(() => {
+        if (!cancelled) setAnnotationJobs([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sourceId])
+
+  const annotationsFlagged = ontologyChanges.reduce((sum, c) => sum + c.dirtyAnnotationsFlagged, 0)
+  const unresolvedFlags = ontologyChanges.reduce((sum, c) => sum + (c.dirtyAnnotationsFlagged - c.resolvedCount), 0)
+  const unresolvedPct = annotationsFlagged > 0 ? (unresolvedFlags / annotationsFlagged) * 100 : 0
+
+  const pendingSeedJobs = pointJobs.filter((j) => j.status === 'SEED_LABELING')
+  const pendingSeedPct = pointJobs.length > 0 ? (pendingSeedJobs.length / pointJobs.length) * 100 : 0
+
+  const totalPredictions = annotationJobs.reduce((sum, j) => sum + j.totalPredictions, 0)
+  const pendingPredictions = annotationJobs.reduce((sum, j) => sum + (j.totalPredictions - j.reviewedPredictions), 0)
+  const pendingPredictionsPct = totalPredictions > 0 ? (pendingPredictions / totalPredictions) * 100 : 0
 
   function openPointJob(job: PointAnnotationJob) {
     const target = job.status === 'REVIEW' || job.status === 'COMPLETE' ? 'review' : 'label'
@@ -150,8 +184,34 @@ export default function DatasetDashboard() {
 
               <VersionsList sourceId={sourceId} />
 
+              <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+                <StatRingCard
+                  fraction={`${unresolvedFlags}/${annotationsFlagged}`}
+                  subtitle="Unresolved label changes"
+                  percent={unresolvedPct}
+                  danger={unresolvedFlags > 0}
+                  onGo={() => scrollToAndHighlightAll(dirtyChanges.map((c) => `ontology-change-row-${c.id}`))}
+                />
+                <StatRingCard
+                  fraction={`${pendingSeedJobs.length}/${pointJobs.length}`}
+                  subtitle="Blank images pending labels"
+                  percent={pendingSeedPct}
+                  danger={pendingSeedJobs.length > 0}
+                  onGo={() =>
+                    scrollToAndHighlightAll(pendingSeedJobs.map((j) => `blank-import-row-${j.jobId}`))
+                  }
+                />
+                <StatRingCard
+                  fraction={`${pendingPredictions}/${totalPredictions}`}
+                  subtitle="Predicted annotations to resolve"
+                  percent={pendingPredictionsPct}
+                  danger={pendingPredictions > 0}
+                  onGo={() => navigate(`/sources/${sourceId}/annotation?highlight=pending`)}
+                />
+              </div>
+
               <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-                <TitledCard title="Ongoing Blank Import Jobs" bodyClassName="no-padding">
+                <TitledCard title="Blank import queue" bodyClassName="no-padding">
                   {pointJobsError && (
                     <div className="alert alert-error" style={{ margin: 16 }}>
                       {pointJobsError}
@@ -179,7 +239,12 @@ export default function DatasetDashboard() {
                       </thead>
                       <tbody>
                         {pointJobs.map((job) => (
-                          <tr key={job.jobId} className="clickable" onClick={() => openPointJob(job)}>
+                          <tr
+                            key={job.jobId}
+                            id={`blank-import-row-${job.jobId}`}
+                            className="clickable"
+                            onClick={() => openPointJob(job)}
+                          >
                             <td>
                               <span className={`badge ${pointJobStatusBadge(job.status)}`}>{job.status}</span>
                             </td>
@@ -201,7 +266,7 @@ export default function DatasetDashboard() {
                   )}
                 </TitledCard>
 
-                <TitledCard title="Dirty Annotations Queue" bodyClassName="no-padding">
+                <TitledCard title="Ontology changes queue" bodyClassName="no-padding">
                   {dirtyChangesError && (
                     <div className="alert alert-error" style={{ margin: 16 }}>
                       {dirtyChangesError}
@@ -231,6 +296,7 @@ export default function DatasetDashboard() {
                           return (
                             <tr
                               key={c.id}
+                              id={`ontology-change-row-${c.id}`}
                               className="clickable"
                               onClick={() => navigate(`/sources/${sourceId}/ontology/${c.id}`)}
                             >

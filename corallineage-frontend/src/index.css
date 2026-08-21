@@ -368,8 +368,16 @@ thead::before {
 }
 td { padding: 11px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
 tr:last-child td { border-bottom: none; }
+tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--canvas); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@keyframes row-highlight-pulse {
+  0% { background: var(--accent-bg); }
+  100% { background: transparent; }
+}
+tr.row-highlight td { animation: row-highlight-pulse 1.5s ease-out; }
+.list-row.row-highlight { animation: row-highlight-pulse 1.5s ease-out; }
 
 .card {
   background: var(--surface);

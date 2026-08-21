@@ -173,7 +173,7 @@ public class AnnotationJobService {
 
     @Transactional
     public AnnotationJobResponse submitNewImagesJob(Long modelVersionId, Long datasetId, String initiatedBy,
-                                                     int pointsPerImage, MultipartFile[] files) {
+                                                     int gridRows, int gridCols, MultipartFile[] files) {
         ModelVersion model = modelVersionRepository.findById(modelVersionId)
                 .orElseThrow(() -> new NotFoundException("Model not found: " + modelVersionId));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -202,7 +202,7 @@ public class AnnotationJobService {
         logAfterCommit(EventType.ANNOTATION_JOB_STARTED, saved,
                 "New-images annotation job started with model " + model.getModelTag() + " on "
                         + files.length + " uploaded image(s)");
-        dispatchNewImagesAfterCommit(saved.getId(), datasetId, uploadDir, pointsPerImage);
+        dispatchNewImagesAfterCommit(saved.getId(), datasetId, uploadDir, gridRows, gridCols);
 
         return annotationJobMapper.toResponse(saved, 0, 0);
     }
@@ -488,16 +488,16 @@ public class AnnotationJobService {
         }
     }
 
-    private void dispatchNewImagesAfterCommit(Long jobId, Long datasetId, Path uploadDir, int pointsPerImage) {
+    private void dispatchNewImagesAfterCommit(Long jobId, Long datasetId, Path uploadDir, int gridRows, int gridCols) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, pointsPerImage);
+                    annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, gridRows, gridCols);
                 }
             });
         } else {
-            annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, pointsPerImage);
+            annotationJobExecutor.executeNewImagesAsync(jobId, datasetId, uploadDir, gridRows, gridCols);
         }
     }
 

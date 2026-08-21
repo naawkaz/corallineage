@@ -31,7 +31,7 @@ public class PointGenerationService {
      */
     List<GeneratedPoint> generateGrid(Image image, PointAnnotationJob job, boolean seed, int startIndex) {
         BufferedImage buffered = ImagePatchUtil.readImage(workingDirectory, image.getFilePath());
-        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getPointsPerImage());
+        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getGridRows(), job.getGridCols());
 
         List<GeneratedPoint> points = new ArrayList<>();
         int index = startIndex;
@@ -50,21 +50,10 @@ public class PointGenerationService {
     }
 
     /**
-     * Lays out a cols x rows grid sized to roughly match the image's aspect ratio, inset by one
-     * grid cell from every edge. Always returns the complete cols x rows rectangle, never a
-     * partial row: truncating mid-row after {@code totalPoints} cells used to leave a single
-     * stray point hanging off the bottom of an otherwise-clean grid (e.g. 50 points at a typical
-     * aspect ratio produced a 7-wide by 8-tall layout cut off after just 1 point into row 8).
-     * The actual count returned can therefore be slightly above {@code totalPoints} when it isn't
-     * a perfect square for the chosen aspect-driven cols/rows; callers treat the returned list's
-     * size as authoritative rather than assuming exactly {@code totalPoints} points come back.
-     * Returns {row, col} pixel coordinate pairs.
+     * Lays out an explicit rows x cols grid, inset by one grid cell from every edge. Returns
+     * {row, col} pixel coordinate pairs, always exactly {@code rows * cols} of them.
      */
-    private List<int[]> computeGridCoordinates(int width, int height, int totalPoints) {
-        double aspect = (double) width / height;
-        int cols = Math.max(1, (int) Math.round(Math.sqrt(totalPoints * aspect)));
-        int rows = Math.max(1, (int) Math.ceil((double) totalPoints / cols));
-
+    private List<int[]> computeGridCoordinates(int width, int height, int rows, int cols) {
         int cellWidth = width / (cols + 1);
         int cellHeight = height / (rows + 1);
 

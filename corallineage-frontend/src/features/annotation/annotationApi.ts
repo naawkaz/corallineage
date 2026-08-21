@@ -23,14 +23,16 @@ export async function submitNewImagesJob(
   modelVersionId: number,
   datasetId: number,
   initiatedBy: string,
-  pointsPerImage: number,
+  gridRows: number,
+  gridCols: number,
   files: File[],
 ): Promise<AnnotationJob> {
   const form = new FormData()
   form.append('modelVersionId', String(modelVersionId))
   form.append('datasetId', String(datasetId))
   form.append('initiatedBy', initiatedBy)
-  form.append('pointsPerImage', String(pointsPerImage))
+  form.append('gridRows', String(gridRows))
+  form.append('gridCols', String(gridCols))
   for (const file of files) {
     form.append('files', file)
   }

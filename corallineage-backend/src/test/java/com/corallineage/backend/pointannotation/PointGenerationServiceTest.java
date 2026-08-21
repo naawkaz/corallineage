@@ -25,20 +25,21 @@ class PointGenerationServiceTest {
         ImageIO.write(image, "jpg", file.toFile());
     }
 
-    private PointAnnotationJob job(int pointsPerImage) {
+    private PointAnnotationJob job(int gridRows, int gridCols) {
         PointAnnotationJob job = new PointAnnotationJob();
-        job.setPointsPerImage(pointsPerImage);
+        job.setGridRows(gridRows);
+        job.setGridCols(gridCols);
         return job;
     }
 
     @Test
-    void generateGrid_producesExactlyThePointsPerImageCount(@TempDir Path workingDirectory) throws IOException {
+    void generateGrid_producesExactlyRowsTimesColsPoints(@TempDir Path workingDirectory) throws IOException {
         writeTestImage(workingDirectory.resolve("dataset/img001.jpg"), 1000, 500);
         Image image = new Image();
         image.setFilename("img001.jpg");
         image.setFilePath("dataset/img001.jpg");
 
-        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(50), true, 0);
+        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(5, 10), true, 0);
 
         assertThat(points).hasSize(50);
         assertThat(points).allMatch(GeneratedPoint::isSeed);
@@ -52,12 +53,9 @@ class PointGenerationServiceTest {
         image.setFilename("img001.jpg");
         image.setFilePath("dataset/img001.jpg");
 
-        // job(10) on a square image completes to a 3x4 = 12-point rectangle (see
-        // computeGridCoordinates_alwaysReturnsACompleteRectangle_neverAPartialLastRow), not a
-        // truncated 10, indices must still be zero-based and sequential over however many the
-        // completed grid actually returns.
-        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(10), false, 0);
+        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(3, 4), false, 0);
 
+        assertThat(points).hasSize(12);
         assertThat(points).extracting(GeneratedPoint::getPointIndex)
                 .containsExactlyElementsOf(IntStream.range(0, points.size()).boxed().toList());
         assertThat(points).allMatch(p -> !p.isSeed());
@@ -70,26 +68,22 @@ class PointGenerationServiceTest {
         image.setFilename("img001.jpg");
         image.setFilePath("dataset/img001.jpg");
 
-        // job(5) on a square image completes to a 2x3 = 6-point rectangle, same rectangle-completion
-        // behavior as above, the offset just needs to still land on every point returned.
-        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(5), false, 200);
+        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(2, 3), false, 200);
 
+        assertThat(points).hasSize(6);
         assertThat(points).extracting(GeneratedPoint::getPointIndex)
                 .containsExactlyElementsOf(IntStream.range(200, 200 + points.size()).boxed().toList());
     }
 
     @Test
-    void computeGridCoordinates_alwaysReturnsACompleteRectangle_neverAPartialLastRow() throws Exception {
+    void computeGridCoordinates_returnsExactlyRowsTimesColsCoordinates() throws Exception {
         Method method = PointGenerationService.class.getDeclaredMethod(
-                "computeGridCoordinates", int.class, int.class, int.class);
+                "computeGridCoordinates", int.class, int.class, int.class, int.class);
         method.setAccessible(true);
         PointGenerationService service = new PointGenerationService(Path.of("."));
 
-        // 50 points on a square (aspect 1) image drives cols = round(sqrt(50)) = 7,
-        // rows = ceil(50 / 7) = 8, the old code truncated mid-row-8 after 1 point (49 + 1 stray),
-        // the fix must return the full 7x8 = 56-point rectangle instead.
         @SuppressWarnings("unchecked")
-        List<int[]> coordinates = (List<int[]>) method.invoke(service, 1000, 1000, 50);
+        List<int[]> coordinates = (List<int[]>) method.invoke(service, 1000, 1000, 8, 7);
 
         assertThat(coordinates).hasSize(56);
         Map<Integer, Long> countsByRow = coordinates.stream()
@@ -105,7 +99,7 @@ class PointGenerationServiceTest {
         image.setFilename("img001.jpg");
         image.setFilePath("dataset/img001.jpg");
 
-        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(50), true, 0);
+        List<GeneratedPoint> points = new PointGenerationService(workingDirectory).generateGrid(image, job(7, 7), true, 0);
 
         assertThat(points).allSatisfy(p -> {
             assertThat(p.getRowPosition()).isBetween(0, 199);
@@ -118,12 +112,12 @@ class PointGenerationServiceTest {
     @Test
     void computeGridCoordinates_boundaryClamping_neverExceedsImageBounds() throws Exception {
         Method method = PointGenerationService.class.getDeclaredMethod(
-                "computeGridCoordinates", int.class, int.class, int.class);
+                "computeGridCoordinates", int.class, int.class, int.class, int.class);
         method.setAccessible(true);
         PointGenerationService service = new PointGenerationService(Path.of("."));
 
         @SuppressWarnings("unchecked")
-        List<int[]> coordinates = (List<int[]>) method.invoke(service, 50, 50, 200);
+        List<int[]> coordinates = (List<int[]>) method.invoke(service, 50, 50, 14, 14);
 
         assertThat(coordinates).isNotEmpty();
         assertThat(coordinates).allSatisfy(c -> {

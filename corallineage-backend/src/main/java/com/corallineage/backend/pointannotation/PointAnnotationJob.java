@@ -9,7 +9,7 @@ import java.time.Instant;
 
 /**
  * One raw-upload -> point-generation -> seed-labeling -> auto-annotate workflow run against a
- * dataset version. Settings (points/image, confidence threshold, seed count) are fixed at
+ * dataset version. Settings (grid size, confidence threshold, seed count) are fixed at
  * creation and tied to this job/version rather than floating global config, so a later session
  * can see exactly what settings produced a given version's confirmed points.
  */
@@ -29,8 +29,15 @@ public class PointAnnotationJob {
     @JoinColumn(name = "dataset_version_id", nullable = false)
     private DatasetVersion datasetVersion;
 
-    @Column(name = "points_per_image", nullable = false)
-    private Integer pointsPerImage;
+    // Nullable at the JPA level (unlike most other settings on this entity) even though every new
+    // row always sets both: Hibernate's ddl-auto=update can't add a NOT NULL column to a table
+    // that already has rows (same gotcha as the dataset FK columns, see decisions.md 2026-08-10),
+    // and this table isn't guaranteed empty on an existing dev DB.
+    @Column(name = "grid_rows")
+    private Integer gridRows;
+
+    @Column(name = "grid_cols")
+    private Integer gridCols;
 
     @Column(name = "confidence_threshold", nullable = false, precision = 5, scale = 4)
     private BigDecimal confidenceThreshold;
@@ -89,8 +96,11 @@ public class PointAnnotationJob {
     public DatasetVersion getDatasetVersion() { return datasetVersion; }
     public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
 
-    public Integer getPointsPerImage() { return pointsPerImage; }
-    public void setPointsPerImage(Integer pointsPerImage) { this.pointsPerImage = pointsPerImage; }
+    public Integer getGridRows() { return gridRows; }
+    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+
+    public Integer getGridCols() { return gridCols; }
+    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
 
     public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
     public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }

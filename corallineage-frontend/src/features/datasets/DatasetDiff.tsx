@@ -63,7 +63,7 @@ export default function DatasetDiffPage() {
   return (
     <>
       <div className="content page-top-spacing">
-        <TitledCard title="Compare Versions" style={{ marginBottom: 24 }}>
+        <TitledCard title="Compare versions" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div className="form-row" style={{ marginBottom: 0, width: 180 }}>
               <label className="form-label">From version</label>
@@ -116,7 +116,7 @@ export default function DatasetDiffPage() {
               <TitledCard
                 title={
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>Label Changes</span>
+                    <span>Label changes</span>
                     {diff.summary.labelsAdded > 0 && (
                       <span className="badge badge-green">+{diff.summary.labelsAdded}</span>
                     )}
@@ -141,7 +141,7 @@ export default function DatasetDiffPage() {
               </TitledCard>
             )}
 
-            <TitledCard title="Image Changes" bodyClassName="no-padding" style={{ marginBottom: 24 }}>
+            <TitledCard title="Image changes" bodyClassName="no-padding" style={{ marginBottom: 24 }}>
               <div className="diff-layout">
                 <div className="diff-side">
                   <div className="diff-header">
@@ -194,7 +194,18 @@ export default function DatasetDiffPage() {
               </div>
             </TitledCard>
 
-            <TitledCard title={`Class Distribution Data · Δ ${formatCount(diff.summary.annotationsModified)}`}>
+            {/* title={`Class distribution data · Δ ${formatCount(diff.summary.annotationsModified)}`} */}
+
+            <TitledCard
+              title={
+                <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                  <span>Class distribution data</span>
+                  <span className='badge badge-gray'>
+                    Δ {formatCount(diff.summary.annotationsModified)}
+                  </span>
+                </div>
+              }
+            >
               {diff.classDistributionDiff.length === 0 ? (
                 <div className="empty-state">
                   <p>No annotation data to compare.</p>

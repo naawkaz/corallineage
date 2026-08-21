@@ -163,7 +163,7 @@ export default function ModelDetail() {
         )}
 
         <div className="grid-2" style={{ gap: 24, alignItems: 'start' }}>
-          <TitledCard title="Model Metadata">
+          <TitledCard title="Model metadata">
               <div className="detail-grid">
                 <div className="detail-row">
                   <div className="detail-key">Architecture</div>
@@ -277,7 +277,7 @@ export default function ModelDetail() {
         </div>
 
         <TitledCard
-          title="MLflow Diagnostics"
+          title="MLflow diagnostics"
           style={{ marginTop: 24 }}
           actions={
             diagnostics.kind === 'ready' && (

@@ -156,7 +156,8 @@ class PointAnnotationJobServiceTest {
         when(generatedPointRepository.countByJobIdAndSeedTrueAndStatus(7L, "HUMAN_LABELED")).thenReturn(0L);
 
         StartPointAnnotationJobRequest req = request(1L, 2);
-        req.setPointsPerImage(50);
+        req.setGridRows(7);
+        req.setGridCols(8);
         req.setConfidenceThreshold(new BigDecimal("0.9"));
 
         PointAnnotationJobResponse response = newService(workingDirectory).submitJob(req, "researcher_01");
@@ -164,15 +165,14 @@ class PointAnnotationJobServiceTest {
         assertThat(response.getJobId()).isEqualTo(7L);
         assertThat(response.getStatus()).isEqualTo("SEED_LABELING");
         assertThat(response.getTotalImages()).isEqualTo(3);
-        assertThat(response.getPointsPerImage()).isEqualTo(50);
+        assertThat(response.getGridRows()).isEqualTo(7);
+        assertThat(response.getGridCols()).isEqualTo(8);
         assertThat(response.getSeedImageCount()).isEqualTo(2);
 
         org.mockito.ArgumentCaptor<List<GeneratedPoint>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
         verify(generatedPointRepository).saveAll(captor.capture());
         List<GeneratedPoint> saved = captor.getValue();
-        // requested pointsPerImage=50 on a 200x200 (square) image completes to a 7x8 = 56-point
-        // rectangle per image (see PointGenerationServiceTest's grid-completeness coverage), not a
-        // truncated 50, 3 images * 56 points.
+        // requested 7x8 = 56-point grid per image, 3 images * 56 points.
         assertThat(saved).hasSize(168);
         assertThat(saved.stream().filter(GeneratedPoint::isSeed).count()).isEqualTo(112); // first 2 images
         assertThat(saved.stream().filter(p -> !p.isSeed()).count()).isEqualTo(56); // 3rd image

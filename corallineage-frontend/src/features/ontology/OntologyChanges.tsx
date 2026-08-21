@@ -9,6 +9,7 @@ import { formatDate } from '../../shared/lib/format'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import LabelCombobox from '../../shared/components/LabelCombobox'
 import TitledCard from '../../shared/components/TitledCard'
+import CircularProgress from '../../shared/components/CircularProgress'
 import type { ChangeType, NewLabelSpec, OntologyChange } from '../ontology/ontologyTypes'
 import type { DatasetVersion, LabelDefinition } from '../datasets/versionsTypes'
 
@@ -197,7 +198,7 @@ export default function OntologyChanges() {
           {/* item 48: Ontology Change History; rows link to a dedicated review page instead of
               expanding an inline queue. */}
           <TitledCard
-            title="Ontology Change History"
+            title="Ontology change history"
             bodyClassName="no-padding"
             actions={
               <button
@@ -281,7 +282,7 @@ export default function OntologyChanges() {
           <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <CircularProgress percent={unresolvedPct} danger={unresolvedFlags > 0} />
             <div style={{ fontSize: 13, fontWeight: 600 }}>{unresolvedFlags}/{annotationsFlagged}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Unresolved flags</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Unresolved</div>
           </div>
         </div>
       </div>
@@ -428,48 +429,6 @@ export default function OntologyChanges() {
         </div>
       )}
     </>
-  )
-}
-
-function CircularProgress({ percent, danger }: { percent: number; danger: boolean }) {
-  const size = 96
-  const stroke = 8
-  const r = (size - stroke) / 2
-  const circumference = 2 * Math.PI * r
-  const offset = circumference * (1 - Math.min(100, Math.max(0, percent)) / 100)
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--border)"
-        strokeWidth={stroke}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={danger ? 'var(--danger)' : 'var(--success)'}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 0.3s' }}
-      />
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        style={{ fontSize: 18, fontWeight: 700, fill: 'var(--text-primary)' }}
-      >
-        {Math.round(percent)}%
-      </text>
-    </svg>
   )
 }
 

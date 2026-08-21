@@ -18,6 +18,15 @@ public class DatasetVersionResponse {
     private List<LabelDefinitionResponse> labelDefinitions;
     private boolean complete;
     private long unresolvedDirtyCount;
+    // Only set when this version was created by an import that's still PROCESSING (or FAILED) -
+    // null once the import completed or if this version wasn't created by an import at all.
+    private String importStatus;
+    // The originating ImportJob's format (e.g. "BLANK"), null if not import-created. Used by the
+    // frontend to decide whether to offer "Resolve" (start blank import) on a completed import.
+    private String importFormat;
+    // Set once a PointAnnotationJob already exists for this version, so the frontend knows blank
+    // import has already been started here and shouldn't offer "Resolve" again.
+    private boolean blankImportStarted;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -57,4 +66,13 @@ public class DatasetVersionResponse {
 
     public long getUnresolvedDirtyCount() { return unresolvedDirtyCount; }
     public void setUnresolvedDirtyCount(long unresolvedDirtyCount) { this.unresolvedDirtyCount = unresolvedDirtyCount; }
+
+    public String getImportStatus() { return importStatus; }
+    public void setImportStatus(String importStatus) { this.importStatus = importStatus; }
+
+    public String getImportFormat() { return importFormat; }
+    public void setImportFormat(String importFormat) { this.importFormat = importFormat; }
+
+    public boolean isBlankImportStarted() { return blankImportStarted; }
+    public void setBlankImportStarted(boolean blankImportStarted) { this.blankImportStarted = blankImportStarted; }
 }

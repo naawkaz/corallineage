@@ -10,7 +10,9 @@ public class StartPointAnnotationJobRequest {
     @NotNull
     private Long datasetVersionId;
 
-    private Integer pointsPerImage;
+    private Integer gridRows;
+
+    private Integer gridCols;
 
     private BigDecimal confidenceThreshold;
 
@@ -22,8 +24,11 @@ public class StartPointAnnotationJobRequest {
     public Long getDatasetVersionId() { return datasetVersionId; }
     public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
 
-    public Integer getPointsPerImage() { return pointsPerImage; }
-    public void setPointsPerImage(Integer pointsPerImage) { this.pointsPerImage = pointsPerImage; }
+    public Integer getGridRows() { return gridRows; }
+    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+
+    public Integer getGridCols() { return gridCols; }
+    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
 
     public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
     public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }

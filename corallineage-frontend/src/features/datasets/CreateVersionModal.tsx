@@ -59,6 +59,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
   const [reuseVersionId, setReuseVersionId] = useState<number | ''>('')
   const [reuseVersionsLoading, setReuseVersionsLoading] = useState(false)
   const [reuseApplying, setReuseApplying] = useState(false)
+  const [reuseApplied, setReuseApplied] = useState(false)
   const [reuseError, setReuseError] = useState<string | null>(null)
 
   const [newLabelCode, setNewLabelCode] = useState('')
@@ -71,6 +72,8 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
 
   const [seedImageCount, setSeedImageCount] = useState(20)
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.85)
+  const [gridRows, setGridRows] = useState(7)
+  const [gridCols, setGridCols] = useState(7)
   const [startingPointAnnotation, setStartingPointAnnotation] = useState(false)
   const [pointAnnotationError, setPointAnnotationError] = useState<string | null>(null)
 
@@ -107,6 +110,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
     let cancelled = false
     setReuseVersionsLoading(true)
     setReuseError(null)
+    setReuseApplied(false)
     fetchVersions(reuseSourceId, 0, 100)
       .then((page) => {
         if (cancelled) return
@@ -138,6 +142,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
           labelCategory: l.labelCategory ?? undefined,
         }))
       setDeclaredLabels(labels)
+      setReuseApplied(true)
     } catch (err) {
       setReuseError(errorMessage(err))
     } finally {
@@ -211,18 +216,32 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
     setReuseSourceId('')
     setReuseVersions([])
     setReuseVersionId('')
+    setReuseApplied(false)
     setReuseError(null)
     setNewLabelCode('')
     setNewLabelName('')
     setNewLabelCategory('')
     setLabelsFileError(null)
     setFormat('MLC')
+    setSeedImageCount(20)
+    setConfidenceThreshold(0.85)
+    setGridRows(7)
+    setGridCols(7)
   }
 
   function handleClose() {
     resetAll()
     onClose()
   }
+
+  // Dialogs shouldn't remember state from a previous open, reset whenever it's opened
+  // rather than relying solely on handleClose (which is skipped by e.g. a parent
+  // programmatically flipping `open` to false without going through this component's own
+  // close handlers).
+  useEffect(() => {
+    if (open) resetAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   if (!open) return null
 
@@ -264,6 +283,8 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
         datasetVersionId: job.createdDatasetVersionId,
         seedImageCount,
         confidenceThreshold,
+        gridRows,
+        gridCols,
         initiatedBy: user?.username ?? '',
       })
       handleClose()
@@ -360,7 +381,10 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                       style={{ width: 'auto' }}
                       value={reuseVersionId}
                       disabled={reuseSourceId === '' || reuseVersionsLoading || reuseVersions.length === 0}
-                      onChange={(e) => setReuseVersionId(e.target.value === '' ? '' : Number(e.target.value))}
+                      onChange={(e) => {
+                        setReuseVersionId(e.target.value === '' ? '' : Number(e.target.value))
+                        setReuseApplied(false)
+                      }}
                     >
                       <option value="">
                         {reuseVersionsLoading ? 'loading…' : 'a version…'}
@@ -373,7 +397,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                     </select>
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className={`btn btn-sm ${reuseSourceId !== '' && reuseVersionId !== '' && !reuseApplied ? 'btn-primary' : 'btn-secondary'}`}
                       onClick={applyReuseSelection}
                       disabled={reuseSourceId === '' || reuseVersionId === '' || reuseApplying}
                     >
@@ -593,7 +617,7 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                       onChange={(e) => setSeedImageCount(Number(e.target.value))}
                     />
                   </div>
-                  <div className="form-row" style={{ marginBottom: 0 }}>
+                  <div className="form-row">
                     <label className="form-label" htmlFor="confidenceThreshold">
                       Confidence threshold ({Math.round(confidenceThreshold * 100)}%)
                     </label>
@@ -607,8 +631,34 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
                       onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
                     />
                     <div className="form-hint">
-                      Points the trained model predicts above this confidence auto-confirm. Rest reviewed manually. 49 points/image (7x7) grid.
+                      Points the trained model predicts above this confidence auto-confirm. Rest reviewed manually.
                     </div>
+                  </div>
+                  <div className="form-row" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Grid size</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="number"
+                        className="form-input"
+                        min={1}
+                        max={20}
+                        style={{ width: 80 }}
+                        value={gridRows}
+                        onChange={(e) => setGridRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                      />
+                      <span>rows x</span>
+                      <input
+                        type="number"
+                        className="form-input"
+                        min={1}
+                        max={20}
+                        style={{ width: 80 }}
+                        value={gridCols}
+                        onChange={(e) => setGridCols(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                      />
+                      <span>cols</span>
+                    </div>
+                    <div className="form-hint">{gridRows * gridCols} points per image</div>
                   </div>
                   {pointAnnotationError && (
                     <div className="alert alert-error" style={{ marginTop: 12 }}>

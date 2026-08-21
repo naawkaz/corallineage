@@ -51,12 +51,13 @@ public class AnnotationJobController {
             @RequestParam Long modelVersionId,
             @RequestParam Long datasetId,
             @RequestParam String initiatedBy,
-            @RequestParam(defaultValue = "12") int pointsPerImage,
+            @RequestParam(defaultValue = "3") int gridRows,
+            @RequestParam(defaultValue = "4") int gridCols,
             @RequestParam MultipartFile[] files,
             Authentication authentication) {
         datasetService.requireAccess(datasetId, authentication.getName());
         AnnotationJobResponse response = annotationJobService.submitNewImagesJob(
-                modelVersionId, datasetId, initiatedBy, pointsPerImage, files);
+                modelVersionId, datasetId, initiatedBy, gridRows, gridCols, files);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 

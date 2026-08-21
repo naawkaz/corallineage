@@ -160,6 +160,20 @@ export default function ModelRegistry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJob])
 
+  // Dialog shouldn't remember state from a previous open (selected version, in-flight job
+  // status, etc), reset the form whenever it's opened rather than only on submit success.
+  useEffect(() => {
+    if (!trainDialogOpen) return
+    setSelectedVersionId(null)
+    setLearningRate('0.001')
+    setBatchSize('32')
+    setEpochs('10')
+    setSubmitError(null)
+    setActiveJob(null)
+    setActiveJobEpochMetrics([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trainDialogOpen])
+
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)
@@ -190,7 +204,7 @@ export default function ModelRegistry() {
           {error && <div className="alert alert-error">{error}</div>}
 
           <TitledCard
-            title="Model Registry"
+            title="Model registry"
             bodyClassName="no-padding"
             actions={
               <button
@@ -288,7 +302,7 @@ export default function ModelRegistry() {
             )}
           </TitledCard>
 
-          <TitledCard title="Training History" bodyClassName="no-padding">
+          <TitledCard title="Training history" bodyClassName="no-padding">
             {jobsError && (
               <div className="alert alert-error" style={{ margin: 16 }}>
                 {jobsError}
@@ -364,7 +378,9 @@ export default function ModelRegistry() {
                   value={selectedVersionId ?? ''}
                   onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
                 >
-                  <option value="">Latest version</option>
+                  <option value="" disabled>
+                    Select a version…
+                  </option>
                   {versions.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.versionTag}
@@ -372,12 +388,6 @@ export default function ModelRegistry() {
                     </option>
                   ))}
                 </select>
-                {selectedVersionId == null && versions.some((v) => !v.complete) && (
-                  <div className="form-hint" style={{ marginTop: 6 }}>
-                    Some recent versions have unresolved ontology-change dirty flags and will be skipped,
-                    training will silently fall back to the newest complete version.
-                  </div>
-                )}
               </div>
 
               <div className="form-row">
@@ -470,7 +480,7 @@ export default function ModelRegistry() {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+              <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting || selectedVersionId == null}>
                 {submitting ? 'Submitting…' : 'Start Training'}
               </button>
             </div>

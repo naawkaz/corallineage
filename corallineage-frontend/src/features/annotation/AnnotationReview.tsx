@@ -143,6 +143,14 @@ export default function AnnotationReview() {
     }
   }
 
+  // Dialog shouldn't remember state from a previous open, reset whenever it's opened.
+  useEffect(() => {
+    if (!addOpen) return
+    setVersionTag('')
+    setAddNotes('')
+    setAddError(null)
+  }, [addOpen])
+
   async function handleAddToProject() {
     if (!versionTag.trim()) return
     setAdding(true)
@@ -246,30 +254,67 @@ export default function AnnotationReview() {
                   Add these images and their final labels to the source as a new dataset version.
                 </div>
               </div>
-              <button className="btn btn-primary" onClick={() => setAddOpen((v) => !v)}>
+              <button className="btn btn-primary" onClick={() => setAddOpen(true)}>
                 Add to Source
               </button>
             </div>
-            {addOpen && (
-              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420 }}>
-                <input
-                  className="form-input"
-                  placeholder="Version tag, e.g. v2.0"
-                  value={versionTag}
-                  onChange={(e) => setVersionTag(e.target.value)}
-                />
-                <input
-                  className="form-input"
-                  placeholder="Notes (optional)"
-                  value={addNotes}
-                  onChange={(e) => setAddNotes(e.target.value)}
-                />
-                {addError && <div className="alert alert-error">{addError}</div>}
-                <button className="btn btn-primary" disabled={adding || !versionTag.trim()} onClick={handleAddToProject}>
-                  {adding ? 'Creating version...' : 'Create Dataset Version'}
+          </div>
+        )}
+
+        {addOpen && (
+          <div className="modal-overlay active">
+            <div className="modal">
+              <div className="modal-header">
+                <div>
+                  <div className="modal-title">Add to Source</div>
+                  <div className="modal-subtitle">
+                    Add these images and their final labels to the source as a new dataset version.
+                  </div>
+                </div>
+                <button className="modal-close" onClick={() => setAddOpen(false)} aria-label="Close">
+                  <XMarkIcon style={{ width: 16, height: 16 }} />
                 </button>
               </div>
-            )}
+              <div className="modal-body">
+                <div className="form-row">
+                  <label className="form-label" htmlFor="addVersionTag">
+                    Version tag
+                  </label>
+                  <input
+                    id="addVersionTag"
+                    className="form-input"
+                    placeholder="e.g. v2.0"
+                    value={versionTag}
+                    onChange={(e) => setVersionTag(e.target.value)}
+                  />
+                </div>
+                <div className="form-row" style={{ marginBottom: 0 }}>
+                  <label className="form-label" htmlFor="addNotes">
+                    Notes
+                  </label>
+                  <textarea
+                    id="addNotes"
+                    className="form-textarea"
+                    placeholder="Optional description"
+                    value={addNotes}
+                    onChange={(e) => setAddNotes(e.target.value)}
+                  />
+                </div>
+                {addError && (
+                  <div className="alert alert-error" style={{ marginTop: 16 }}>
+                    {addError}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setAddOpen(false)}>
+                  Cancel
+                </button>
+                <button className="btn btn-primary" disabled={adding || !versionTag.trim()} onClick={handleAddToProject}>
+                  {adding ? 'Creating version…' : 'Create Dataset Version'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -13,7 +13,8 @@ export interface PointAnnotationJob {
   jobId: number
   datasetVersionId: number
   versionTag: string
-  pointsPerImage: number
+  gridRows: number
+  gridCols: number
   confidenceThreshold: number
   seedImageCount: number
   status: PointAnnotationJobStatus
@@ -47,7 +48,8 @@ export interface GeneratedPoint {
 
 export interface StartPointAnnotationJobRequest {
   datasetVersionId: number
-  pointsPerImage?: number
+  gridRows?: number
+  gridCols?: number
   confidenceThreshold?: number
   seedImageCount?: number
   initiatedBy: string
