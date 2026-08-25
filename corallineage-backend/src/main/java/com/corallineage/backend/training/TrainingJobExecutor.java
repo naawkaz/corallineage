@@ -2,9 +2,13 @@ package com.corallineage.backend.training;
 
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.pointannotation.PointAnnotationJobService;
 import com.corallineage.backend.registry.model.MlflowDetailsResponse;
 import com.corallineage.backend.registry.model.MlflowIntegrationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -36,24 +40,28 @@ import java.util.Map;
 public class TrainingJobExecutor {
 
     private static final long POLL_INTERVAL_MILLIS = 2000;
+    private static final Logger log = LoggerFactory.getLogger(TrainingJobExecutor.class);
 
     private final TrainingJobStatusService trainingJobStatusService;
     private final DatasetPreparationService datasetPreparationService;
     private final PythonMlServiceClient pythonMlServiceClient;
     private final MlflowIntegrationService mlflowIntegrationService;
     private final AnnotationEventLoggerService annotationEventLoggerService;
+    private final PointAnnotationJobService pointAnnotationJobService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrainingJobExecutor(TrainingJobStatusService trainingJobStatusService,
                                DatasetPreparationService datasetPreparationService,
                                PythonMlServiceClient pythonMlServiceClient,
                                MlflowIntegrationService mlflowIntegrationService,
-                               AnnotationEventLoggerService annotationEventLoggerService) {
+                               AnnotationEventLoggerService annotationEventLoggerService,
+                               @Lazy PointAnnotationJobService pointAnnotationJobService) {
         this.trainingJobStatusService = trainingJobStatusService;
         this.datasetPreparationService = datasetPreparationService;
         this.pythonMlServiceClient = pythonMlServiceClient;
         this.mlflowIntegrationService = mlflowIntegrationService;
         this.annotationEventLoggerService = annotationEventLoggerService;
+        this.pointAnnotationJobService = pointAnnotationJobService;
     }
 
     @Async
@@ -104,6 +112,16 @@ public class TrainingJobExecutor {
             annotationEventLoggerService.log(EventType.MODEL_TRAINED, completed.getDatasetVersion(),
                     completed.getModelVersion(), completed.getInitiatedBy(),
                     "Training completed, registered " + completed.getModelVersion().getModelTag());
+
+            try {
+                pointAnnotationJobService.autoAnnotateAfterTraining(jobId);
+            } catch (Exception ex) {
+                // Training itself already succeeded and is persisted - a failure delegating into
+                // auto-annotate must never be reported back as a training failure. Worst case, the
+                // point-annotation job is left at TRAINING with no forward progress, visible in the
+                // Unlabeled import queue for manual follow-up.
+                log.error("Failed to auto-delegate into auto-annotate after training job {} completed", jobId, ex);
+            }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             trainingJobStatusService.markFailed(jobId, "Interrupted while waiting for training to complete");

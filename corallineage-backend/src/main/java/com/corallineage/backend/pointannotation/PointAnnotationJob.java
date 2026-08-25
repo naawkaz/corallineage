@@ -1,5 +1,6 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.annotation.AnnotationJob;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.training.TrainingJob;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
@@ -45,7 +46,10 @@ public class PointAnnotationJob {
     @Column(name = "seed_image_count", nullable = false)
     private Integer seedImageCount;
 
-    // Values: GENERATING, SEED_LABELING, TRAINING, AUTO_ANNOTATING, REVIEW, COMPLETE, FAILED
+    // Values: GENERATING, SEED_LABELING, TRAINING, COMPLETE. Set straight to COMPLETE once
+    // startAutoAnnotate delegates into a real AnnotationJob (see the annotationJob field below) -
+    // AUTO_ANNOTATING/REVIEW/FAILED, this entity's own former terminal-review states, no longer
+    // apply here; the delegated AnnotationJob's own status tracks the rest of the lifecycle.
     @Column(name = "status", nullable = false, length = 50)
     private String status = "GENERATING";
 
@@ -56,6 +60,14 @@ public class PointAnnotationJob {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "model_version_id")
     private ModelVersion modelVersion;
+
+    // Set once auto-annotate is triggered: the real AnnotationJob (commitInPlace=true) this job's
+    // post-training review delegates into, so predictions/review live on the same AnnotationJob/
+    // AnnotationPrediction pipeline every other annotation flow uses instead of a second,
+    // GeneratedPoint-based review data model. Null until startAutoAnnotate creates it.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "annotation_job_id")
+    private AnnotationJob annotationJob;
 
     @Column(name = "initiated_by", nullable = false, length = 100)
     private String initiatedBy;
@@ -116,6 +128,9 @@ public class PointAnnotationJob {
 
     public ModelVersion getModelVersion() { return modelVersion; }
     public void setModelVersion(ModelVersion modelVersion) { this.modelVersion = modelVersion; }
+
+    public AnnotationJob getAnnotationJob() { return annotationJob; }
+    public void setAnnotationJob(AnnotationJob annotationJob) { this.annotationJob = annotationJob; }
 
     public String getInitiatedBy() { return initiatedBy; }
     public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }

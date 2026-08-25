@@ -1,6 +1,7 @@
 package com.corallineage.backend.annotation;
 
 import com.corallineage.backend.datasets.DatasetService;
+import com.corallineage.backend.registry.model.ModelVersionService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,16 +19,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequestMapping("/api/v1/annotation")
 public class AnnotationJobController {
 
     private final AnnotationJobService annotationJobService;
     private final DatasetService datasetService;
+    private final ModelVersionService modelVersionService;
 
-    public AnnotationJobController(AnnotationJobService annotationJobService, DatasetService datasetService) {
+    public AnnotationJobController(AnnotationJobService annotationJobService, DatasetService datasetService,
+                                    ModelVersionService modelVersionService) {
         this.annotationJobService = annotationJobService;
         this.datasetService = datasetService;
+        this.modelVersionService = modelVersionService;
     }
 
     @PostMapping("/jobs")
@@ -53,11 +59,12 @@ public class AnnotationJobController {
             @RequestParam String initiatedBy,
             @RequestParam(defaultValue = "3") int gridRows,
             @RequestParam(defaultValue = "4") int gridCols,
+            @RequestParam(required = false) BigDecimal confidenceThreshold,
             @RequestParam MultipartFile[] files,
             Authentication authentication) {
         datasetService.requireAccess(datasetId, authentication.getName());
         AnnotationJobResponse response = annotationJobService.submitNewImagesJob(
-                modelVersionId, datasetId, initiatedBy, gridRows, gridCols, files);
+                modelVersionId, datasetId, initiatedBy, gridRows, gridCols, confidenceThreshold, files);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -70,6 +77,25 @@ public class AnnotationJobController {
         return annotationJobService.addToProject(jobId, request);
     }
 
+    /**
+     * Warm-start blank-import: annotates an existing dataset version's already-present images with
+     * a chosen model, no upload, no new staging version created.
+     */
+    @PostMapping("/jobs/existing-version")
+    public ResponseEntity<AnnotationJobResponse> submitExistingVersionJob(
+            @Valid @RequestBody SubmitExistingVersionJobRequest request, Authentication authentication) {
+        AnnotationJobResponse response = annotationJobService.submitExistingVersionJob(request, authentication.getName());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    /** Commits a fully-reviewed existing-version job's predictions directly onto its target dataset version, in place. */
+    @PostMapping("/jobs/{jobId}/apply-to-version")
+    public AnnotationJobResponse applyToExistingVersion(@PathVariable Long jobId, Authentication authentication) {
+        Long datasetId = annotationJobService.getDatasetIdForJob(jobId);
+        datasetService.requireAccess(datasetId, authentication.getName());
+        return annotationJobService.applyToExistingVersion(jobId, authentication.getName());
+    }
+
     @GetMapping("/jobs")
     public Page<AnnotationJobResponse> getJobs(
             @RequestParam Long datasetId,
@@ -78,6 +104,17 @@ public class AnnotationJobController {
             Authentication authentication) {
         datasetService.requireAccess(datasetId, authentication.getName());
         return annotationJobService.getJobs(datasetId, PageRequest.of(page, size));
+    }
+
+    /** Scoped jobs list for a specific model's own detail page (replaces the old dataset-wide list page). */
+    @GetMapping("/jobs/by-model")
+    public Page<AnnotationJobResponse> getJobsByModel(
+            @RequestParam Long modelVersionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+        datasetService.requireAccess(modelVersionService.getDatasetIdForModel(modelVersionId), authentication.getName());
+        return annotationJobService.getJobsByModel(modelVersionId, PageRequest.of(page, size));
     }
 
     @GetMapping("/jobs/{id}")
@@ -110,5 +147,16 @@ public class AnnotationJobController {
         Long datasetId = annotationJobService.getDatasetIdForJob(jobId);
         datasetService.requireAccess(datasetId, authentication.getName());
         return annotationJobService.reviewPrediction(jobId, predictionId, request);
+    }
+
+    /** Bulk-accepts every still-pending prediction on a job at its current predicted label. */
+    @PostMapping("/jobs/{jobId}/predictions/accept-all")
+    public AnnotationJobResponse acceptAllPredictions(
+            @PathVariable Long jobId,
+            @Valid @RequestBody AcceptAllPredictionsRequest request,
+            Authentication authentication) {
+        Long datasetId = annotationJobService.getDatasetIdForJob(jobId);
+        datasetService.requireAccess(datasetId, authentication.getName());
+        return annotationJobService.acceptAllPredictions(jobId, request.getReviewedBy());
     }
 }

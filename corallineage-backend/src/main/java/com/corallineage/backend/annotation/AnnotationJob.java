@@ -6,6 +6,7 @@ import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -78,6 +79,20 @@ public class AnnotationJob {
     @Column(name = "added_to_project_version_id")
     private Long addedToProjectVersionId;
 
+    // NEW_IMAGES only: a prediction at or above this confidence auto-confirms (accepted=true) at
+    // inference time, same pattern as pointannotation.PointAnnotationJob.confidenceThreshold.
+    // Nullable at the JPA level (existing rows predate this column; same ddl-auto=update
+    // NOT-NULL-on-a-populated-table gotcha as gridRows/gridCols elsewhere in this codebase).
+    @Column(name = "confidence_threshold", precision = 5, scale = 4)
+    private BigDecimal confidenceThreshold;
+
+    // True for a job created via submitExistingVersionJob (warm-start blank-import): its
+    // datasetVersion is a real, already-existing version, so review commits in place via
+    // applyToExistingVersion rather than branching a new version via addToProject. False/null
+    // for a genuine Mode B (freshly uploaded images, staging version) NEW_IMAGES job.
+    @Column(name = "commit_in_place")
+    private Boolean commitInPlace;
+
     @PrePersist
     protected void onCreate() {
         if (initiatedAt == null) initiatedAt = Instant.now();
@@ -123,4 +138,10 @@ public class AnnotationJob {
 
     public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
     public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
+
+    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+
+    public Boolean getCommitInPlace() { return commitInPlace; }
+    public void setCommitInPlace(Boolean commitInPlace) { this.commitInPlace = commitInPlace; }
 }

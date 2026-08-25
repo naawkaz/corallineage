@@ -1,5 +1,7 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.annotation.AnnotationJob;
+import com.corallineage.backend.annotation.AnnotationJobRepository;
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetService;
 import com.corallineage.backend.exception.ForbiddenException;
@@ -62,6 +64,7 @@ class PointAnnotationJobServiceTest {
     @Mock private TrainingJobRepository trainingJobRepository;
     @Mock private AutoAnnotationExecutor autoAnnotationExecutor;
     @Mock private DatasetService datasetService;
+    @Mock private AnnotationJobRepository annotationJobRepository;
 
     private final PointAnnotationMapper mapper = new PointAnnotationMapper();
 
@@ -72,7 +75,8 @@ class PointAnnotationJobServiceTest {
                 imageRepository, pointAnnotationJobRepository, generatedPointRepository,
                 pointGenerationService, mapper, annotationEventLoggerService,
                 labelDefinitionRepository, annotationPointRepository, annotationPointBridge,
-                trainingJobService, trainingJobRepository, autoAnnotationExecutor, datasetService);
+                trainingJobService, trainingJobRepository, autoAnnotationExecutor, datasetService,
+                annotationJobRepository);
     }
 
     private void writeTestImage(Path file) throws IOException {
@@ -215,7 +219,7 @@ class PointAnnotationJobServiceTest {
     void trainModel_jobNotFound_throwsNotFound(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L)).isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L, null)).isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -223,7 +227,7 @@ class PointAnnotationJobServiceTest {
         PointAnnotationJob job = job(1L, "REVIEW", version(1L));
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
 
-        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L)).isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L, null)).isInstanceOf(InvalidRequestException.class);
         verify(trainingJobService, never()).initiateTrainingJob(any());
     }
 
@@ -234,7 +238,7 @@ class PointAnnotationJobServiceTest {
         when(generatedPointRepository.countByJobIdAndSeedTrue(1L)).thenReturn(20L);
         when(generatedPointRepository.countByJobIdAndSeedTrueAndStatus(1L, "HUMAN_LABELED")).thenReturn(19L);
 
-        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L)).isInstanceOf(InvalidRequestException.class);
+        assertThatThrownBy(() -> newService(workingDirectory).trainModel(1L, null)).isInstanceOf(InvalidRequestException.class);
         verify(trainingJobService, never()).initiateTrainingJob(any());
     }
 
@@ -254,7 +258,7 @@ class PointAnnotationJobServiceTest {
         when(trainingJobRepository.findById(50L)).thenReturn(Optional.of(trainingJob));
         when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PointAnnotationJobResponse response = newService(workingDirectory).trainModel(1L);
+        PointAnnotationJobResponse response = newService(workingDirectory).trainModel(1L, null);
 
         assertThat(response.getStatus()).isEqualTo("TRAINING");
         assertThat(response.getTrainingJobId()).isEqualTo(50L);
@@ -290,16 +294,19 @@ class PointAnnotationJobServiceTest {
     }
 
     /**
-     * startAutoAnnotate now only sets AUTO_ANNOTATING and dispatches the background executor
-     * (no real Spring transaction/synchronization is active under Mockito, so
-     * dispatchAutoAnnotateAfterCommit's TransactionSynchronizationManager.isSynchronizationActive()
-     * check is false and the dispatch happens immediately, same as TrainingJobServiceTest's
-     * equivalent dispatch-after-commit coverage). The REVIEW/COMPLETE completion logic that used
-     * to run inline here moved to PointAnnotationJobStatusService.completeAutoAnnotation, exercised
-     * by AutoAnnotationExecutorTest instead.
+     * startAutoAnnotate now delegates into a real AnnotationJob (commitInPlace=true) the moment
+     * training completes, marks this point-annotation job COMPLETE immediately (its own
+     * responsibility ends at delegation - see PointAnnotationJob.annotationJob's javadoc), and
+     * still dispatches the same background executor as before (no real Spring transaction/
+     * synchronization is active under Mockito, so dispatchAutoAnnotateAfterCommit's
+     * TransactionSynchronizationManager.isSynchronizationActive() check is false and the dispatch
+     * happens immediately, same as TrainingJobServiceTest's equivalent dispatch-after-commit
+     * coverage). The actual REVIEW/COMPLETE-equivalent completion logic for the delegated job now
+     * lives in PointAnnotationJobStatusService.completeAutoAnnotation, exercised by
+     * AutoAnnotationExecutorTest instead.
      */
     @Test
-    void startAutoAnnotate_success_setsAutoAnnotatingAndDispatchesExecutor(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
+    void startAutoAnnotate_success_delegatesToAnnotationJobAndDispatchesExecutor(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
         PointAnnotationJob job = job(1L, "TRAINING", version(1L));
         TrainingJob trainingJob = new TrainingJob();
         trainingJob.setId(50L);
@@ -312,122 +319,22 @@ class PointAnnotationJobServiceTest {
 
         when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
         when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(generatedPointRepository.findByJobIdAndSeedFalseAndStatus(1L, "UNLABELED")).thenReturn(List.of());
+        when(annotationJobRepository.save(any(AnnotationJob.class))).thenAnswer(inv -> {
+            AnnotationJob delegated = inv.getArgument(0);
+            if (delegated.getId() == null) delegated.setId(500L);
+            return delegated;
+        });
 
         PointAnnotationJobResponse response = newService(workingDirectory).startAutoAnnotate(1L);
 
-        assertThat(response.getStatus()).isEqualTo("AUTO_ANNOTATING");
+        assertThat(response.getStatus()).isEqualTo("COMPLETE");
         assertThat(job.getModelVersion()).isSameAs(model);
+        assertThat(job.getAnnotationJob()).isNotNull();
+        assertThat(job.getAnnotationJob().getCommitInPlace()).isTrue();
+        assertThat(job.getAnnotationJob().getModelVersion()).isSameAs(model);
         verify(autoAnnotationExecutor).executeAutoAnnotationAsync(1L);
         verify(annotationEventLoggerService, never()).log(eq(EventType.AUTO_ANNOTATION_COMPLETED), any(), any(), any());
-    }
-
-    private GeneratedPoint pendingReviewPoint(Long id, PointAnnotationJob job, LabelDefinition predicted) {
-        GeneratedPoint point = new GeneratedPoint();
-        point.setId(id);
-        point.setJob(job);
-        point.setImage(image(1L, "dataset/1.jpg"));
-        point.setPointIndex(200);
-        point.setRowPosition(10);
-        point.setColPosition(20);
-        point.setSeed(false);
-        point.setStatus("MODEL_PREDICTED");
-        point.setPredictedLabelDefinition(predicted);
-        point.setConfidenceScore(new BigDecimal("0.55"));
-        return point;
-    }
-
-    private ReviewGeneratedPointRequest reviewRequest(Boolean accepted, String correctedLabelCode) {
-        ReviewGeneratedPointRequest request = new ReviewGeneratedPointRequest();
-        request.setAccepted(accepted);
-        request.setCorrectedLabelCode(correctedLabelCode);
-        request.setReviewedBy("researcher_01");
-        return request;
-    }
-
-    @Test
-    void reviewPoint_pointNotFound_throwsNotFound(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        when(generatedPointRepository.findById(9L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> newService(workingDirectory).reviewPoint(9L, reviewRequest(true, null)))
-                .isInstanceOf(NotFoundException.class);
-    }
-
-    @Test
-    void reviewPoint_notPendingReview_throwsInvalidRequest(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        PointAnnotationJob job = job(1L, "REVIEW", version(1L));
-        LabelDefinition predicted = new LabelDefinition();
-        predicted.setLabelCode("SAND");
-        GeneratedPoint point = pendingReviewPoint(9L, job, predicted);
-        point.setStatus("CONFIRMED");
-        when(generatedPointRepository.findById(9L)).thenReturn(Optional.of(point));
-
-        assertThatThrownBy(() -> newService(workingDirectory).reviewPoint(9L, reviewRequest(true, null)))
-                .isInstanceOf(InvalidRequestException.class);
-    }
-
-    @Test
-    void reviewPoint_override_requiresCorrectedLabelCode(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        PointAnnotationJob job = job(1L, "REVIEW", version(1L));
-        LabelDefinition predicted = new LabelDefinition();
-        predicted.setLabelCode("SAND");
-        GeneratedPoint point = pendingReviewPoint(9L, job, predicted);
-        when(generatedPointRepository.findById(9L)).thenReturn(Optional.of(point));
-
-        assertThatThrownBy(() -> newService(workingDirectory).reviewPoint(9L, reviewRequest(false, null)))
-                .isInstanceOf(InvalidRequestException.class);
-        verify(annotationPointRepository, never()).save(any());
-    }
-
-    @Test
-    void reviewPoint_accept_confirmsPredictedLabelAndBridges(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        PointAnnotationJob job = job(1L, "REVIEW", version(1L));
-        LabelDefinition predicted = new LabelDefinition();
-        predicted.setLabelCode("SAND");
-        GeneratedPoint point = pendingReviewPoint(9L, job, predicted);
-        when(generatedPointRepository.findById(9L)).thenReturn(Optional.of(point));
-        when(generatedPointRepository.save(any(GeneratedPoint.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(annotationPointRepository.findByImageIdAndPointIndex(1L, 200)).thenReturn(Optional.empty());
-        when(annotationPointRepository.save(any(AnnotationPoint.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generatedPointRepository.countByJobIdAndSeedFalseAndStatus(1L, "MODEL_PREDICTED")).thenReturn(0L);
-        when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        GeneratedPointResponse response = newService(workingDirectory).reviewPoint(9L, reviewRequest(true, null));
-
-        assertThat(response.getStatus()).isEqualTo("CONFIRMED");
-        assertThat(response.getFinalLabelCode()).isEqualTo("SAND");
-        assertThat(job.getStatus()).isEqualTo("COMPLETE"); // last pending point resolved
-
-        org.mockito.ArgumentCaptor<AnnotationPoint> captor = org.mockito.ArgumentCaptor.forClass(AnnotationPoint.class);
-        verify(annotationPointRepository).save(captor.capture());
-        assertThat(captor.getValue().getAnnotationSource()).isEqualTo("MODEL_PREDICTED");
-        assertThat(captor.getValue().getAnnotatedBy()).isEqualTo("researcher_01");
-    }
-
-    @Test
-    void reviewPoint_override_setsCorrectedLabelAndLogsHumanCorrection(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
-        PointAnnotationJob job = job(1L, "REVIEW", version(1L));
-        LabelDefinition predicted = new LabelDefinition();
-        predicted.setLabelCode("SAND");
-        LabelDefinition corrected = new LabelDefinition();
-        corrected.setLabelCode("CCA");
-        GeneratedPoint point = pendingReviewPoint(9L, job, predicted);
-        when(generatedPointRepository.findById(9L)).thenReturn(Optional.of(point));
-        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(1L, "CCA")).thenReturn(Optional.of(corrected));
-        when(generatedPointRepository.save(any(GeneratedPoint.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(annotationPointRepository.findByImageIdAndPointIndex(1L, 200)).thenReturn(Optional.empty());
-        when(annotationPointRepository.save(any(AnnotationPoint.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(generatedPointRepository.countByJobIdAndSeedFalseAndStatus(1L, "MODEL_PREDICTED")).thenReturn(2L);
-
-        GeneratedPointResponse response = newService(workingDirectory).reviewPoint(9L, reviewRequest(false, "CCA"));
-
-        assertThat(response.getFinalLabelCode()).isEqualTo("CCA");
-        assertThat(job.getStatus()).isEqualTo("REVIEW"); // still points pending, stays REVIEW
-
-        org.mockito.ArgumentCaptor<AnnotationPoint> captor = org.mockito.ArgumentCaptor.forClass(AnnotationPoint.class);
-        verify(annotationPointRepository).save(captor.capture());
-        assertThat(captor.getValue().getAnnotationSource()).isEqualTo("MODEL_CORRECTED");
-        assertThat(captor.getValue().getConfidenceScore()).isNull();
-        verify(annotationEventLoggerService).log(eq(EventType.HUMAN_CORRECTION), any(), eq("researcher_01"), any());
     }
 
     private GeneratedPoint generatedPoint(Long id, Long imageId, int pointIndex, DatasetVersion version) {

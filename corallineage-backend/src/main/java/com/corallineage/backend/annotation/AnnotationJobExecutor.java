@@ -277,7 +277,7 @@ public class AnnotationJobExecutor {
             versionRequest.setCreatedBy(job.getInitiatedBy());
             versionRequest.setNotes("Staging area for annotation job #" + jobId
                     + ", holding " + filenames.size() + " newly uploaded image(s) pending review before being added to the project.");
-            DatasetVersionResponse versionResponse = datasetVersionService.createSnapshot(datasetId, versionRequest);
+            DatasetVersionResponse versionResponse = datasetVersionService.createStagingSnapshot(datasetId, versionRequest);
             DatasetVersion stagingVersion = datasetVersionRepository.findById(versionResponse.getId())
                     .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
 
@@ -363,17 +363,29 @@ public class AnnotationJobExecutor {
                     prediction.setConfidenceScore(predicted.confidenceScore() != null
                             ? predicted.confidenceScore().setScale(4, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO);
+                    if (job.getConfidenceThreshold() != null
+                            && prediction.getConfidenceScore().compareTo(job.getConfidenceThreshold()) >= 0) {
+                        prediction.setAccepted(true);
+                    }
                 }
                 annotationPredictionRepository.saveAll(savedPredictions);
             }
 
+            long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
             job.setStatus("COMPLETED");
             job.setCompletedAt(Instant.now());
+            // Auto-accept happens here at inference time rather than through the usual
+            // reviewPrediction endpoint, so reviewStatus needs the same derivation applied
+            // immediately (a fully-above-threshold job should reach COMPLETED with no human
+            // review at all, mirrors AnnotationJobService.updateReviewStatus).
+            job.setReviewStatus(autoAccepted == 0 ? "PENDING"
+                    : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
             annotationJobRepository.save(job);
 
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Model " + model.getModelTag() + " applied to " + savedImages.size() + " newly uploaded image(s), "
-                            + savedPredictions.size() + " point prediction(s) ready for review");
+                            + savedPredictions.size() + " point prediction(s) ready for review ("
+                            + autoAccepted + " auto-accepted at/above " + job.getConfidenceThreshold() + " confidence)");
         } catch (Exception ex) {
             job.setStatus("FAILED");
             job.setErrorMessage(ex.getMessage());
@@ -382,6 +394,104 @@ public class AnnotationJobExecutor {
         } finally {
             deleteRecursivelyQuietly(patchDir);
             deleteRecursivelyQuietly(uploadDir);
+        }
+    }
+
+    /**
+     * Warm-start blank-import: annotates an existing dataset version's already-present images
+     * (job.getImageIds(), job.getDatasetVersion() already set by submitExistingVersionJob) with a
+     * grid of points, exactly like Mode B's inference step, but with no upload to persist and no
+     * staging version to create, since the images and their version already exist for real.
+     */
+    @Async
+    @Transactional
+    public void executeExistingVersionAsync(Long jobId, int gridRows, int gridCols) {
+        AnnotationJob job = annotationJobRepository.findById(jobId)
+                .orElseThrow(() -> new NotFoundException("Annotation job not found: " + jobId));
+        Path patchDir = workingDirectory.resolve("training-data").resolve("annotation-existingversion-" + jobId);
+        try {
+            List<Image> images = imageRepository.findAllById(job.getImageIds());
+
+            Files.createDirectories(patchDir);
+            List<AnnotationPrediction> pending = new ArrayList<>();
+            Map<Image, BufferedImage> sourceByImage = new HashMap<>();
+            for (Image image : images) {
+                BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
+                sourceByImage.put(image, source);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
+                int pointIndex = 0;
+                for (int[] coordinate : coordinates) {
+                    AnnotationPrediction prediction = new AnnotationPrediction();
+                    prediction.setAnnotationJob(job);
+                    prediction.setImage(image);
+                    prediction.setPointIndex(pointIndex++);
+                    prediction.setRowPosition(coordinate[0]);
+                    prediction.setColPosition(coordinate[1]);
+                    prediction.setPredictedLabelCode("");
+                    prediction.setConfidenceScore(BigDecimal.ZERO);
+                    pending.add(prediction);
+                }
+            }
+            List<AnnotationPrediction> savedPredictions = annotationPredictionRepository.saveAll(pending);
+
+            ModelVersion model = job.getModelVersion();
+            List<AnnotateImageInput> inputs = new ArrayList<>();
+            for (AnnotationPrediction prediction : savedPredictions) {
+                BufferedImage source = sourceByImage.get(prediction.getImage());
+                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(), prediction.getColPosition(), patchSize);
+                Path patchFile = patchDir.resolve("point-" + prediction.getId() + ".jpg");
+                ImageIO.write(patch, "jpg", patchFile.toFile());
+                inputs.add(new AnnotateImageInput(prediction.getId(), patchFile.toString()));
+            }
+
+            if (!inputs.isEmpty()) {
+                Map<String, String> classMappings = objectMapper.readValue(
+                        model.getClassMappings(), new TypeReference<Map<String, String>>() {
+                        });
+                AnnotateResult result = pythonMlServiceClient.annotate(
+                        model.getArchitecture(), model.getWeightsPath(), classMappings, inputs);
+
+                Map<Long, AnnotationPrediction> predictionsById = new HashMap<>();
+                for (AnnotationPrediction prediction : savedPredictions) {
+                    predictionsById.put(prediction.getId(), prediction);
+                }
+                for (AnnotateResult.AnnotatedImage annotated : result.predictions()) {
+                    AnnotationPrediction prediction = predictionsById.get(annotated.imageId());
+                    if (prediction == null || annotated.points().isEmpty()) {
+                        continue;
+                    }
+                    AnnotateResult.AnnotatedPoint predicted = annotated.points().get(0);
+                    prediction.setPredictedLabelCode(predicted.predictedLabelCode());
+                    prediction.setConfidenceScore(predicted.confidenceScore() != null
+                            ? predicted.confidenceScore().setScale(4, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO);
+                    if (job.getConfidenceThreshold() != null
+                            && prediction.getConfidenceScore().compareTo(job.getConfidenceThreshold()) >= 0) {
+                        prediction.setAccepted(true);
+                    }
+                }
+                annotationPredictionRepository.saveAll(savedPredictions);
+            }
+
+            long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
+            job.setStatus("COMPLETED");
+            job.setCompletedAt(Instant.now());
+            job.setReviewStatus(autoAccepted == 0 ? "PENDING"
+                    : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
+            annotationJobRepository.save(job);
+
+            annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
+                    "Model " + model.getModelTag() + " applied to " + images.size() + " existing image(s) of dataset version "
+                            + job.getDatasetVersion().getId() + ", " + savedPredictions.size()
+                            + " point prediction(s) ready for review (" + autoAccepted + " auto-accepted at/above "
+                            + job.getConfidenceThreshold() + " confidence)");
+        } catch (Exception ex) {
+            job.setStatus("FAILED");
+            job.setErrorMessage(ex.getMessage());
+            job.setCompletedAt(Instant.now());
+            annotationJobRepository.save(job);
+        } finally {
+            deleteRecursivelyQuietly(patchDir);
         }
     }
 

@@ -22,6 +22,8 @@ public class AnnotationJobMapper {
         response.setJobType(job.getJobType());
         response.setDatasetVersionId(job.getDatasetVersion() != null ? job.getDatasetVersion().getId() : null);
         response.setAddedToProjectVersionId(job.getAddedToProjectVersionId());
+        response.setConfidenceThreshold(job.getConfidenceThreshold());
+        response.setCommitInPlace(Boolean.TRUE.equals(job.getCommitInPlace()));
         return response;
     }
 

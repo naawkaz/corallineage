@@ -1,12 +1,13 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.annotation.AnnotationJob;
+import com.corallineage.backend.annotation.AnnotationPrediction;
+import com.corallineage.backend.annotation.AnnotationPredictionRepository;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.training.AnnotateImageInput;
 import com.corallineage.backend.training.AnnotateResult;
 import com.corallineage.backend.training.PythonMlServiceClient;
-import com.corallineage.backend.versioning.dataset.LabelDefinition;
-import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -42,8 +44,7 @@ public class PointInferenceService {
 
     private final PointAnnotationJobRepository pointAnnotationJobRepository;
     private final GeneratedPointRepository generatedPointRepository;
-    private final LabelDefinitionRepository labelDefinitionRepository;
-    private final AnnotationPointBridge annotationPointBridge;
+    private final AnnotationPredictionRepository annotationPredictionRepository;
     private final PythonMlServiceClient pythonMlServiceClient;
     private final Path workingDirectory;
     private final int patchSize;
@@ -51,15 +52,13 @@ public class PointInferenceService {
 
     public PointInferenceService(PointAnnotationJobRepository pointAnnotationJobRepository,
                                  GeneratedPointRepository generatedPointRepository,
-                                 LabelDefinitionRepository labelDefinitionRepository,
-                                 AnnotationPointBridge annotationPointBridge,
+                                 AnnotationPredictionRepository annotationPredictionRepository,
                                  PythonMlServiceClient pythonMlServiceClient,
                                  @Value("${app.dvc.working-directory}") Path workingDirectory,
                                  @Value("${app.training.patch-size:64}") int patchSize) {
         this.pointAnnotationJobRepository = pointAnnotationJobRepository;
         this.generatedPointRepository = generatedPointRepository;
-        this.labelDefinitionRepository = labelDefinitionRepository;
-        this.annotationPointBridge = annotationPointBridge;
+        this.annotationPredictionRepository = annotationPredictionRepository;
         this.pythonMlServiceClient = pythonMlServiceClient;
         this.workingDirectory = workingDirectory;
         this.patchSize = patchSize;
@@ -111,14 +110,23 @@ public class PointInferenceService {
 
     /**
      * Applies a completed batch's predictions once AutoAnnotationExecutor's poll loop sees
-     * COMPLETED. Re-fetches the points fresh by id rather than reusing entities from
-     * prepareAndStartAnnotate's now-closed transaction (those would be detached after minutes of
-     * polling in between).
+     * COMPLETED. Writes real {@link AnnotationPrediction} rows against the job's delegated
+     * {@link AnnotationJob} (set by PointAnnotationJobService.startAutoAnnotate) rather than
+     * mutating the GeneratedPoint rows directly — review of these predictions happens entirely
+     * through the same AnnotationReview screen and accept/override/accept-all endpoints every
+     * other annotation job already uses, not a second GeneratedPoint-based review path. Re-fetches
+     * the points fresh by id rather than reusing entities from prepareAndStartAnnotate's now-closed
+     * transaction (those would be detached after minutes of polling in between).
      */
     @Transactional
     public void applyPredictions(Long jobId, AnnotateResult result) {
         PointAnnotationJob job = pointAnnotationJobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Point annotation job not found: " + jobId));
+        AnnotationJob delegatedJob = job.getAnnotationJob();
+        if (delegatedJob == null) {
+            throw new IllegalStateException(
+                    "Point annotation job " + jobId + " has no delegated annotation job to apply predictions to");
+        }
 
         List<Long> pointIds = result.predictions().stream().map(AnnotateResult.AnnotatedImage::imageId).toList();
         Map<Long, GeneratedPoint> pointsById = new HashMap<>();
@@ -126,38 +134,30 @@ public class PointInferenceService {
             pointsById.put(point.getId(), point);
         }
 
-        List<GeneratedPoint> toSave = new ArrayList<>();
+        List<AnnotationPrediction> predictions = new ArrayList<>();
         for (AnnotateResult.AnnotatedImage annotated : result.predictions()) {
             GeneratedPoint point = pointsById.get(annotated.imageId());
             if (point == null || annotated.points().isEmpty()) {
                 continue;
             }
-            AnnotateResult.AnnotatedPoint prediction = annotated.points().get(0);
-            LabelDefinition predictedLabel = labelDefinitionRepository
-                    .findByDatasetVersionIdAndLabelCode(job.getDatasetVersion().getId(), prediction.predictedLabelCode())
-                    .orElse(null);
-            // A predicted code no longer in the version's vocabulary (e.g. deprecated since training) —
-            // leave the point UNLABELED rather than materializing a dangling reference; it can still be
-            // labeled manually.
-            if (predictedLabel == null) {
-                continue;
-            }
+            AnnotateResult.AnnotatedPoint predicted = annotated.points().get(0);
+            BigDecimal confidenceScore = predicted.confidenceScore() != null ? predicted.confidenceScore() : BigDecimal.ZERO;
 
-            point.setPredictedLabelDefinition(predictedLabel);
-            point.setConfidenceScore(prediction.confidenceScore());
-            boolean aboveThreshold = prediction.confidenceScore() != null
-                    && prediction.confidenceScore().compareTo(job.getConfidenceThreshold()) >= 0;
-            if (aboveThreshold) {
-                point.setFinalLabelDefinition(predictedLabel);
-                point.setStatus("CONFIRMED");
-                annotationPointBridge.upsert(point, predictedLabel, "MODEL_PREDICTED",
-                        job.getModelVersion().getModelTag(), prediction.confidenceScore());
-            } else {
-                point.setStatus("MODEL_PREDICTED");
+            AnnotationPrediction prediction = new AnnotationPrediction();
+            prediction.setAnnotationJob(delegatedJob);
+            prediction.setImage(point.getImage());
+            prediction.setPointIndex(point.getPointIndex());
+            prediction.setRowPosition(point.getRowPosition());
+            prediction.setColPosition(point.getColPosition());
+            prediction.setPredictedLabelCode(predicted.predictedLabelCode());
+            prediction.setConfidenceScore(confidenceScore);
+            if (delegatedJob.getConfidenceThreshold() != null
+                    && confidenceScore.compareTo(delegatedJob.getConfidenceThreshold()) >= 0) {
+                prediction.setAccepted(true);
             }
-            toSave.add(point);
+            predictions.add(prediction);
         }
-        generatedPointRepository.saveAll(toSave);
+        annotationPredictionRepository.saveAll(predictions);
     }
 
     private Map<String, String> parseClassMappings(ModelVersion model) {

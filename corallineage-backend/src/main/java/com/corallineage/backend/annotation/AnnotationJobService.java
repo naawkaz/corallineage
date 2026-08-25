@@ -33,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -171,9 +172,12 @@ public class AnnotationJobService {
 
     // --- Mode B: "Annotate new images" ---
 
+    private static final BigDecimal DEFAULT_CONFIDENCE_THRESHOLD = new BigDecimal("0.8500");
+
     @Transactional
     public AnnotationJobResponse submitNewImagesJob(Long modelVersionId, Long datasetId, String initiatedBy,
-                                                     int gridRows, int gridCols, MultipartFile[] files) {
+                                                     int gridRows, int gridCols,
+                                                     BigDecimal confidenceThreshold, MultipartFile[] files) {
         ModelVersion model = modelVersionRepository.findById(modelVersionId)
                 .orElseThrow(() -> new NotFoundException("Model not found: " + modelVersionId));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -185,6 +189,7 @@ public class AnnotationJobService {
         }
 
         Path uploadDir = persistUpload(files);
+        BigDecimal threshold = confidenceThreshold != null ? confidenceThreshold : DEFAULT_CONFIDENCE_THRESHOLD;
 
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
@@ -197,6 +202,7 @@ public class AnnotationJobService {
         job.setStatus("RUNNING");
         job.setReviewStatus("PENDING");
         job.setImageIds(List.of());
+        job.setConfidenceThreshold(threshold);
         AnnotationJob saved = annotationJobRepository.save(job);
 
         logAfterCommit(EventType.ANNOTATION_JOB_STARTED, saved,
@@ -205,6 +211,131 @@ public class AnnotationJobService {
         dispatchNewImagesAfterCommit(saved.getId(), datasetId, uploadDir, gridRows, gridCols);
 
         return annotationJobMapper.toResponse(saved, 0, 0);
+    }
+
+    // --- Warm-start blank-import: annotate an existing dataset version's already-present images ---
+
+    private static final int DEFAULT_EXISTING_VERSION_GRID_ROWS = 3;
+    private static final int DEFAULT_EXISTING_VERSION_GRID_COLS = 4;
+
+    @Transactional
+    public AnnotationJobResponse submitExistingVersionJob(SubmitExistingVersionJobRequest request, String actingUsername) {
+        ModelVersion model = modelVersionRepository.findById(request.getModelVersionId())
+                .orElseThrow(() -> new NotFoundException("Model not found: " + request.getModelVersionId()));
+        if (!"ACTIVE".equals(model.getStatus())) {
+            throw new InvalidRequestException(
+                    "Model " + model.getModelTag() + " is not ACTIVE (status: " + model.getStatus() + ")");
+        }
+
+        DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
+                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+        datasetService.requireAccess(version.getDataset().getId(), actingUsername);
+
+        List<Image> images = imageRepository.findAllById(request.getImageIds());
+        if (images.size() != request.getImageIds().size()) {
+            throw new NotFoundException("One or more images not found");
+        }
+        for (Long imageId : request.getImageIds()) {
+            if (!datasetVersionImageRepository.existsByDatasetVersionIdAndImageId(version.getId(), imageId)) {
+                throw new InvalidRequestException(
+                        "Image " + imageId + " is not a member of dataset version " + version.getId());
+            }
+        }
+
+        int gridRows = request.getGridRows() != null ? request.getGridRows() : DEFAULT_EXISTING_VERSION_GRID_ROWS;
+        int gridCols = request.getGridCols() != null ? request.getGridCols() : DEFAULT_EXISTING_VERSION_GRID_COLS;
+        BigDecimal threshold = request.getConfidenceThreshold() != null
+                ? request.getConfidenceThreshold() : DEFAULT_CONFIDENCE_THRESHOLD;
+
+        AnnotationJob job = new AnnotationJob();
+        job.setModelVersion(model);
+        job.setDataset(version.getDataset());
+        job.setDatasetVersion(version);
+        job.setJobType("NEW_IMAGES");
+        job.setCommitInPlace(true);
+        job.setInitiatedBy(request.getInitiatedBy());
+        job.setStatus("RUNNING");
+        job.setReviewStatus("PENDING");
+        job.setImageIds(request.getImageIds());
+        job.setConfidenceThreshold(threshold);
+        AnnotationJob saved = annotationJobRepository.save(job);
+
+        logAfterCommit(EventType.ANNOTATION_JOB_STARTED, saved,
+                "Existing-version annotation job started with model " + model.getModelTag() + " on "
+                        + images.size() + " image(s) of dataset version " + version.getId());
+        dispatchExistingVersionAfterCommit(saved.getId(), gridRows, gridCols);
+
+        return annotationJobMapper.toResponse(saved, 0, 0);
+    }
+
+    /**
+     * Commits a fully-reviewed existing-version job's accepted/overridden predictions directly onto
+     * the job's already-set (real, pre-existing) dataset version, no new version is branched. The
+     * counterpart to addToProject for jobs created via submitExistingVersionJob (commitInPlace=true).
+     */
+    @Transactional
+    public AnnotationJobResponse applyToExistingVersion(Long jobId, String appliedBy) {
+        AnnotationJob job = findOrThrow(jobId);
+        if (!Boolean.TRUE.equals(job.getCommitInPlace())) {
+            throw new InvalidRequestException("Only existing-version jobs can be applied in place");
+        }
+        if (!"COMPLETED".equals(job.getReviewStatus())) {
+            throw new InvalidRequestException("All points must be reviewed (accepted or overridden) before applying to the version");
+        }
+        if (job.getAddedToProjectVersionId() != null) {
+            throw new ConflictException("Job " + jobId + " was already applied to dataset version "
+                    + job.getAddedToProjectVersionId());
+        }
+        DatasetVersion version = job.getDatasetVersion();
+        if (version == null) {
+            throw new InvalidRequestException("Job " + jobId + " has no target dataset version");
+        }
+
+        List<AnnotationPrediction> predictions = annotationPredictionRepository.findByAnnotationJobId(jobId);
+        int written = 0;
+        for (AnnotationPrediction prediction : predictions) {
+            boolean accepted = Boolean.TRUE.equals(prediction.getAccepted());
+            String finalCode = accepted ? prediction.getPredictedLabelCode() : prediction.getCorrectedLabelCode();
+            if (finalCode == null) {
+                continue; // shouldn't happen once reviewStatus == COMPLETED, but skip defensively
+            }
+            LabelDefinition label = resolveOrDeclareLabel(version, finalCode);
+
+            AnnotationPoint point = annotationPointRepository
+                    .findByImageIdAndPointIndex(prediction.getImage().getId(), prediction.getPointIndex())
+                    .orElseGet(AnnotationPoint::new);
+            point.setImage(prediction.getImage());
+            point.setPointIndex(prediction.getPointIndex());
+            point.setRowPosition(prediction.getRowPosition() != null ? prediction.getRowPosition() : 0);
+            point.setColPosition(prediction.getColPosition() != null ? prediction.getColPosition() : 0);
+            point.setLabelDefinition(label);
+            point.setAnnotationSource(accepted ? "MODEL_PREDICTED" : "MODEL_CORRECTED");
+            point.setConfidenceScore(accepted ? prediction.getConfidenceScore() : null);
+            point.setAnnotatedBy(appliedBy);
+            annotationPointRepository.save(point);
+            written++;
+        }
+
+        version.setAnnotationCount(version.getAnnotationCount() + written);
+        datasetVersionRepository.save(version);
+
+        job.setAddedToProjectVersionId(version.getId());
+        annotationJobRepository.save(job);
+
+        return annotationJobMapper.toResponse(job, countTotal(jobId), countReviewed(jobId));
+    }
+
+    private void dispatchExistingVersionAfterCommit(Long jobId, int gridRows, int gridCols) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    annotationJobExecutor.executeExistingVersionAsync(jobId, gridRows, gridCols);
+                }
+            });
+        } else {
+            annotationJobExecutor.executeExistingVersionAsync(jobId, gridRows, gridCols);
+        }
     }
 
     /** Mirrors DatasetImportService.persistUpload, minus the relative-path directory structure (flat file list here). */
@@ -357,6 +488,15 @@ public class AnnotationJobService {
                         : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
+    /** Scoped jobs list for a specific model's own detail page, replaces the old dataset-wide list page. */
+    @Transactional(readOnly = true)
+    public Page<AnnotationJobResponse> getJobsByModel(Long modelVersionId, Pageable pageable) {
+        return annotationJobRepository.findByModelVersion_IdOrderByInitiatedAtDesc(modelVersionId, pageable)
+                .map(job -> "VALIDATION".equals(job.getJobType())
+                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()), countCorrect(job.getId()))
+                        : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
+    }
+
     /**
      * Derives the job's dataset server-side from the submitted images rather than trusting a
      * client-supplied dataset id, every image must belong to the same dataset (via its
@@ -428,6 +568,35 @@ public class AnnotationJobService {
         updateReviewStatus(job);
 
         return annotationJobMapper.toPredictionResponse(saved);
+    }
+
+    /**
+     * Bulk-accepts every still-pending prediction on a job at its current predicted label - the
+     * "Accept All Labels" action, equivalent to calling reviewPrediction({accepted: true}) on each
+     * remaining pending prediction individually, in one request.
+     */
+    @Transactional
+    public AnnotationJobResponse acceptAllPredictions(Long jobId, String reviewedBy) {
+        AnnotationJob job = findOrThrow(jobId);
+        if ("VALIDATION".equals(job.getJobType())) {
+            throw new InvalidRequestException(
+                    "Validation jobs cannot be reviewed; they are a direct model-versus-human-label comparison, not a labeling workflow");
+        }
+        List<AnnotationPrediction> pending = annotationPredictionRepository.findByAnnotationJobIdAndAcceptedIsNull(jobId);
+        Instant now = Instant.now();
+        for (AnnotationPrediction prediction : pending) {
+            prediction.setAccepted(true);
+            prediction.setReviewedBy(reviewedBy);
+            prediction.setReviewedAt(now);
+        }
+        annotationPredictionRepository.saveAll(pending);
+
+        updateReviewStatus(job);
+
+        if ("VALIDATION".equals(job.getJobType())) {
+            return annotationJobMapper.toResponse(job, countTotal(jobId), countReviewed(jobId), countCorrect(jobId));
+        }
+        return annotationJobMapper.toResponse(job, countTotal(jobId), countReviewed(jobId));
     }
 
     private void updateReviewStatus(AnnotationJob job) {

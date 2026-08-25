@@ -17,6 +17,7 @@ public class PointAnnotationJobResponse {
     private long seedTotalPoints;
     private long seedLabeledPoints;
     private Long trainingJobId;
+    private Long annotationJobId;
     private Long modelVersionId;
     private String modelTag;
     private String initiatedBy;
@@ -61,6 +62,9 @@ public class PointAnnotationJobResponse {
 
     public Long getTrainingJobId() { return trainingJobId; }
     public void setTrainingJobId(Long trainingJobId) { this.trainingJobId = trainingJobId; }
+
+    public Long getAnnotationJobId() { return annotationJobId; }
+    public void setAnnotationJobId(Long annotationJobId) { this.annotationJobId = annotationJobId; }
 
     public Long getModelVersionId() { return modelVersionId; }
     public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }

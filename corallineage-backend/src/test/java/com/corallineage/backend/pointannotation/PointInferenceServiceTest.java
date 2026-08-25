@@ -1,16 +1,15 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.annotation.AnnotationJob;
+import com.corallineage.backend.annotation.AnnotationPrediction;
+import com.corallineage.backend.annotation.AnnotationPredictionRepository;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.registry.model.ModelVersion;
 import com.corallineage.backend.training.AnnotateImageInput;
 import com.corallineage.backend.training.AnnotateResult;
 import com.corallineage.backend.training.PythonMlServiceClient;
-import com.corallineage.backend.versioning.dataset.AnnotationPoint;
-import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.Image;
-import com.corallineage.backend.versioning.dataset.LabelDefinition;
-import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,13 +45,12 @@ class PointInferenceServiceTest {
 
     @Mock private PointAnnotationJobRepository pointAnnotationJobRepository;
     @Mock private GeneratedPointRepository generatedPointRepository;
-    @Mock private LabelDefinitionRepository labelDefinitionRepository;
-    @Mock private AnnotationPointRepository annotationPointRepository;
+    @Mock private AnnotationPredictionRepository annotationPredictionRepository;
     @Mock private PythonMlServiceClient pythonMlServiceClient;
 
     private PointInferenceService newService(Path workingDirectory) {
-        return new PointInferenceService(pointAnnotationJobRepository, generatedPointRepository, labelDefinitionRepository,
-                new AnnotationPointBridge(annotationPointRepository), pythonMlServiceClient, workingDirectory, 64);
+        return new PointInferenceService(pointAnnotationJobRepository, generatedPointRepository,
+                annotationPredictionRepository, pythonMlServiceClient, workingDirectory, 64);
     }
 
     private void writeTestImage(Path file) throws IOException {
@@ -136,14 +133,31 @@ class PointInferenceServiceTest {
     }
 
     @Test
-    void applyPredictions_appliesConfidenceThreshold_aboveConfirmsBelowStaysPending(@TempDir Path workingDirectory) {
+    void applyPredictions_noDelegatedAnnotationJob_throwsIllegalState(@TempDir Path workingDirectory) {
+        PointAnnotationJob job = new PointAnnotationJob();
+        job.setId(1L);
+        when(pointAnnotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        AnnotateResult result = new AnnotateResult(List.of());
+
+        assertThatThrownBy(() -> newService(workingDirectory).applyPredictions(1L, result))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void applyPredictions_appliesConfidenceThreshold_aboveAutoAcceptsBelowStaysPending(@TempDir Path workingDirectory) {
         DatasetVersion version = new DatasetVersion();
         version.setId(10L);
+
+        AnnotationJob delegatedJob = new AnnotationJob();
+        delegatedJob.setId(500L);
+        delegatedJob.setConfidenceThreshold(new BigDecimal("0.80"));
 
         PointAnnotationJob job = new PointAnnotationJob();
         job.setId(1L);
         job.setDatasetVersion(version);
         job.setConfidenceThreshold(new BigDecimal("0.80"));
+        job.setAnnotationJob(delegatedJob);
         ModelVersion model = new ModelVersion();
         model.setId(9L);
         model.setModelTag("model-v9");
@@ -160,36 +174,28 @@ class PointInferenceServiceTest {
         when(generatedPointRepository.findAllById(any()))
                 .thenReturn(List.of(highConfidencePoint, lowConfidencePoint));
 
-        LabelDefinition cca = new LabelDefinition();
-        cca.setLabelCode("CCA");
-        LabelDefinition sand = new LabelDefinition();
-        sand.setLabelCode("SAND");
-        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(10L, "CCA")).thenReturn(Optional.of(cca));
-        when(labelDefinitionRepository.findByDatasetVersionIdAndLabelCode(10L, "SAND")).thenReturn(Optional.of(sand));
-
         AnnotateResult result = new AnnotateResult(List.of(
                 new AnnotateResult.AnnotatedImage(100L, List.of(
                         new AnnotateResult.AnnotatedPoint(0, "CCA", new BigDecimal("0.92")))),
                 new AnnotateResult.AnnotatedImage(101L, List.of(
                         new AnnotateResult.AnnotatedPoint(0, "SAND", new BigDecimal("0.40"))))
         ));
-        when(annotationPointRepository.findByImageIdAndPointIndex(any(), any())).thenReturn(Optional.empty());
-        when(annotationPointRepository.save(any(AnnotationPoint.class))).thenAnswer(inv -> inv.getArgument(0));
 
         newService(workingDirectory).applyPredictions(1L, result);
 
-        assertThat(highConfidencePoint.getStatus()).isEqualTo("CONFIRMED");
-        assertThat(highConfidencePoint.getFinalLabelDefinition()).isEqualTo(cca);
-        assertThat(lowConfidencePoint.getStatus()).isEqualTo("MODEL_PREDICTED");
-        assertThat(lowConfidencePoint.getFinalLabelDefinition()).isNull();
-        assertThat(lowConfidencePoint.getPredictedLabelDefinition()).isEqualTo(sand);
-
-        // Only the above-threshold point bridges into AnnotationPoint.
-        verify(annotationPointRepository, times(1)).save(any(AnnotationPoint.class));
-
         @SuppressWarnings("unchecked")
-        org.mockito.ArgumentCaptor<List<GeneratedPoint>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
-        verify(generatedPointRepository).saveAll(captor.capture());
-        assertThat(captor.getValue()).containsExactlyInAnyOrder(highConfidencePoint, lowConfidencePoint);
+        org.mockito.ArgumentCaptor<List<AnnotationPrediction>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(annotationPredictionRepository).saveAll(captor.capture());
+        List<AnnotationPrediction> saved = captor.getValue();
+        assertThat(saved).hasSize(2);
+
+        AnnotationPrediction high = saved.stream().filter(p -> p.getPointIndex() == 200).findFirst().orElseThrow();
+        assertThat(high.getAnnotationJob()).isSameAs(delegatedJob);
+        assertThat(high.getPredictedLabelCode()).isEqualTo("CCA");
+        assertThat(high.getAccepted()).isTrue();
+
+        AnnotationPrediction low = saved.stream().filter(p -> p.getPointIndex() == 201).findFirst().orElseThrow();
+        assertThat(low.getPredictedLabelCode()).isEqualTo("SAND");
+        assertThat(low.getAccepted()).isNull();
     }
 }

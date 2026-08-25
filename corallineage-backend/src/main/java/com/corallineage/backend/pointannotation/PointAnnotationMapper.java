@@ -22,6 +22,9 @@ public class PointAnnotationMapper {
         if (job.getTrainingJob() != null) {
             response.setTrainingJobId(job.getTrainingJob().getId());
         }
+        if (job.getAnnotationJob() != null) {
+            response.setAnnotationJobId(job.getAnnotationJob().getId());
+        }
         if (job.getModelVersion() != null) {
             response.setModelVersionId(job.getModelVersion().getId());
             response.setModelTag(job.getModelVersion().getModelTag());
