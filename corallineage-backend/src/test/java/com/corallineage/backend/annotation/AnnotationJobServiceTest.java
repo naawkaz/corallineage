@@ -282,6 +282,53 @@ class AnnotationJobServiceTest {
         verify(annotationEventLoggerService).log(eq(EventType.HUMAN_CORRECTION), any(), eq(job.getModelVersion()), any(), any());
     }
 
+    @Test
+    void acceptAllPredictions_validationJob_throwsInvalidRequest() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("VALIDATION");
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> newService().acceptAllPredictions(1L, "researcher_01"))
+                .isInstanceOf(InvalidRequestException.class);
+        verify(annotationPredictionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void acceptAllPredictions_bulkAcceptsEveryPendingPredictionAndUpdatesReviewStatus() {
+        AnnotationJob job = new AnnotationJob();
+        job.setId(1L);
+        job.setJobType("NEW_IMAGES");
+        job.setReviewStatus("PENDING");
+        when(annotationJobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        AnnotationPrediction pending1 = new AnnotationPrediction();
+        pending1.setId(10L);
+        pending1.setPredictedLabelCode("SAND");
+        AnnotationPrediction pending2 = new AnnotationPrediction();
+        pending2.setId(11L);
+        pending2.setPredictedLabelCode("CCA");
+        when(annotationPredictionRepository.findByAnnotationJobIdAndAcceptedIsNull(1L))
+                .thenReturn(List.of(pending1, pending2));
+        when(annotationPredictionRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(annotationPredictionRepository.countByAnnotationJobId(1L)).thenReturn(2L);
+        when(annotationPredictionRepository.countByAnnotationJobIdAndAcceptedIsNotNull(1L)).thenReturn(2L);
+
+        AnnotationJobResponse response = newService().acceptAllPredictions(1L, "researcher_01");
+
+        assertThat(pending1.getAccepted()).isTrue();
+        assertThat(pending1.getReviewedBy()).isEqualTo("researcher_01");
+        assertThat(pending1.getReviewedAt()).isNotNull();
+        assertThat(pending2.getAccepted()).isTrue();
+        assertThat(job.getReviewStatus()).isEqualTo("COMPLETED");
+        assertThat(response.getReviewedPredictions()).isEqualTo(2);
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<AnnotationPrediction>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(annotationPredictionRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).containsExactly(pending1, pending2);
+    }
+
     private SubmitValidationJobRequest validationRequest(Long modelVersionId, Long datasetVersionId, List<Long> imageIds) {
         SubmitValidationJobRequest req = new SubmitValidationJobRequest();
         req.setModelVersionId(modelVersionId);

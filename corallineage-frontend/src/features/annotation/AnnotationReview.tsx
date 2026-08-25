@@ -4,7 +4,9 @@ import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
 import { ArrowLeftIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
+  acceptAllPredictions,
   addToProject,
+  applyToExistingVersion,
   fetchAnnotationJob,
   fetchPredictions,
   reviewPrediction,
@@ -44,13 +46,15 @@ export default function AnnotationReview() {
   const [canvasNaturalSize, setCanvasNaturalSize] = useState<{ width: number; height: number } | null>(null)
   const [labelsVisible, setLabelsVisible] = useState(false)
   const [dotsVisible, setDotsVisible] = useState(true)
+  const [filterMode, setFilterMode] = useState<'all' | 'needs_review'>('needs_review')
   const transformRef = useRef<ReactZoomPanPinchContentRef>(null)
 
   const [addOpen, setAddOpen] = useState(false)
-  const [versionTag, setVersionTag] = useState('')
-  const [addNotes, setAddNotes] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
+
+  const [applying, setApplying] = useState(false)
+  const [applyError, setApplyError] = useState<string | null>(null)
+
+  const [acceptingAll, setAcceptingAll] = useState(false)
 
   const loadAll = useCallback(() => {
     return Promise.all([fetchAnnotationJob(jobId), fetchPredictions(jobId, 0, 5000)])
@@ -108,8 +112,12 @@ export default function AnnotationReview() {
     setCanvasNaturalSize(null)
   }
 
-  const currentImagePredictions = selectedImageId != null ? predictionsByImage.get(selectedImageId) ?? [] : []
-  const currentFilename = currentImagePredictions[0]?.filename ?? ''
+  const allCurrentImagePredictions = selectedImageId != null ? predictionsByImage.get(selectedImageId) ?? [] : []
+  const currentImagePredictions =
+    filterMode === 'needs_review'
+      ? allCurrentImagePredictions.filter((p) => p.accepted === null)
+      : allCurrentImagePredictions
+  const currentFilename = allCurrentImagePredictions[0]?.filename ?? ''
   const effectiveSelectedId = selectedPredictionId ?? currentImagePredictions[0]?.predictionId ?? null
 
   useEffect(() => {
@@ -121,57 +129,48 @@ export default function AnnotationReview() {
     transformRef.current.zoomToElement(dotEl, transformRef.current.state.scale)
   }, [effectiveSelectedId, canvasNaturalSize])
 
-  async function acceptPrediction(prediction: AnnotationPrediction) {
+  // The dropdown alone is the confirm action (no separate Accept/Override buttons): picking the
+  // already-predicted label accepts it as-is, picking any other label overrides it.
+  async function resolvePrediction(prediction: AnnotationPrediction, labelCode: string) {
     try {
-      await reviewPrediction(jobId, prediction.predictionId, { accepted: true, reviewedBy: user?.username ?? '' })
+      if (labelCode === prediction.predictedLabelCode) {
+        await reviewPrediction(jobId, prediction.predictionId, { accepted: true, reviewedBy: user?.username ?? '' })
+      } else {
+        await reviewPrediction(jobId, prediction.predictionId, {
+          accepted: false,
+          correctedLabelCode: labelCode,
+          reviewedBy: user?.username ?? '',
+        })
+      }
       await loadAll()
     } catch (err) {
       setError(errorMessage(err))
     }
   }
 
-  async function overridePrediction(prediction: AnnotationPrediction, labelCode: string) {
+  async function handleAcceptAll() {
+    setAcceptingAll(true)
+    setError(null)
     try {
-      await reviewPrediction(jobId, prediction.predictionId, {
-        accepted: false,
-        correctedLabelCode: labelCode,
-        reviewedBy: user?.username ?? '',
-      })
+      await acceptAllPredictions(jobId, user?.username ?? '')
       await loadAll()
     } catch (err) {
       setError(errorMessage(err))
-    }
-  }
-
-  // Dialog shouldn't remember state from a previous open, reset whenever it's opened.
-  useEffect(() => {
-    if (!addOpen) return
-    setVersionTag('')
-    setAddNotes('')
-    setAddError(null)
-  }, [addOpen])
-
-  async function handleAddToProject() {
-    if (!versionTag.trim()) return
-    setAdding(true)
-    setAddError(null)
-    try {
-      await addToProject(jobId, {
-        versionTag: versionTag.trim(),
-        notes: addNotes.trim() || undefined,
-        createdBy: user?.username ?? '',
-      })
-      // Re-fetch the canonical job state through the same loadAll() path used on mount, rather
-      // than trusting the add-to-project response body directly. This is what a manual page
-      // reload already did to reveal the correct state, so folding it into the success path here
-      // closes the gap by construction instead of depending on the POST response always matching
-      // the shape this component expects.
-      await loadAll()
-      setAddOpen(false)
-    } catch (err) {
-      setAddError(errorMessage(err))
     } finally {
-      setAdding(false)
+      setAcceptingAll(false)
+    }
+  }
+
+  async function handleApplyToVersion() {
+    setApplying(true)
+    setApplyError(null)
+    try {
+      await applyToExistingVersion(jobId)
+      await loadAll()
+    } catch (err) {
+      setApplyError(errorMessage(err))
+    } finally {
+      setApplying(false)
     }
   }
 
@@ -195,12 +194,15 @@ export default function AnnotationReview() {
 
   const isValidation = job.jobType === 'VALIDATION'
   const progressPct = job.totalPredictions > 0 ? (job.reviewedPredictions / job.totalPredictions) * 100 : 0
-  const readyToAdd = job.jobType === 'NEW_IMAGES' && job.reviewStatus === 'COMPLETED' && !job.addedToProjectVersionId
+  const reviewComplete = job.jobType === 'NEW_IMAGES' && job.reviewStatus === 'COMPLETED' && !job.addedToProjectVersionId
+  const readyToAdd = reviewComplete && !job.commitInPlace
+  const readyToApply = reviewComplete && job.commitInPlace
+  const pendingCount = predictions.filter((p) => p.accepted === null).length
 
   return (
     <>
       <div style={{ padding: '36px 28px 0' }}>
-        <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
@@ -261,61 +263,34 @@ export default function AnnotationReview() {
           </div>
         )}
 
-        {addOpen && (
-          <div className="modal-overlay active">
-            <div className="modal">
-              <div className="modal-header">
-                <div>
-                  <div className="modal-title">Add to Source</div>
-                  <div className="modal-subtitle">
-                    Add these images and their final labels to the source as a new dataset version.
-                  </div>
+        {readyToApply && (
+          <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>All points reviewed</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  Apply these final labels directly onto this dataset version, no new version is created.
                 </div>
-                <button className="modal-close" onClick={() => setAddOpen(false)} aria-label="Close">
-                  <XMarkIcon style={{ width: 16, height: 16 }} />
-                </button>
               </div>
-              <div className="modal-body">
-                <div className="form-row">
-                  <label className="form-label" htmlFor="addVersionTag">
-                    Version tag
-                  </label>
-                  <input
-                    id="addVersionTag"
-                    className="form-input"
-                    placeholder="e.g. v2.0"
-                    value={versionTag}
-                    onChange={(e) => setVersionTag(e.target.value)}
-                  />
-                </div>
-                <div className="form-row" style={{ marginBottom: 0 }}>
-                  <label className="form-label" htmlFor="addNotes">
-                    Notes
-                  </label>
-                  <textarea
-                    id="addNotes"
-                    className="form-textarea"
-                    placeholder="Optional description"
-                    value={addNotes}
-                    onChange={(e) => setAddNotes(e.target.value)}
-                  />
-                </div>
-                {addError && (
-                  <div className="alert alert-error" style={{ marginTop: 16 }}>
-                    {addError}
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setAddOpen(false)}>
-                  Cancel
-                </button>
-                <button className="btn btn-primary" disabled={adding || !versionTag.trim()} onClick={handleAddToProject}>
-                  {adding ? 'Creating version…' : 'Create Dataset Version'}
-                </button>
-              </div>
+              <button className="btn btn-primary" disabled={applying} onClick={handleApplyToVersion}>
+                {applying ? 'Applying…' : 'Apply to Version'}
+              </button>
             </div>
+            {applyError && (
+              <div className="alert alert-error" style={{ marginTop: 12 }}>
+                {applyError}
+              </div>
+            )}
           </div>
+        )}
+
+        {addOpen && (
+          <AddToSourceDialog
+            jobId={jobId}
+            initiatedBy={user?.username ?? ''}
+            onClose={() => setAddOpen(false)}
+            onAdded={loadAll}
+          />
         )}
 
         {job.addedToProjectVersionId && (
@@ -340,109 +315,50 @@ export default function AnnotationReview() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
-            <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-            <div className="card" style={{ padding: 0 }}>
-              {imageIds.map((imgId) => {
-                const imgPredictions = predictionsByImage.get(imgId) ?? []
-                let dotColor: string
-                if (isValidation) {
-                  const correct = imgPredictions.filter((p) => p.agreesWithHuman).length
-                  dotColor = correct === imgPredictions.length ? '#16A34A' : correct === 0 ? '#DC2626' : '#D97706'
-                } else {
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 300px', gap: 16, height: 'calc(100vh - 149px)' }}>
+            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="card" style={{ padding: 0, flex: 1, overflowY: 'auto' }}>
+                {imageIds.map((imgId) => {
+                  const imgPredictions = predictionsByImage.get(imgId) ?? []
                   const reviewed = imgPredictions.filter((p) => p.accepted !== null).length
-                  dotColor = reviewed === 0 ? 'var(--text-muted)' : reviewed < imgPredictions.length ? '#D97706' : '#16A34A'
-                }
-                return (
-                  <div
-                    key={imgId}
-                    className={`queue-list-item${imgId === selectedImageId ? ' selected' : ''}`}
-                    onClick={() => {
-                      setSelectedImageId(imgId)
-                      setSelectedPredictionId(null)
-                      setCanvasNaturalSize(null)
-                    }}
-                  >
-                    <span className="queue-list-item-thumb">
-                      <img src={imageFileUrlById(imgId)} alt="" loading="lazy" />
-                      <span className="queue-dot" style={{ background: dotColor }} />
-                    </span>
-                    <span className="queue-list-item-text">
-                      <span className="queue-list-item-filename">{imgPredictions[0]?.filename ?? `image ${imgId}`}</span>
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
+                  let dotColor: string
+                  if (isValidation) {
+                    const correct = imgPredictions.filter((p) => p.agreesWithHuman).length
+                    dotColor = correct === imgPredictions.length ? '#16A34A' : correct === 0 ? '#DC2626' : '#D97706'
+                  } else {
+                    dotColor = reviewed === 0 ? 'var(--text-muted)' : reviewed < imgPredictions.length ? '#D97706' : '#16A34A'
+                  }
+                  return (
+                    <div
+                      key={imgId}
+                      className={`queue-list-item${imgId === selectedImageId ? ' selected' : ''}`}
+                      onClick={() => {
+                        setSelectedImageId(imgId)
+                        setSelectedPredictionId(null)
+                        setCanvasNaturalSize(null)
+                      }}
+                    >
+                      <span className="queue-list-item-thumb">
+                        <img src={imageFileUrlById(imgId)} alt="" loading="lazy" />
+                        <span className="queue-dot" style={{ background: dotColor }} />
+                      </span>
+                      <span className="queue-list-item-text">
+                        <span className="queue-list-item-filename">{imgPredictions[0]?.filename ?? `image ${imgId}`}</span>
+                        {!isValidation && (
+                          <span className="queue-list-item-progress">
+                            {reviewed}/{imgPredictions.length} reviewed
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
-            <div className="review-layout">
-              <div>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <label className="toggle-checkbox">
-                    <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
-                    Points
-                  </label>
-                  <label className="toggle-checkbox">
-                    <input type="checkbox" checked={labelsVisible} onChange={(e) => setLabelsVisible(e.target.checked)} />
-                    Labels
-                  </label>
-                </div>
-                <div className="image-canvas">
-                  {selectedImageId != null ? (
-                    <TransformWrapper key={selectedImageId} ref={transformRef} initialScale={1} minScale={1} maxScale={4} centerOnInit>
-                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                          <img
-                            src={imageFileUrlById(selectedImageId)}
-                            alt={currentFilename}
-                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                            onLoad={(e) => {
-                              const img = e.currentTarget
-                              setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
-                            }}
-                          />
-                          {dotsVisible && currentImagePredictions.map((p) => {
-                            const hasPosition = p.rowPosition != null && p.colPosition != null && canvasNaturalSize
-                            const top = hasPosition ? `${((p.rowPosition as number) / canvasNaturalSize!.height) * 100}%` : '50%'
-                            const left = hasPosition ? `${((p.colPosition as number) / canvasNaturalSize!.width) * 100}%` : '50%'
-                            return (
-                              <div
-                                key={p.predictionId}
-                                id={`review-dot-${p.predictionId}`}
-                                className={`annotation-dot ${dotClassFor(job, p, p.predictionId === effectiveSelectedId)}`}
-                                style={{ top, left }}
-                                title={`${p.predictedLabelCode} (conf ${p.confidenceScore.toFixed(4)})`}
-                                onClick={() => setSelectedPredictionId(p.predictionId)}
-                              >
-                                {p.pointIndex}
-                                {labelsVisible && (
-                                  <span
-                                    className="mono"
-                                    style={{
-                                      position: 'absolute',
-                                      top: -22,
-                                      left: '50%',
-                                      transform: 'translateX(-50%)',
-                                      whiteSpace: 'nowrap',
-                                      fontSize: 10,
-                                      padding: '1px 5px',
-                                    }}
-                                  >
-                                    {p.accepted === false ? p.correctedLabelCode : p.predictedLabelCode}
-                                  </span>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </TransformComponent>
-                    </TransformWrapper>
-                  ) : (
-                    <div className="image-placeholder">No image selected</div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-secondary)' }}>
                   {isValidation ? (
                     <>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -471,11 +387,136 @@ export default function AnnotationReview() {
                     </>
                   )}
                 </div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <label className="toggle-checkbox">
+                    <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
+                    Points
+                  </label>
+                  <label className="toggle-checkbox">
+                    <input type="checkbox" checked={labelsVisible} onChange={(e) => setLabelsVisible(e.target.checked)} />
+                    Labels
+                  </label>
+                </div>
+              </div>
+              <div className="image-canvas" style={{ flexShrink: 0 }}>
+                {selectedImageId != null ? (
+                  <TransformWrapper key={selectedImageId} ref={transformRef} initialScale={1} minScale={1} maxScale={4} centerOnInit>
+                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <img
+                          src={imageFileUrlById(selectedImageId)}
+                          alt={currentFilename}
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                          onLoad={(e) => {
+                            const img = e.currentTarget
+                            setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
+                          }}
+                        />
+                        {dotsVisible && allCurrentImagePredictions.map((p) => {
+                          const hasPosition = p.rowPosition != null && p.colPosition != null && canvasNaturalSize
+                          const top = hasPosition ? `${((p.rowPosition as number) / canvasNaturalSize!.height) * 100}%` : '50%'
+                          const left = hasPosition ? `${((p.colPosition as number) / canvasNaturalSize!.width) * 100}%` : '50%'
+                          return (
+                            <div
+                              key={p.predictionId}
+                              id={`review-dot-${p.predictionId}`}
+                              className={`annotation-dot ${dotClassFor(job, p, p.predictionId === effectiveSelectedId)}`}
+                              style={{ top, left }}
+                              title={`${p.predictedLabelCode} (conf ${p.confidenceScore.toFixed(4)})`}
+                              onClick={() => setSelectedPredictionId(p.predictionId)}
+                            >
+                              {p.pointIndex}
+                              {labelsVisible && (
+                                <span
+                                  className="mono"
+                                  style={{
+                                    position: 'absolute',
+                                    top: -22,
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    whiteSpace: 'nowrap',
+                                    fontSize: 10,
+                                    padding: '1px 5px',
+                                  }}
+                                >
+                                  {p.accepted === false ? p.correctedLabelCode : p.predictedLabelCode}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </TransformComponent>
+                  </TransformWrapper>
+                ) : (
+                  <div className="image-placeholder">No image selected</div>
+                )}
               </div>
 
-              <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
-                  {currentImagePredictions.map((prediction) => (
+              <div className="card" style={{ marginTop: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <span style={{ width: 120 }}>Code</span>
+                  <span style={{ flex: 1 }}>Name</span>
+                  <span style={{ width: 120 }}>Category</span>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {labelOptions.length === 0 ? (
+                    <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      No labels declared on this dataset version yet.
+                    </div>
+                  ) : (
+                    labelOptions.map((label) => (
+                      <div
+                        key={label.labelCode}
+                        style={{ display: 'flex', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid var(--border)' }}
+                      >
+                        <span className="mono" style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
+                        <span style={{ flex: 1, fontSize: 12 }}>{label.labelName}</span>
+                        <span style={{ width: 120 }}>{label.labelCategory && <span className="tag">{label.labelCategory}</span>}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {!isValidation && (
+                <div style={{ display: 'flex', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                  <div className="toggle-checkbox" style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${filterMode === 'needs_review' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setFilterMode('needs_review')}
+                    >
+                      Needs review
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-sm ${filterMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setFilterMode('all')}
+                    >
+                      All points
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                {currentImagePredictions.length === 0 ? (
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 12 }}>
+                    {filterMode === 'needs_review' ? 'Nothing on this image needs review.' : 'No points on this image.'}
+                  </div>
+                ) : (
+                  currentImagePredictions.map((prediction) => (
                     <PredictionCard
                       key={prediction.predictionId}
                       prediction={prediction}
@@ -483,17 +524,134 @@ export default function AnnotationReview() {
                       selected={prediction.predictionId === effectiveSelectedId}
                       labelOptions={labelOptions}
                       onSelect={() => setSelectedPredictionId(prediction.predictionId)}
-                      onAccept={acceptPrediction}
-                      onOverride={overridePrediction}
+                      onResolve={resolvePrediction}
                     />
-                  ))}
-                </div>
+                  ))
+                )}
               </div>
+              {!isValidation && (
+                <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%' }}
+                    disabled={pendingCount === 0 || acceptingAll}
+                    onClick={handleAcceptAll}
+                  >
+                    {acceptingAll ? 'Accepting…' : 'Accept All Labels'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
     </>
+  )
+}
+
+// Owns the "Add to Source" form's own versionTag/notes/error state. Only ever mounted while
+// addOpen is true (`{addOpen && <AddToSourceDialog .../>}` above), so each open is a fresh mount
+// with blank fields - no "reset on open" useEffect needed. This replaces one that used to sit in
+// AnnotationReview itself (`useEffect(() => { if (!addOpen) return; setVersionTag(''); ... },
+// [addOpen])`). See corallineage-frontend/CLAUDE.md for why that pattern (reset-via-effect keyed
+// on an `open` flag) shouldn't be copied into new dialogs in this codebase: it's an extra render
+// pass here, and a genuine cascading extra render pass anywhere the reset touches state that
+// another effect also depends on. Split the dialog into its own component instead.
+function AddToSourceDialog({
+  jobId,
+  initiatedBy,
+  onClose,
+  onAdded,
+}: {
+  jobId: number
+  initiatedBy: string
+  onClose: () => void
+  onAdded: () => Promise<unknown>
+}) {
+  const [versionTag, setVersionTag] = useState('')
+  const [addNotes, setAddNotes] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+
+  async function handleAddToProject() {
+    if (!versionTag.trim()) return
+    setAdding(true)
+    setAddError(null)
+    try {
+      await addToProject(jobId, {
+        versionTag: versionTag.trim(),
+        notes: addNotes.trim() || undefined,
+        createdBy: initiatedBy,
+      })
+      // Re-fetch the canonical job state through the same loadAll() path used on mount, rather
+      // than trusting the add-to-project response body directly. This is what a manual page
+      // reload already did to reveal the correct state, so folding it into the success path here
+      // closes the gap by construction instead of depending on the POST response always matching
+      // the shape this component expects.
+      await onAdded()
+      onClose()
+    } catch (err) {
+      setAddError(errorMessage(err))
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay active">
+      <div className="modal">
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">Add to Source</div>
+            <div className="modal-subtitle">
+              Add these images and their final labels to the source as a new dataset version.
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            <XMarkIcon style={{ width: 16, height: 16 }} />
+          </button>
+        </div>
+        <div className="modal-body">
+          <div className="form-row">
+            <label className="form-label" htmlFor="addVersionTag">
+              Version tag
+            </label>
+            <input
+              id="addVersionTag"
+              className="form-input"
+              placeholder="e.g. v2.0"
+              value={versionTag}
+              onChange={(e) => setVersionTag(e.target.value)}
+            />
+          </div>
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <label className="form-label" htmlFor="addNotes">
+              Notes
+            </label>
+            <textarea
+              id="addNotes"
+              className="form-textarea"
+              placeholder="Optional description"
+              value={addNotes}
+              onChange={(e) => setAddNotes(e.target.value)}
+            />
+          </div>
+          {addError && (
+            <div className="alert alert-error" style={{ marginTop: 16 }}>
+              {addError}
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" disabled={adding || !versionTag.trim()} onClick={handleAddToProject}>
+            {adding ? 'Creating version…' : 'Create Dataset Version'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -503,21 +661,20 @@ function PredictionCard({
   selected,
   labelOptions,
   onSelect,
-  onAccept,
-  onOverride,
+  onResolve,
 }: {
   prediction: AnnotationPrediction
   isValidation: boolean
   selected: boolean
   labelOptions: LabelDefinition[]
   onSelect: () => void
-  onAccept: (prediction: AnnotationPrediction) => void
-  onOverride: (prediction: AnnotationPrediction, labelCode: string) => void
+  onResolve: (prediction: AnnotationPrediction, labelCode: string) => void
 }) {
-  const [overrideOpen, setOverrideOpen] = useState(false)
-  const [picked, setPicked] = useState('')
+  // Reviewed predictions show a disabled, read-only combobox at their final label; a still-pending
+  // prediction's combobox stays active - picking any option (including the one already predicted)
+  // is itself the confirm action, no separate Accept/Override buttons.
   const canReview = !isValidation && prediction.accepted === null
-  const editing = canReview && overrideOpen
+  const currentLabelCode = prediction.accepted === false ? prediction.correctedLabelCode ?? '' : prediction.predictedLabelCode
 
   return (
     <div id={`review-card-${prediction.predictionId}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
@@ -528,9 +685,7 @@ function PredictionCard({
             {prediction.agreesWithHuman ? 'Agrees' : 'Disagrees'}
           </span>
         ) : prediction.accepted !== null ? (
-          <span className="badge badge-green">
-            {prediction.accepted ? prediction.predictedLabelCode : prediction.correctedLabelCode}
-          </span>
+          <span className="badge badge-green">{currentLabelCode}</span>
         ) : (
           <span className="badge" style={{ background: 'var(--coral, #e05d44)', color: '#fff' }}>
             {prediction.predictedLabelCode}
@@ -541,13 +696,13 @@ function PredictionCard({
       <div onClick={(e) => canReview && e.stopPropagation()}>
         <LabelCombobox
           options={labelOptions}
-          value={editing ? picked : ''}
-          onChange={editing ? setPicked : () => {}}
-          disabled={!editing}
+          value={currentLabelCode}
+          onChange={canReview ? (labelCode) => onResolve(prediction, labelCode) : () => {}}
+          disabled={!canReview}
           placeholder={
-            editing
-              ? 'Search labels…'
-              : `Predicted: ${prediction.predictedLabelCode} (conf ${prediction.confidenceScore.toFixed(4)})`
+            canReview
+              ? `Predicted: ${prediction.predictedLabelCode} (conf ${prediction.confidenceScore.toFixed(4)})`
+              : undefined
           }
         />
       </div>
@@ -569,42 +724,7 @@ function PredictionCard({
           {prediction.accepted ? 'Accepted' : `Overridden: ${prediction.correctedLabelCode}`}
           {prediction.reviewedBy ? ` by ${prediction.reviewedBy}` : ''}
         </div>
-      ) : (
-        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          {editing ? (
-            <>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setOverrideOpen(false)
-                  setPicked('')
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-accept"
-                disabled={!picked}
-                onClick={() => {
-                  onOverride(prediction, picked)
-                  setOverrideOpen(false)
-                }}
-              >
-                Confirm Override
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={() => setOverrideOpen(true)}>
-                Override
-              </button>
-              <button className="btn btn-accept" onClick={() => onAccept(prediction)}>
-                Accept
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      ) : null}
     </div>
   )
 }

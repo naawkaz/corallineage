@@ -2,12 +2,10 @@ export type PointAnnotationJobStatus =
   | 'GENERATING'
   | 'SEED_LABELING'
   | 'TRAINING'
-  | 'AUTO_ANNOTATING'
-  | 'REVIEW'
   | 'COMPLETE'
   | 'FAILED'
 
-export type GeneratedPointStatus = 'UNLABELED' | 'HUMAN_LABELED' | 'MODEL_PREDICTED' | 'CONFIRMED'
+export type GeneratedPointStatus = 'UNLABELED' | 'HUMAN_LABELED'
 
 export interface PointAnnotationJob {
   jobId: number
@@ -22,6 +20,9 @@ export interface PointAnnotationJob {
   seedTotalPoints: number
   seedLabeledPoints: number
   trainingJobId: number | null
+  // Set once auto-annotate is triggered: the id of the real AnnotationJob (see the annotation
+  // feature's AnnotationReview.tsx) this job's review delegates into.
+  annotationJobId: number | null
   modelVersionId: number | null
   modelTag: string | null
   initiatedBy: string
@@ -60,8 +61,26 @@ export interface LabelPointRequest {
   annotatedBy: string
 }
 
-export interface ReviewGeneratedPointRequest {
-  accepted: boolean
-  correctedLabelCode?: string
-  reviewedBy: string
+export interface TrainPointAnnotationJobRequest {
+  architecture?: string
+  learningRate?: number
+  batchSize?: number
+  epochs?: number
+}
+
+// One row of the Unlabeled import queue - merges cold-start PointAnnotationJob rows with
+// not-yet-applied, commitInPlace AnnotationJob rows (warm-start or delegated-from-cold-start),
+// already sorted and with resolveRoute/resolveJobId fully resolved server-side. See
+// PointAnnotationJobService.getUnlabeledImportQueue.
+export interface UnlabeledImportQueueEntry {
+  jobType: 'POINT_ANNOTATION' | 'ANNOTATION'
+  jobId: number
+  versionTag: string | null
+  status: string
+  seedLabeledPoints: number | null
+  seedTotalPoints: number | null
+  modelTag: string | null
+  startedAt: string
+  resolveRoute: 'SEED_LABEL' | 'ANNOTATION_REVIEW'
+  resolveJobId: number
 }

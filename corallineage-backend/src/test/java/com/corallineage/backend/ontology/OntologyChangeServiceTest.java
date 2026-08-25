@@ -102,6 +102,7 @@ class OntologyChangeServiceTest {
         req.setOldLabelCode(oldCode);
         req.setNewLabels(newLabels);
         req.setBasedOnDatasetVersionId(versionId);
+        req.setNewVersionTag("oc-" + versionId + "-test");
         req.setChangedBy("researcher_01");
         return req;
     }

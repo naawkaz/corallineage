@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRightIcon, FolderOpenIcon } from '@heroicons/react/24/outline'
 import { fetchVersions } from '../datasets/versionsApi'
 import { errorMessage } from '../../shared/api/client'
 import { PAGE_SIZE, TRIGGER_REASONS, triggerReasonBadge, triggerReasonLabel } from '../../shared/constants'
 import { formatCount, formatDate, shortHash } from '../../shared/lib/format'
+import { useJobPolling } from '../../shared/lib/jobPollingContextCore'
 import CreateVersionModal from './CreateVersionModal'
-import StartBlankImportDialog from './StartBlankImportDialog'
 import Pagination from '../../shared/components/Pagination'
 import TitledCard from '../../shared/components/TitledCard'
 import type { DatasetVersion, Page } from '../datasets/versionsTypes'
@@ -22,6 +22,7 @@ interface VersionsListProps {
  */
 export default function VersionsList({ sourceId }: VersionsListProps) {
   const navigate = useNavigate()
+  const { refreshSignal } = useJobPolling()
   const [page, setPage] = useState(0)
   const [data, setData] = useState<Page<DatasetVersion> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,27 +30,44 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
   const [search, setSearch] = useState('')
   const [trigger, setTrigger] = useState('ALL')
   const [showCreate, setShowCreate] = useState(false)
-  const [resolveVersion, setResolveVersion] = useState<DatasetVersion | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    fetchVersions(sourceId, page, PAGE_SIZE)
+  function load(showSpinner: boolean) {
+    if (showSpinner) setLoading(true)
+    return fetchVersions(sourceId, page, PAGE_SIZE)
       .then((res) => {
-        if (!cancelled) {
-          setData(res)
-          setError(null)
-        }
+        setData(res)
+        setError(null)
+        return res
       })
       .catch((err) => {
-        if (!cancelled) setError(errorMessage(err))
+        setError(errorMessage(err))
+        return null
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (showSpinner) setLoading(false)
       })
-    return () => {
-      cancelled = true
-    }
+  }
+
+  useEffect(() => {
+    load(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId, page])
+
+  // Imports process in the background (the create dialog no longer sticks around waiting on
+  // them, see CreateVersionModal), so a still-processing row's spinner needs to turn into a real
+  // status without the user manually refreshing the page. Rather than this list running its own
+  // poll, it re-fetches whenever JobPollingProvider's shared refreshSignal changes (it polls
+  // dataset versions itself and bumps the signal on any observed importStatus transition) - one
+  // shared interval instead of every list/dialog running its own.
+  const isFirstRefreshSignal = useRef(true)
+  useEffect(() => {
+    if (isFirstRefreshSignal.current) {
+      isFirstRefreshSignal.current = false
+      return
+    }
+    load(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal])
 
   const filtered = useMemo(() => {
     if (!data) return []
@@ -68,7 +86,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
         title="Dataset versions"
         actions={
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + New Version
+            + Add Images
           </button>
         }
       >
@@ -144,17 +162,15 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
             <tbody>
               {filtered.map((v) => {
                 const processing = v.importStatus === 'PROCESSING'
-                const needsResolve = !processing && v.importFormat === 'BLANK' && !v.blankImportStarted
+                const failed = v.importStatus === 'FAILED'
+
                 return (
                 <tr
                   key={v.id}
-                  className={processing ? undefined : 'clickable'}
+                  id={`version-row-${v.id}`}
+                  className={processing || failed ? undefined : 'clickable'}
                   onClick={() => {
-                    if (processing) return
-                    if (needsResolve) {
-                      setResolveVersion(v)
-                      return
-                    }
+                    if (processing || failed) return
                     navigate(`/sources/${sourceId}/versions/${v.id}`)
                   }}
                 >
@@ -165,6 +181,11 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                     <span className={`badge ${triggerReasonBadge(v.triggerReason)}`}>
                       {triggerReasonLabel(v.triggerReason)}
                     </span>
+                    {failed && (
+                      <span className="badge badge-red" style={{ marginLeft: 6 }} title="Import failed">
+                        Import failed
+                      </span>
+                    )}
                     {!v.complete && (
                       <Link
                         to={`/sources/${sourceId}/ontology?datasetVersionId=${v.id}`}
@@ -187,10 +208,8 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                   <td>
                     {processing ? (
                       <span className="spinner" style={{ width: 14, height: 14 }} />
-                    ) : needsResolve ? (
-                      <span style={{ color: 'var(--warning)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                        Resolve <ArrowRightIcon style={{ width: 12, height: 12 }} />
-                      </span>
+                    ) : failed ? (
+                      <span style={{ color: 'var(--danger)', fontSize: 12 }}>Failed</span>
                     ) : (
                       <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                         View <ArrowRightIcon style={{ width: 12, height: 12 }} />
@@ -209,21 +228,11 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
         datasetId={sourceId}
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        onCreated={(v) => {
+        onSubmitted={() => {
           setShowCreate(false)
-          navigate(`/sources/${sourceId}/versions/${v.id}`)
+          load(false)
         }}
       />
-
-      {resolveVersion && (
-        <StartBlankImportDialog
-          sourceId={sourceId}
-          datasetVersionId={resolveVersion.id}
-          imageCount={resolveVersion.imageCount}
-          open={resolveVersion != null}
-          onClose={() => setResolveVersion(null)}
-        />
-      )}
     </div>
   )
 }

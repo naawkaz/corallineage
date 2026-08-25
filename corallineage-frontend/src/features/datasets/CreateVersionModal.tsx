@@ -1,44 +1,69 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { createVersion, fetchVersion, fetchVersions } from '../datasets/versionsApi'
-import { fetchImportJob, submitImport } from '../datasets/importsApi'
-import { startPointAnnotationJob } from '../pointannotation/pointAnnotationApi'
+import { submitImport } from '../datasets/importsApi'
 import { errorMessage } from '../../shared/api/client'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import { useDatasetContext } from '../../shared/lib/datasetContextCore'
+import { useToast } from '../../shared/lib/toastContextCore'
 import type { CreateVersionRequest, DatasetVersion } from '../datasets/versionsTypes'
-import type { ImportFormat, ImportJob, LabelDeclaration } from '../datasets/importsTypes'
+import type { ImportFormat, LabelDeclaration } from '../datasets/importsTypes'
 
 interface CreateVersionModalProps {
   datasetId: number
   open: boolean
   onClose: () => void
-  onCreated: (version: DatasetVersion) => void
+  // Fires right after a successful submit (bare snapshot created, or an import job kicked off).
+  // The parent (VersionsList) closes the dialog and refreshes its list from this - it does not
+  // wait around inside this modal for an import to finish processing, see the note above
+  // handleSubmit for why.
+  onSubmitted: () => void
 }
 
 const FORMATS: { value: ImportFormat; label: string; hint: string }[] = [
-  { value: 'MLC', label: 'MLC', hint: 'One .txt per image, lines of "row col label_code"' },
+  { value: 'BLANK', label: 'Unlabeled images', hint: 'Will not be committed as a new dataset version until all points are resolved' },
   { value: 'CORALNET_CSV', label: 'CoralNet CSV', hint: 'Single CSV: image_filename, row, col, label_code' },
+  { value: 'MLC', label: 'MLC', hint: 'One .txt per image, lines of "row col label_code"' },
   { value: 'COCO_JSON', label: 'COCO JSON', hint: 'annotations.json with images/annotations/categories' },
-  { value: 'BLANK', label: 'Blank / Unlabeled Dataset', hint: 'Just images, declare your label set below, then label points afterward' },
 ]
-
-function jobNumericId(job: ImportJob): number {
-  return Number(job.importJobId.replace('IMP-', ''))
-}
 
 /**
  * "+ New Version" dialog on the Source Dashboard (rendered from VersionsList.tsx). Covers both
  * a bare manual snapshot (no files picked, triggerReason hardcoded to MANUAL_SNAPSHOT, no UI
  * control for it) and a full dataset import (MLC/CoralNet CSV/COCO JSON/Blank formats, directory
- * upload, Blank-format label declaration with cross-source label reuse, and a post-import "start
- * point annotation" step) - folded in from what used to be the standalone Import page.
+ * upload, Blank-format label declaration with cross-source label reuse) - folded in from what
+ * used to be the standalone Import page.
+ *
+ * Does NOT wait around for an import to finish processing: it dismisses itself as soon as the
+ * submit request is accepted (see handleSubmit). Import status (PROCESSING/COMPLETED/FAILED)
+ * and, for a completed BLANK import, the "Resolve" step (model/grid/confidence-threshold picker)
+ * all live in VersionsList's own table row instead - a spinner while processing, then an
+ * "Unresolved"/"Import failed" badge and a "Resolve ->" action that opens StartBlankImportDialog.
+ * This used to poll import status inline and show the resolve form in this same modal; that made
+ * the dialog sit there showing a spinner for however long the import took, with no way to just
+ * close it and come back later. VersionsList now polls itself instead (see its own comment).
  */
-export default function CreateVersionModal({ datasetId, open, onClose, onCreated }: CreateVersionModalProps) {
-  const navigate = useNavigate()
+// This component is always mounted by its parent (VersionsList.tsx renders
+// `<CreateVersionModal open={x} .../>` unconditionally) rather than being conditionally rendered
+// like the dialogs in AnnotationReview.tsx/ModelRegistry.tsx/ModelDetail.tsx, so it used to
+// carry a `useEffect(() => { if (open) resetAll() }, [open])` to blank out its own state on every
+// open - the same pattern that lived in those files. Instead of that effect (an extra render
+// pass every open, and a real cascading one if a reset field is ever added to another effect's
+// deps), this wrapper only renders the inner component while `open` is true, so every
+// open->close->open cycle unmounts and remounts it. A fresh mount gets fresh initial state for
+// free - there's nothing to reset. Do NOT re-add a reset-on-open effect here.
+export default function CreateVersionModal(props: CreateVersionModalProps) {
+  if (!props.open) return null
+  // Conditionally rendering (rather than always mounting Inner and toggling visibility with CSS)
+  // is what makes the remount-gives-you-a-reset trick work: every `open` flip from false -> true
+  // is a brand new mount of CreateVersionModalInner with brand new initial state.
+  return <CreateVersionModalInner {...props} />
+}
+
+function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<CreateVersionModalProps, 'open'>) {
   const { user } = useAuthContext()
   const { datasets } = useDatasetContext()
+  const toast = useToast()
 
   const [versionTag, setVersionTag] = useState('')
   const [notes, setNotes] = useState('')
@@ -48,8 +73,6 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
   const [format, setFormat] = useState<ImportFormat>('MLC')
   const [files, setFiles] = useState<File[]>([])
   const [declaredLabels, setDeclaredLabels] = useState<LabelDeclaration[]>([])
-  const [job, setJob] = useState<ImportJob | null>(null)
-  const [pollError, setPollError] = useState<string | null>(null)
 
   // "Reuse labels from <source> <version>", a two-dropdown sentence rather than a free-text
   // vocabulary field, since the label set is structural (code, name, optional category), not
@@ -62,44 +85,9 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
   const [reuseApplied, setReuseApplied] = useState(false)
   const [reuseError, setReuseError] = useState<string | null>(null)
 
-  const [newLabelCode, setNewLabelCode] = useState('')
-  const [newLabelName, setNewLabelName] = useState('')
-  const [newLabelCategory, setNewLabelCategory] = useState('')
-
   // "Import from JSON file", a third way to populate declaredLabels alongside reuse and
   // manual add. Accepts the same shape produced by VersionDetail's "Export label set" button.
   const [labelsFileError, setLabelsFileError] = useState<string | null>(null)
-
-  const [seedImageCount, setSeedImageCount] = useState(20)
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.85)
-  const [gridRows, setGridRows] = useState(7)
-  const [gridCols, setGridCols] = useState(7)
-  const [startingPointAnnotation, setStartingPointAnnotation] = useState(false)
-  const [pointAnnotationError, setPointAnnotationError] = useState<string | null>(null)
-
-  const pollingRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (!job || job.status !== 'PROCESSING') {
-      return
-    }
-    const intervalId = window.setInterval(() => {
-      fetchImportJob(datasetId, jobNumericId(job))
-        .then((updated) => {
-          setJob(updated)
-          if (updated.status !== 'PROCESSING' && pollingRef.current !== null) {
-            window.clearInterval(pollingRef.current)
-            pollingRef.current = null
-          }
-        })
-        .catch((err) => setPollError(errorMessage(err)))
-    }, 2000)
-    pollingRef.current = intervalId
-    return () => {
-      window.clearInterval(intervalId)
-      pollingRef.current = null
-    }
-  }, [job, datasetId])
 
   useEffect(() => {
     if (reuseSourceId === '') {
@@ -150,21 +138,6 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
     }
   }
 
-  function addDeclaredLabel() {
-    const code = newLabelCode.trim()
-    const name = newLabelName.trim()
-    if (code === '' || name === '') return
-    if (declaredLabels.some((l) => l.labelCode === code)) return
-    const category = newLabelCategory.trim()
-    setDeclaredLabels((prev) => [
-      ...prev,
-      { labelCode: code, labelName: name, labelCategory: category === '' ? undefined : category },
-    ])
-    setNewLabelCode('')
-    setNewLabelName('')
-    setNewLabelCategory('')
-  }
-
   function removeDeclaredLabel(labelCode: string) {
     setDeclaredLabels((prev) => prev.filter((l) => l.labelCode !== labelCode))
   }
@@ -197,60 +170,37 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
         }
       })
       setDeclaredLabels(labels)
+      toast.push({
+        variant: 'success',
+        title: `${labels.length} label${labels.length === 1 ? '' : 's'} loaded`,
+        detail: file.name,
+      })
     } catch (err) {
-      setLabelsFileError(err instanceof Error ? err.message : 'Failed to parse label set JSON file.')
+      const message = err instanceof Error ? err.message : 'Failed to parse label set JSON file.'
+      setLabelsFileError(message)
+      toast.push({ variant: 'error', title: 'Label set upload failed', detail: message })
     }
   }
 
   const isBlank = format === 'BLANK'
 
-  function resetAll() {
-    setJob(null)
-    setSubmitError(null)
-    setPollError(null)
-    setPointAnnotationError(null)
-    setFiles([])
-    setVersionTag('')
-    setNotes('')
-    setDeclaredLabels([])
-    setReuseSourceId('')
-    setReuseVersions([])
-    setReuseVersionId('')
-    setReuseApplied(false)
-    setReuseError(null)
-    setNewLabelCode('')
-    setNewLabelName('')
-    setNewLabelCategory('')
-    setLabelsFileError(null)
-    setFormat('MLC')
-    setSeedImageCount(20)
-    setConfidenceThreshold(0.85)
-    setGridRows(7)
-    setGridCols(7)
-  }
-
+  // No resetAll()/reset-on-open effect here anymore - see the note above CreateVersionModal.
+  // Every open is a fresh mount of this component, so all the useState calls above already start
+  // from their initial values. handleClose no longer needs to blank anything out first; it just
+  // tells the parent to flip `open` back to false, which unmounts this component.
   function handleClose() {
-    resetAll()
     onClose()
   }
 
-  // Dialogs shouldn't remember state from a previous open, reset whenever it's opened
-  // rather than relying solely on handleClose (which is skipped by e.g. a parent
-  // programmatically flipping `open` to false without going through this component's own
-  // close handlers).
-  useEffect(() => {
-    if (open) resetAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  if (!open) return null
-
+  // Dismisses itself immediately once the request is accepted, rather than sticking around to
+  // poll an import job to completion - see this file's own top-of-file note for why.
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)
-    setPollError(null)
+    const hasFiles = files.length > 0
+    const toastId = hasFiles ? toast.push({ variant: 'progress', title: 'Uploading images…' }) : null
     try {
-      if (files.length === 0) {
+      if (!hasFiles) {
         // Bare manual snapshot - no files picked, no import job needed. Trigger reason is
         // always MANUAL_SNAPSHOT here since this path has no other way to have been reached.
         const request: CreateVersionRequest = {
@@ -259,40 +209,28 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
           createdBy: user?.username ?? '',
           notes: notes.trim() === '' ? null : notes.trim(),
         }
-        const created = await createVersion(datasetId, request)
-        onCreated(created)
-        return
+        await createVersion(datasetId, request)
+      } else {
+        await submitImport(
+          datasetId, files, format, versionTag.trim(), user?.username ?? '', notes, isBlank ? declaredLabels : undefined,
+        )
+        if (toastId) {
+          toast.update(toastId, {
+            variant: 'success',
+            title: `${files.length} image${files.length === 1 ? '' : 's'} uploaded`,
+            detail: 'Import is processing in the background.',
+          })
+        }
       }
-      const created = await submitImport(
-        datasetId, files, format, versionTag.trim(), user?.username ?? '', notes, isBlank ? declaredLabels : undefined,
-      )
-      setJob(created)
+      onSubmitted()
     } catch (err) {
-      setSubmitError(errorMessage(err))
+      const message = errorMessage(err)
+      setSubmitError(message)
+      if (toastId) {
+        toast.update(toastId, { variant: 'error', title: 'Upload failed', detail: message })
+      }
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  async function handleStartPointAnnotation() {
-    if (!job?.createdDatasetVersionId) return
-    setStartingPointAnnotation(true)
-    setPointAnnotationError(null)
-    try {
-      const pointJob = await startPointAnnotationJob({
-        datasetVersionId: job.createdDatasetVersionId,
-        seedImageCount,
-        confidenceThreshold,
-        gridRows,
-        gridCols,
-        initiatedBy: user?.username ?? '',
-      })
-      handleClose()
-      navigate(`/sources/${datasetId}/blank-import/jobs/${pointJob.jobId}/label`)
-    } catch (err) {
-      setPointAnnotationError(errorMessage(err))
-    } finally {
-      setStartingPointAnnotation(false)
     }
   }
 
@@ -301,446 +239,295 @@ export default function CreateVersionModal({ datasetId, open, onClose, onCreated
       <div className="modal" style={{ width: 680, maxWidth: '100%' }}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">Import images</div>
+            <div className="modal-title">Add Images</div>
+            <div className="modal-subtitle">Importing images will trigger creation of a new dataset version</div>
           </div>
           <button className="modal-close" onClick={handleClose} aria-label="Close">
             <XMarkIcon style={{ width: 16, height: 16 }} />
           </button>
         </div>
         <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-          {!job && (
-            <>
-              <div className="form-row">
-                <label className="form-label">Format</label>
-                {FORMATS.map((f) => (
-                  <label key={f.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                    <input
-                      type="radio"
-                      name="format"
-                      checked={format === f.value}
-                      onChange={() => setFormat(f.value)}
-                    />
-                    <span>
-                      <strong>{f.label}</strong>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.hint}</div>
-                    </span>
-                  </label>
-                ))}
-              </div>
+          <div className="form-row">
+            <label className="form-label">Format</label>
+            {FORMATS.map((f) => (
+              <label key={f.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                <input
+                  type="radio"
+                  name="format"
+                  checked={format === f.value}
+                  onChange={() => setFormat(f.value)}
+                />
+                <span>
+                  <strong>{f.label}</strong>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.hint}</div>
+                </span>
+              </label>
+            ))}
+          </div>
 
-              <div className="form-row">
-                <label className="form-label" htmlFor="importFile">
-                  Dataset directory
-                </label>
+          <div className="form-row">
+            <label className="form-label" htmlFor="importFile">
+              {isBlank ? 'Images' : 'Dataset directory'}
+            </label>
+            {isBlank ? (
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const dropped = Array.from(e.dataTransfer.files)
+                  if (dropped.length > 0) setFiles((prev) => [...prev, ...dropped])
+                }}
+                style={{
+                  border: '1px dashed var(--border-md)',
+                  borderRadius: 6,
+                  padding: 16,
+                  textAlign: 'center',
+                }}
+              >
                 <input
                   id="importFile"
                   type="file"
-                  ref={(el) => {
-                    if (el) el.setAttribute('webkitdirectory', '')
-                  }}
                   multiple
                   onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
                 />
-                {files.length > 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                    {files.length} file{files.length === 1 ? '' : 's'} selected
-                  </div>
-                )}
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                  Or drag and drop image files here
+                </div>
               </div>
+            ) : (
+              <input
+                id="importFile"
+                type="file"
+                ref={(el) => {
+                  if (el) el.setAttribute('webkitdirectory', '')
+                }}
+                multiple
+                onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
+              />
+            )}
+            {files.length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {files.length} file{files.length === 1 ? '' : 's'} selected
+              </div>
+            )}
+            {files.length > 0 && !isBlank && <FileTreePreview files={files} />}
+          </div>
 
-              {files.length > 0 && isBlank && (
-                <div className="form-row">
-                  <label className="form-label">Label set</label>
+          {files.length > 0 && isBlank && (
+            <div className="form-row">
+              <label className="form-label">Label set</label>
 
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                      fontSize: 13,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span>Reuse labels from</span>
-                    <select
-                      className="form-input"
-                      style={{ width: 'auto' }}
-                      value={reuseSourceId}
-                      onChange={(e) => setReuseSourceId(e.target.value === '' ? '' : Number(e.target.value))}
-                    >
-                      <option value="">a source…</option>
-                      {datasets.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.datasetName}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="form-input"
-                      style={{ width: 'auto' }}
-                      value={reuseVersionId}
-                      disabled={reuseSourceId === '' || reuseVersionsLoading || reuseVersions.length === 0}
-                      onChange={(e) => {
-                        setReuseVersionId(e.target.value === '' ? '' : Number(e.target.value))
-                        setReuseApplied(false)
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  fontSize: 13,
+                  marginBottom: 10,
+                }}
+              >
+                <span>Reuse labels from</span>
+                <select
+                  className="form-input"
+                  style={{ width: 'auto' }}
+                  value={reuseSourceId}
+                  onChange={(e) => setReuseSourceId(e.target.value === '' ? '' : Number(e.target.value))}
+                >
+                  <option value="">a source…</option>
+                  {datasets.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.datasetName}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="form-input"
+                  style={{ width: 'auto' }}
+                  value={reuseVersionId}
+                  disabled={reuseSourceId === '' || reuseVersionsLoading || reuseVersions.length === 0}
+                  onChange={(e) => {
+                    setReuseVersionId(e.target.value === '' ? '' : Number(e.target.value))
+                    setReuseApplied(false)
+                  }}
+                >
+                  <option value="">
+                    {reuseVersionsLoading ? 'loading…' : 'a version…'}
+                  </option>
+                  {reuseVersions.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.versionTag}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${reuseSourceId !== '' && reuseVersionId !== '' && !reuseApplied ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={applyReuseSelection}
+                  disabled={reuseSourceId === '' || reuseVersionId === '' || reuseApplying}
+                >
+                  {reuseApplying ? 'Loading…' : 'Use these labels'}
+                </button>
+              </div>
+              {reuseError && (
+                <div className="alert alert-error" style={{ marginBottom: 10 }}>
+                  {reuseError}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  fontSize: 13,
+                  marginBottom: 10,
+                }}
+              >
+                <span>Or import from JSON file</span>
+                <input
+                  type="file"
+                  accept="application/json"
+                  className="form-input"
+                  style={{ width: 'auto' }}
+                  onChange={handleLabelsFileImport}
+                />
+              </div>
+              {labelsFileError && (
+                <div className="alert alert-error" style={{ marginBottom: 10 }}>
+                  {labelsFileError}
+                </div>
+              )}
+
+              {declaredLabels.length > 0 && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 6, marginBottom: 10 }}>
+                  {declaredLabels.map((label) => (
+                    <div
+                      key={label.labelCode}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 10px',
+                        borderBottom: '1px solid var(--border)',
                       }}
                     >
-                      <option value="">
-                        {reuseVersionsLoading ? 'loading…' : 'a version…'}
-                      </option>
-                      {reuseVersions.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.versionTag}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${reuseSourceId !== '' && reuseVersionId !== '' && !reuseApplied ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={applyReuseSelection}
-                      disabled={reuseSourceId === '' || reuseVersionId === '' || reuseApplying}
-                    >
-                      {reuseApplying ? 'Loading…' : 'Use these labels'}
-                    </button>
-                  </div>
-                  {reuseError && (
-                    <div className="alert alert-error" style={{ marginBottom: 10 }}>
-                      {reuseError}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                        <span className="mono">{label.labelCode}</span>
+                        <span>{label.labelName}</span>
+                        {label.labelCategory && <span className="tag">{label.labelCategory}</span>}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeDeclaredLabel(label.labelCode)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-secondary)',
+                        }}
+                        title="Remove"
+                      >
+                        <XMarkIcon style={{ width: 14, height: 14 }} />
+                      </button>
                     </div>
-                  )}
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      gap: 8,
-                      fontSize: 13,
-                      marginBottom: 10,
-                    }}
-                  >
-                    <span>Or import from JSON file</span>
-                    <input
-                      type="file"
-                      accept="application/json"
-                      className="form-input"
-                      style={{ width: 'auto' }}
-                      onChange={handleLabelsFileImport}
-                    />
-                  </div>
-                  {labelsFileError && (
-                    <div className="alert alert-error" style={{ marginBottom: 10 }}>
-                      {labelsFileError}
-                    </div>
-                  )}
-
-                  {declaredLabels.length > 0 && (
-                    <div style={{ border: '1px solid var(--border)', borderRadius: 6, marginBottom: 10 }}>
-                      {declaredLabels.map((label) => (
-                        <div
-                          key={label.labelCode}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '6px 10px',
-                            borderBottom: '1px solid var(--border)',
-                          }}
-                        >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                            <span className="mono">{label.labelCode}</span>
-                            <span>{label.labelName}</span>
-                            {label.labelCategory && <span className="tag">{label.labelCategory}</span>}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeDeclaredLabel(label.labelCode)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: 'var(--text-secondary)',
-                            }}
-                            title="Remove"
-                          >
-                            <XMarkIcon style={{ width: 14, height: 14 }} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <div>
-                      <label className="form-label" htmlFor="newLabelCode">
-                        Label code
-                      </label>
-                      <input
-                        id="newLabelCode"
-                        className="form-input"
-                        placeholder="e.g. CCA"
-                        value={newLabelCode}
-                        onChange={(e) => setNewLabelCode(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" htmlFor="newLabelName">
-                        Label name
-                      </label>
-                      <input
-                        id="newLabelName"
-                        className="form-input"
-                        placeholder="e.g. Crustose Coralline Algae"
-                        value={newLabelName}
-                        onChange={(e) => setNewLabelName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" htmlFor="newLabelCategory">
-                        Category (optional)
-                      </label>
-                      <input
-                        id="newLabelCategory"
-                        className="form-input"
-                        placeholder="e.g. Algae"
-                        value={newLabelCategory}
-                        onChange={(e) => setNewLabelCategory(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={addDeclaredLabel}
-                      disabled={!newLabelCode.trim() || !newLabelName.trim()}
-                    >
-                      Add
-                    </button>
-                  </div> */}
-                  {/* <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
-                    {declaredLabels.length > 0
-                      ? `${declaredLabels.length} label(s) declared`
-                      : 'Declare the label set upfront, reused from another version or added by hand'}
-                  </div> */}
+                  ))}
                 </div>
-              )}
-
-              <div className="form-row">
-                <label className="form-label" htmlFor="versionTag">
-                  Version tag
-                </label>
-                <input
-                  id="versionTag"
-                  className="form-input"
-                  placeholder="e.g. v1.1"
-                  value={versionTag}
-                  onChange={(e) => setVersionTag(e.target.value)}
-                />
-                <div className="form-hint">Must be unique within this source.</div>
-              </div>
-
-              <div className="form-row" style={{ marginBottom: 0 }}>
-                <label className="form-label" htmlFor="notes">
-                  Notes
-                </label>
-                <textarea
-                  id="notes"
-                  className="form-textarea"
-                  placeholder="Optional description"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              {submitError && (
-                <div className="alert alert-error" style={{ marginTop: 16 }}>
-                  {submitError}
-                </div>
-              )}
-            </>
-          )}
-
-          {job && job.status === 'PROCESSING' && (
-            <>
-              <div className="loading-state">
-                <span className="spinner" /> Processing import ({job.importJobId})…
-              </div>
-              {pollError && (
-                <div className="alert alert-error" style={{ marginTop: 12 }}>
-                  {pollError}
-                </div>
-              )}
-            </>
-          )}
-
-          {job && job.status === 'COMPLETED' && (
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 12 }}>Import completed</div>
-              <div className="detail-grid">
-                <div className="detail-row">
-                  <div className="detail-key">Images imported</div>
-                  <div>{job.imagesImported}</div>
-                </div>
-                <div className="detail-row">
-                  <div className="detail-key">Annotation points imported</div>
-                  <div>{job.annotationPointsImported}</div>
-                </div>
-                <div className="detail-row">
-                  <div className="detail-key">Labels {job.format === 'BLANK' ? 'declared' : 'resolved'}</div>
-                  <div>{job.labelsResolved}</div>
-                </div>
-                <div className="detail-row">
-                  <div className="detail-key">New version</div>
-                  <div>
-                    <span className="mono">{job.createdVersionTag}</span>
-                  </div>
-                </div>
-              </div>
-
-              {job.format === 'BLANK' && (
-                <>
-                  <div style={{ borderTop: '1px solid var(--border)', margin: '16px 0' }} />
-                  <div style={{ fontWeight: 600, marginBottom: 8 }}>Start Blank Import</div>
-                  <div className="form-row">
-                    <label className="form-label" htmlFor="seedImageCount">
-                      Seed images to label manually
-                    </label>
-                    <input
-                      id="seedImageCount"
-                      type="number"
-                      className="form-input"
-                      min={1}
-                      max={job.imagesImported ?? undefined}
-                      value={seedImageCount}
-                      onChange={(e) => setSeedImageCount(Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="form-row">
-                    <label className="form-label" htmlFor="confidenceThreshold">
-                      Confidence threshold ({Math.round(confidenceThreshold * 100)}%)
-                    </label>
-                    <input
-                      id="confidenceThreshold"
-                      type="range"
-                      min={0.5}
-                      max={0.99}
-                      step={0.01}
-                      value={confidenceThreshold}
-                      onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
-                    />
-                    <div className="form-hint">
-                      Points the trained model predicts above this confidence auto-confirm. Rest reviewed manually.
-                    </div>
-                  </div>
-                  <div className="form-row" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Grid size</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input
-                        type="number"
-                        className="form-input"
-                        min={1}
-                        max={20}
-                        style={{ width: 80 }}
-                        value={gridRows}
-                        onChange={(e) => setGridRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-                      />
-                      <span>rows x</span>
-                      <input
-                        type="number"
-                        className="form-input"
-                        min={1}
-                        max={20}
-                        style={{ width: 80 }}
-                        value={gridCols}
-                        onChange={(e) => setGridCols(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-                      />
-                      <span>cols</span>
-                    </div>
-                    <div className="form-hint">{gridRows * gridCols} points per image</div>
-                  </div>
-                  {pointAnnotationError && (
-                    <div className="alert alert-error" style={{ marginTop: 12 }}>
-                      {pointAnnotationError}
-                    </div>
-                  )}
-                </>
               )}
             </div>
           )}
 
-          {job && job.status === 'FAILED' && (
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 12, color: 'var(--red)' }}>Import failed</div>
-              <div className="alert alert-error">{job.errorMessage}</div>
+          <div className="form-row">
+            <label className="form-label" htmlFor="versionTag">
+              Version tag
+            </label>
+            <input
+              id="versionTag"
+              className="form-input"
+              placeholder="e.g. v1.1"
+              value={versionTag}
+              onChange={(e) => setVersionTag(e.target.value)}
+            />
+            <div className="form-hint">Must be unique within this source.</div>
+          </div>
+
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <label className="form-label" htmlFor="notes">
+              Notes
+            </label>
+            <textarea
+              id="notes"
+              className="form-textarea"
+              placeholder="Optional description"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {submitError && (
+            <div className="alert alert-error" style={{ marginTop: 16 }}>
+              {submitError}
             </div>
           )}
         </div>
         <div className="modal-footer">
-          {!job && (
-            <>
-              <button className="btn btn-secondary" onClick={handleClose}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSubmit}
-                disabled={
-                  submitting ||
-                  !versionTag.trim() ||
-                  (files.length > 0 && isBlank && declaredLabels.length === 0)
-                }
-              >
-                {submitting ? 'Creating…' : files.length > 0 ? 'Start Import' : 'Create version'}
-              </button>
-            </>
-          )}
-          {job && job.status === 'PROCESSING' && (
-            <button className="btn btn-secondary" onClick={handleClose}>
-              Close
-            </button>
-          )}
-          {job && job.status === 'COMPLETED' && job.format === 'BLANK' && (
-            <>
-              <button className="btn btn-secondary" onClick={handleClose}>
-                Close
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleStartPointAnnotation}
-                disabled={startingPointAnnotation}
-              >
-                {startingPointAnnotation ? 'Generating points…' : 'Generate Points & Start Labeling'}
-              </button>
-            </>
-          )}
-          {job && job.status === 'COMPLETED' && job.format !== 'BLANK' && (
-            <>
-              <button className="btn btn-secondary" onClick={handleClose}>
-                Close
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  const versionId = job.createdDatasetVersionId
-                  handleClose()
-                  if (versionId != null) {
-                    navigate(`/sources/${datasetId}/versions/${versionId}`)
-                  }
-                }}
-              >
-                View version
-              </button>
-            </>
-          )}
-          {job && job.status === 'FAILED' && (
-            <button className="btn btn-secondary" onClick={handleClose}>
-              Close
-            </button>
-          )}
+          <button className="btn btn-secondary" onClick={handleClose}>
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={
+              submitting ||
+              !versionTag.trim() ||
+              (files.length > 0 && isBlank && declaredLabels.length === 0)
+            }
+          >
+            {submitting ? 'Creating…' : files.length === 0 ? 'Create version' : isBlank ? 'Upload' : 'Add Folder'}
+          </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Read-only, grouped-by-subfolder listing of an already-selected `webkitdirectory` file set - just
+// enough to let the user sanity-check what they're about to upload before committing, not an
+// interactive in-dialog file browser (that stays out of scope per the confirmed decision).
+function FileTreePreview({ files }: { files: File[] }) {
+  const groups = new Map<string, string[]>()
+  for (const file of files) {
+    const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+    const slashIndex = relativePath.lastIndexOf('/')
+    const folder = slashIndex === -1 ? '' : relativePath.slice(0, slashIndex)
+    const list = groups.get(folder) ?? []
+    list.push(relativePath.slice(slashIndex + 1))
+    groups.set(folder, list)
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        maxHeight: 180,
+        overflowY: 'auto',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        fontSize: 12,
+      }}
+    >
+      {[...groups.entries()].map(([folder, names]) => (
+        <div key={folder} style={{ padding: '6px 10px', borderBottom: '1px solid var(--border)' }}>
+          {folder && <div style={{ fontWeight: 600, marginBottom: 2 }}>{folder}/</div>}
+          <div style={{ color: 'var(--text-secondary)' }}>
+            {names.length} file{names.length === 1 ? '' : 's'}: {names.slice(0, 5).join(', ')}
+            {names.length > 5 ? `, +${names.length - 5} more` : ''}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

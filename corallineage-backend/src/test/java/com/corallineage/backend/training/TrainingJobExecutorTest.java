@@ -3,6 +3,7 @@ package com.corallineage.backend.training;
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.pointannotation.PointAnnotationJobService;
 import com.corallineage.backend.registry.model.MlflowDetailsResponse;
 import com.corallineage.backend.registry.model.MlflowIntegrationService;
 import com.corallineage.backend.registry.model.ModelVersion;
@@ -48,10 +49,11 @@ class TrainingJobExecutorTest {
     @Mock private PythonMlServiceClient pythonMlServiceClient;
     @Mock private MlflowIntegrationService mlflowIntegrationService;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock private PointAnnotationJobService pointAnnotationJobService;
 
     private TrainingJobExecutor newExecutor() {
         return new TrainingJobExecutor(trainingJobStatusService, datasetPreparationService,
-                pythonMlServiceClient, mlflowIntegrationService, annotationEventLoggerService);
+                pythonMlServiceClient, mlflowIntegrationService, annotationEventLoggerService, pointAnnotationJobService);
     }
 
     private TrainingJob completedJob(Long id, ModelVersion model) {

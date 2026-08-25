@@ -51,6 +51,16 @@ public class PointAnnotationJobController {
         return pointAnnotationJobService.getJobs(datasetId, PageRequest.of(page, size));
     }
 
+    @GetMapping("/unlabeled-queue")
+    public Page<UnlabeledImportQueueEntryResponse> getUnlabeledImportQueue(
+            @RequestParam Long datasetId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+        datasetService.requireAccess(datasetId, authentication.getName());
+        return pointAnnotationJobService.getUnlabeledImportQueue(datasetId, PageRequest.of(page, size));
+    }
+
     @GetMapping("/jobs/{id}/points")
     public Page<GeneratedPointResponse> getPoints(
             @PathVariable Long id,
@@ -69,17 +79,12 @@ public class PointAnnotationJobController {
         return pointAnnotationJobService.labelPoint(pointId, request);
     }
 
-    @PatchMapping("/points/{pointId}/review")
-    public GeneratedPointResponse reviewPoint(@PathVariable Long pointId, @Valid @RequestBody ReviewGeneratedPointRequest request,
-                                               Authentication authentication) {
-        datasetService.requireAccess(pointAnnotationJobService.getDatasetIdForPoint(pointId), authentication.getName());
-        return pointAnnotationJobService.reviewPoint(pointId, request);
-    }
-
     @PostMapping("/jobs/{id}/train")
-    public PointAnnotationJobResponse train(@PathVariable Long id, Authentication authentication) {
+    public PointAnnotationJobResponse train(@PathVariable Long id,
+                                             @RequestBody(required = false) TrainPointAnnotationJobRequest request,
+                                             Authentication authentication) {
         datasetService.requireAccess(pointAnnotationJobService.getDatasetIdForJob(id), authentication.getName());
-        return pointAnnotationJobService.trainModel(id);
+        return pointAnnotationJobService.trainModel(id, request);
     }
 
     @PostMapping("/jobs/{id}/auto-annotate")

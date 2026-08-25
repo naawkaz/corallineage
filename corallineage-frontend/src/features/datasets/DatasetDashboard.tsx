@@ -4,27 +4,32 @@ import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 import { fetchDataset } from '../datasets/datasetsApi'
 import { fetchVersions } from '../datasets/versionsApi'
 import { fetchModels } from '../training/modelsApi'
-import { fetchPointAnnotationJobs } from '../pointannotation/pointAnnotationApi'
+import { fetchUnlabeledImportQueue } from '../pointannotation/pointAnnotationApi'
 import { fetchOntologyChanges } from '../ontology/ontologyApi'
 import { fetchAnnotationJobs } from '../annotation/annotationApi'
 import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
 import { changeTypeBadge, changeTypeLabel } from '../../shared/constants'
 import { scrollToAndHighlightAll } from '../../shared/lib/highlight'
+import { useJobPolling } from '../../shared/lib/jobPollingContextCore'
 import VersionsList from '../datasets/VersionsList'
 import TitledCard from '../../shared/components/TitledCard'
 import StatRingCard from '../../shared/components/StatRingCard'
 import type { Dataset } from '../datasets/datasetsTypes'
-import type { PointAnnotationJob, PointAnnotationJobStatus } from '../pointannotation/pointAnnotationTypes'
+import type { UnlabeledImportQueueEntry } from '../pointannotation/pointAnnotationTypes'
 import type { OntologyChange } from '../ontology/ontologyTypes'
 import type { AnnotationJob } from '../annotation/annotationTypes'
 
-function pointJobStatusBadge(status: PointAnnotationJobStatus): string {
+function queueEntryStatusBadge(status: string): string {
   switch (status) {
     case 'COMPLETE':
+    case 'COMPLETED':
       return 'badge-green'
+    case 'FAILED':
+      return 'badge-red'
+    case 'TRAINING':
+    case 'RUNNING':
     case 'REVIEW':
-    case 'AUTO_ANNOTATING':
       return 'badge-amber'
     default:
       return 'badge-gray'
@@ -35,14 +40,15 @@ export default function DatasetDashboard() {
   const navigate = useNavigate()
   const { sourceId: sourceIdParam } = useParams()
   const sourceId = Number(sourceIdParam)
+  const { refreshSignal } = useJobPolling()
 
   const [dataset, setDataset] = useState<Dataset | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [pointJobs, setPointJobs] = useState<PointAnnotationJob[]>([])
-  const [pointJobsLoading, setPointJobsLoading] = useState(true)
-  const [pointJobsError, setPointJobsError] = useState<string | null>(null)
+  const [queueEntries, setQueueEntries] = useState<UnlabeledImportQueueEntry[]>([])
+  const [queueLoading, setQueueLoading] = useState(true)
+  const [queueError, setQueueError] = useState<string | null>(null)
 
   const [ontologyChanges, setOntologyChanges] = useState<OntologyChange[]>([])
   const [dirtyChanges, setDirtyChanges] = useState<OntologyChange[]>([])
@@ -76,26 +82,29 @@ export default function DatasetDashboard() {
     }
   }, [sourceId])
 
+  // Re-fetches whenever JobPollingProvider's shared refreshSignal changes (it polls this same
+  // endpoint itself and bumps the signal on any observed status transition), so this card reflects
+  // live progress without running its own poll interval.
   useEffect(() => {
     if (!sourceId) return
     let cancelled = false
-    fetchPointAnnotationJobs(sourceId, 0, 20)
+    fetchUnlabeledImportQueue(sourceId, 0, 20)
       .then((res) => {
         if (!cancelled) {
-          setPointJobs(res.content)
-          setPointJobsError(null)
+          setQueueEntries(res.content)
+          setQueueError(null)
         }
       })
       .catch((err) => {
-        if (!cancelled) setPointJobsError(errorMessage(err))
+        if (!cancelled) setQueueError(errorMessage(err))
       })
       .finally(() => {
-        if (!cancelled) setPointJobsLoading(false)
+        if (!cancelled) setQueueLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [sourceId])
+  }, [sourceId, refreshSignal])
 
   useEffect(() => {
     if (!sourceId) return
@@ -138,16 +147,27 @@ export default function DatasetDashboard() {
   const unresolvedFlags = ontologyChanges.reduce((sum, c) => sum + (c.dirtyAnnotationsFlagged - c.resolvedCount), 0)
   const unresolvedPct = annotationsFlagged > 0 ? (unresolvedFlags / annotationsFlagged) * 100 : 0
 
-  const pendingSeedJobs = pointJobs.filter((j) => j.status === 'SEED_LABELING')
-  const pendingSeedPct = pointJobs.length > 0 ? (pendingSeedJobs.length / pointJobs.length) * 100 : 0
+  const pointQueueEntries = queueEntries.filter((e) => e.jobType === 'POINT_ANNOTATION')
+  const pendingSeedJobs = pointQueueEntries.filter((e) => e.status === 'SEED_LABELING')
+  const pendingSeedPct = pointQueueEntries.length > 0 ? (pendingSeedJobs.length / pointQueueEntries.length) * 100 : 0
 
   const totalPredictions = annotationJobs.reduce((sum, j) => sum + j.totalPredictions, 0)
   const pendingPredictions = annotationJobs.reduce((sum, j) => sum + (j.totalPredictions - j.reviewedPredictions), 0)
   const pendingPredictionsPct = totalPredictions > 0 ? (pendingPredictions / totalPredictions) * 100 : 0
+  // Dataset versions carrying at least one prediction that landed below the auto-accept
+  // confidence threshold and is still sitting in review (totalPredictions > reviewedPredictions).
+  // Deduped since a version can have more than one annotation job against it.
+  const pendingPredictionVersionIds = [
+    ...new Set(
+      annotationJobs
+        .filter((j) => j.totalPredictions > j.reviewedPredictions && j.datasetVersionId != null)
+        .map((j) => j.datasetVersionId as number),
+    ),
+  ]
 
-  function openPointJob(job: PointAnnotationJob) {
-    const target = job.status === 'REVIEW' || job.status === 'COMPLETE' ? 'review' : 'label'
-    navigate(`/sources/${sourceId}/blank-import/jobs/${job.jobId}/${target}`)
+  function openQueueEntry(entry: UnlabeledImportQueueEntry) {
+    const suffix = entry.resolveRoute === 'ANNOTATION_REVIEW' ? 'review' : 'label'
+    navigate(`/sources/${sourceId}/annotation/jobs/${entry.resolveJobId}/${suffix}`)
   }
 
   return (
@@ -182,9 +202,7 @@ export default function DatasetDashboard() {
           dataset && (
             <>
 
-              <VersionsList sourceId={sourceId} />
-
-              <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
                 <StatRingCard
                   fraction={`${unresolvedFlags}/${annotationsFlagged}`}
                   subtitle="Unresolved label changes"
@@ -193,7 +211,7 @@ export default function DatasetDashboard() {
                   onGo={() => scrollToAndHighlightAll(dirtyChanges.map((c) => `ontology-change-row-${c.id}`))}
                 />
                 <StatRingCard
-                  fraction={`${pendingSeedJobs.length}/${pointJobs.length}`}
+                  fraction={`${pendingSeedJobs.length}/${pointQueueEntries.length}`}
                   subtitle="Blank images pending labels"
                   percent={pendingSeedPct}
                   danger={pendingSeedJobs.length > 0}
@@ -206,24 +224,30 @@ export default function DatasetDashboard() {
                   subtitle="Predicted annotations to resolve"
                   percent={pendingPredictionsPct}
                   danger={pendingPredictions > 0}
-                  onGo={() => navigate(`/sources/${sourceId}/annotation?highlight=pending`)}
+                  onGo={() =>
+                    scrollToAndHighlightAll(pendingPredictionVersionIds.map((id) => `version-row-${id}`))
+                  }
                 />
               </div>
 
+              <div style={{ marginTop: 24 }}>
+                <VersionsList sourceId={sourceId} />
+              </div>
+
               <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-                <TitledCard title="Blank import queue" bodyClassName="no-padding">
-                  {pointJobsError && (
+                <TitledCard title="Unlabeled import queue" bodyClassName="no-padding">
+                  {queueError && (
                     <div className="alert alert-error" style={{ margin: 16 }}>
-                      {pointJobsError}
+                      {queueError}
                     </div>
                   )}
-                  {pointJobsLoading ? (
+                  {queueLoading ? (
                     <div className="loading-state">
                       <span className="spinner" /> Loading jobs…
                     </div>
-                  ) : pointJobs.length === 0 ? (
+                  ) : queueEntries.length === 0 ? (
                     <div className="empty-state">
-                      <p>No blank import jobs yet.</p>
+                      <p>No unlabeled imports yet.</p>
                     </div>
                   ) : (
                     <table>
@@ -238,25 +262,30 @@ export default function DatasetDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {pointJobs.map((job) => (
+                        {queueEntries.map((entry) => (
                           <tr
-                            key={job.jobId}
-                            id={`blank-import-row-${job.jobId}`}
+                            key={`${entry.jobType}-${entry.jobId}`}
+                            id={`blank-import-row-${entry.jobId}`}
                             className="clickable"
-                            onClick={() => openPointJob(job)}
+                            onClick={() => openQueueEntry(entry)}
                           >
                             <td>
-                              <span className={`badge ${pointJobStatusBadge(job.status)}`}>{job.status}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                {entry.status !== 'COMPLETE' && entry.status !== 'FAILED' && entry.status !== 'REVIEW' && (
+                                  <span className="spinner" style={{ width: 11, height: 11 }} />
+                                )}
+                                <span className={`badge ${queueEntryStatusBadge(entry.status)}`}>{entry.status}</span>
+                              </span>
                             </td>
-                            <td>{job.versionTag}</td>
+                            <td>{entry.versionTag ?? '-'}</td>
                             <td className="num">
-                              {job.seedLabeledPoints} / {job.seedTotalPoints}
+                              {entry.seedTotalPoints != null ? `${entry.seedLabeledPoints} / ${entry.seedTotalPoints}` : '-'}
                             </td>
-                            <td>{job.modelTag ?? '-'}</td>
-                            <td style={{ color: 'var(--text-secondary)' }}>{formatDate(job.createdAt)}</td>
+                            <td>{entry.modelTag ?? '-'}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.startedAt)}</td>
                             <td>
                               <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                                View <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                                Resolve <ArrowRightIcon style={{ width: 12, height: 12 }} />
                               </span>
                             </td>
                           </tr>

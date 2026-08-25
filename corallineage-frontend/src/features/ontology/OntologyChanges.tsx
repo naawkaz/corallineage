@@ -37,6 +37,7 @@ export default function OntologyChanges() {
   const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
   const [basedOnVersionLabels, setBasedOnVersionLabels] = useState<LabelDefinition[]>([])
 
+  const [newVersionTag, setNewVersionTag] = useState('')
   const [oldLabelCode, setOldLabelCode] = useState('')
   const [newLabelRows, setNewLabelRows] = useState<NewLabelRow[]>([emptyRow()])
   const [replacementLabelCode, setReplacementLabelCode] = useState('')
@@ -137,11 +138,12 @@ export default function OntologyChanges() {
 
   const canSubmit = useMemo(() => {
     if (!selectedVersionId) return false
+    if (newVersionTag.trim() === '') return false
     if (changeType !== 'LABEL_ADDED' && oldLabelCode.trim() === '') return false
     if (changeType === 'LABEL_DEPRECATED') return true
     // ADDED/RENAMED/SPLIT all require every visible new-label row fully filled in.
     return newLabelRows.every((r) => r.code.trim() !== '' && r.name.trim() !== '')
-  }, [selectedVersionId, changeType, oldLabelCode, newLabelRows])
+  }, [selectedVersionId, newVersionTag, changeType, oldLabelCode, newLabelRows])
 
   async function handleRecordChange() {
     if (!selectedVersionId || !canSubmit) return
@@ -159,6 +161,7 @@ export default function OntologyChanges() {
       await recordOntologyChange({
         changeType,
         basedOnDatasetVersionId: selectedVersionId,
+        newVersionTag: newVersionTag.trim(),
         oldLabelCode: changeType === 'LABEL_ADDED' || oldLabelCode.trim() === '' ? undefined : oldLabelCode.trim(),
         newLabels,
         replacementLabelCode:
@@ -168,6 +171,7 @@ export default function OntologyChanges() {
         changedBy: user?.username ?? '',
         notes: notes.trim() === '' ? undefined : notes.trim(),
       })
+      setNewVersionTag('')
       setOldLabelCode('')
       setReplacementLabelCode('')
       setNewLabelRows([emptyRow()])
@@ -327,6 +331,18 @@ export default function OntologyChanges() {
                   Branches a new version from this one. Its label set and image membership are copied
                   forward, then the mutation below is applied.
                 </div>
+              </div>
+
+              <div className="form-row">
+                <label className="form-label" htmlFor="newVersionTag">
+                  New version tag
+                </label>
+                <input
+                  id="newVersionTag"
+                  className="form-input"
+                  value={newVersionTag}
+                  onChange={(e) => setNewVersionTag(e.target.value)}
+                />
               </div>
 
               {changeType !== 'LABEL_ADDED' && (

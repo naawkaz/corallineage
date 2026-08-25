@@ -1,5 +1,6 @@
 package com.corallineage.backend.annotation;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class AnnotationJobResponse {
@@ -21,6 +22,8 @@ public class AnnotationJobResponse {
     private Long correctPredictions;
     private Double accuracyPercent;
     private Long addedToProjectVersionId;
+    private BigDecimal confidenceThreshold;
+    private boolean commitInPlace;
 
     public Long getJobId() { return jobId; }
     public void setJobId(Long jobId) { this.jobId = jobId; }
@@ -72,4 +75,10 @@ public class AnnotationJobResponse {
 
     public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
     public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
+
+    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+
+    public boolean isCommitInPlace() { return commitInPlace; }
+    public void setCommitInPlace(boolean commitInPlace) { this.commitInPlace = commitInPlace; }
 }

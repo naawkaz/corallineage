@@ -19,6 +19,7 @@ import { exportReportUrl, fetchReports, generateReport } from '../reporting/repo
 import { errorMessage } from '../../shared/api/client'
 import { changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../../shared/constants'
 import { useAuthContext } from '../../shared/lib/authContextCore'
+import { useToast } from '../../shared/lib/toastContextCore'
 import { formatCount, formatDate } from '../../shared/lib/format'
 import type { ReportListItem, ReproducibilityReport } from '../reporting/reportsTypes'
 import type { ReportChartImages } from '../reporting/ReportDocument'
@@ -33,6 +34,7 @@ function defaultDateInput(daysAgo: number): string {
 
 export default function ReportGenerator() {
   const { user } = useAuthContext()
+  const toast = useToast()
   const [fromDate, setFromDate] = useState(defaultDateInput(365))
   const [toDate, setToDate] = useState(defaultDateInput(0))
   const [includeEventLog, setIncludeEventLog] = useState(true)
@@ -73,6 +75,7 @@ export default function ReportGenerator() {
   async function handleGenerate() {
     setLoading(true)
     setError(null)
+    const toastId = toast.push({ variant: 'progress', title: 'Generating report…' })
     try {
       const result = await generateReport({
         requestedBy: user?.username ?? '',
@@ -88,9 +91,12 @@ export default function ReportGenerator() {
       setReport(result)
       setPreviousReportsLoading(true)
       loadPreviousReports()
+      toast.update(toastId, { variant: 'success', title: 'Report generated', detail: result.reportId })
     } catch (err) {
       setReport(null)
-      setError(errorMessage(err))
+      const message = errorMessage(err)
+      setError(message)
+      toast.update(toastId, { variant: 'error', title: 'Report generation failed', detail: message })
     } finally {
       setLoading(false)
     }
@@ -106,6 +112,7 @@ export default function ReportGenerator() {
   async function handleExportPdf() {
     if (!report) return
     setExportingPdf(true)
+    const toastId = toast.push({ variant: 'progress', title: 'Exporting PDF…' })
     try {
       const epochLineByRunId: Record<string, string | null> = {}
       if (report.analytics) {
@@ -143,6 +150,9 @@ export default function ReportGenerator() {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
+      toast.update(toastId, { variant: 'success', title: 'PDF exported', detail: `${report.reportId}.pdf` })
+    } catch (err) {
+      toast.update(toastId, { variant: 'error', title: 'PDF export failed', detail: errorMessage(err) })
     } finally {
       setExportingPdf(false)
     }
@@ -160,7 +170,63 @@ export default function ReportGenerator() {
   return (
     <>
       <div className="content">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24, alignItems: 'start', marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start', marginBottom: 24 }}>
+          <div>
+            <div className="section-header">
+              <div className="section-title">Previous reports</div>
+            </div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              {previousReportsError && (
+                <div className="alert alert-error" style={{ margin: 16 }}>
+                  {previousReportsError}
+                </div>
+              )}
+              {previousReportsLoading ? (
+                <div className="loading-state">
+                  <span className="spinner" /> Loading reports…
+                </div>
+              ) : previousReports.length === 0 ? (
+                <div className="empty-state">
+                  <p>No reports generated yet.</p>
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Report</th>
+                      <th>Period</th>
+                      <th>Requested by</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previousReports.map((r) => (
+                      <tr key={r.reportId}>
+                        <td>
+                          <span className="mono" style={{ fontSize: 12 }}>{r.reportId}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                          {formatDate(r.fromDate)} – {formatDate(r.toDate)}
+                        </td>
+                        <td>{r.requestedBy}</td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            aria-label="Redownload report"
+                            title="Redownload report"
+                            onClick={() => window.open(exportReportUrl(r.reportId), '_blank')}
+                          >
+                            <ArrowDownTrayIcon style={{ width: 13, height: 13 }} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
           <div className="card" style={{ padding: 16 }}>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
               <div className="form-row" style={{ marginBottom: 0 }}>
@@ -223,62 +289,6 @@ export default function ReportGenerator() {
                 {error}
               </div>
             )}
-          </div>
-
-          <div>
-            <div className="section-header">
-              <div className="section-title">Previous reports</div>
-            </div>
-            <div className="card" style={{ marginBottom: 16 }}>
-              {previousReportsError && (
-                <div className="alert alert-error" style={{ margin: 16 }}>
-                  {previousReportsError}
-                </div>
-              )}
-              {previousReportsLoading ? (
-                <div className="loading-state">
-                  <span className="spinner" /> Loading reports…
-                </div>
-              ) : previousReports.length === 0 ? (
-                <div className="empty-state">
-                  <p>No reports generated yet.</p>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Report</th>
-                      <th>Period</th>
-                      <th>Requested by</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previousReports.map((r) => (
-                      <tr key={r.reportId}>
-                        <td>
-                          <span className="mono" style={{ fontSize: 12 }}>{r.reportId}</span>
-                        </td>
-                        <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                          {formatDate(r.fromDate)} – {formatDate(r.toDate)}
-                        </td>
-                        <td>{r.requestedBy}</td>
-                        <td>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            aria-label="Redownload report"
-                            title="Redownload report"
-                            onClick={() => window.open(exportReportUrl(r.reportId), '_blank')}
-                          >
-                            <ArrowDownTrayIcon style={{ width: 13, height: 13 }} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
           </div>
         </div>
 

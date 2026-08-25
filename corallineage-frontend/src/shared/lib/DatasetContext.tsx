@@ -65,6 +65,6 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <DatasetContext.Provider value={{ datasets, loading, error, refresh }}>{children}</DatasetContext.Provider>
+    <DatasetContext.Provider value={{ datasets, loading, error, refresh, sourceId }}>{children}</DatasetContext.Provider>
   )
 }

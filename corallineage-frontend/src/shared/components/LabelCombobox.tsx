@@ -23,13 +23,20 @@ export default function LabelCombobox({ options, value, onChange, placeholder, d
 
   const selectedOption = options.find((o) => o.labelCode === value) ?? null
 
-  // Keep the displayed text in sync when the selection changes from outside (e.g. version switch).
-  // Done during render (React's documented "adjusting state when a prop changes" pattern) rather
-  // than in a useEffect, since this is pure state derivation, not a subscription to an external system.
-  const [syncedValue, setSyncedValue] = useState(value)
-  if (value !== syncedValue) {
-    setSyncedValue(value)
-    setQuery(selectedOption ? `${selectedOption.labelName} (${selectedOption.labelCode})` : '')
+  // Keep the displayed text in sync when the selection changes from outside (e.g. version switch,
+  // or the initial mount/an async-loaded `options` list resolving a `value` that was already set
+  // before options arrived). Re-syncs whenever either `value` or the text it resolves to changes,
+  // rather than tracking `value` alone, so a same-`value` re-render after `options` finishes
+  // loading still picks up the now-resolvable label text. Done during render (React's documented
+  // "adjusting state when a prop changes" pattern) rather than in a useEffect, since this is pure
+  // state derivation, not a subscription to an external system. Skipped while the dropdown is open
+  // so it never clobbers what the user is actively typing.
+  const resolvedQuery = selectedOption ? `${selectedOption.labelName} (${selectedOption.labelCode})` : ''
+  const syncKey = `${value}::${resolvedQuery}`
+  const [syncedKey, setSyncedKey] = useState(syncKey)
+  if (syncKey !== syncedKey && !open) {
+    setSyncedKey(syncKey)
+    setQuery(resolvedQuery)
   }
 
   useEffect(() => {

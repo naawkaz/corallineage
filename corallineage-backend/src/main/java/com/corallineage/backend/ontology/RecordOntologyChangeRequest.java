@@ -3,6 +3,7 @@ package com.corallineage.backend.ontology;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -14,6 +15,11 @@ public class RecordOntologyChangeRequest {
     /** The version being branched from — the change creates a new DatasetVersion on top of it. */
     @NotNull(message = "basedOnDatasetVersionId is required")
     private Long basedOnDatasetVersionId;
+
+    /** User-supplied tag for the new branched DatasetVersion this change creates. */
+    @NotBlank(message = "newVersionTag is required")
+    @Size(max = 50, message = "newVersionTag must be at most 50 characters")
+    private String newVersionTag;
 
     private String oldLabelCode;
 
@@ -33,6 +39,9 @@ public class RecordOntologyChangeRequest {
 
     public Long getBasedOnDatasetVersionId() { return basedOnDatasetVersionId; }
     public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) { this.basedOnDatasetVersionId = basedOnDatasetVersionId; }
+
+    public String getNewVersionTag() { return newVersionTag; }
+    public void setNewVersionTag(String newVersionTag) { this.newVersionTag = newVersionTag; }
 
     public String getOldLabelCode() { return oldLabelCode; }
     public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }

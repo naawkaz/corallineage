@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuthContext } from '../lib/authContextCore'
 import { DatasetProvider } from '../lib/DatasetContext'
+import { JobPollingProvider } from '../lib/JobPollingProvider'
 
 export default function ProtectedRoute() {
   const { user, loading } = useAuthContext()
@@ -20,7 +21,9 @@ export default function ProtectedRoute() {
 
   return (
     <DatasetProvider>
-      <Outlet />
+      <JobPollingProvider>
+        <Outlet />
+      </JobPollingProvider>
     </DatasetProvider>
   )
 }

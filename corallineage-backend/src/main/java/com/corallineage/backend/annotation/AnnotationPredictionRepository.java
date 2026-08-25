@@ -24,4 +24,8 @@ public interface AnnotationPredictionRepository extends JpaRepository<Annotation
     long countByAnnotationJobId(Long annotationJobId);
 
     long countByAnnotationJobIdAndAcceptedIsNotNull(Long annotationJobId);
+
+    long countByAnnotationJobIdAndAcceptedTrue(Long annotationJobId);
+
+    List<AnnotationPrediction> findByAnnotationJobIdAndAcceptedIsNull(Long annotationJobId);
 }

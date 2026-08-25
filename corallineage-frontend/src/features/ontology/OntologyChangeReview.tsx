@@ -7,7 +7,7 @@ import { fetchDirtyAnnotations, fetchOntologyChanges, resolveDirtyAnnotation } f
 import { fetchVersion } from '../datasets/versionsApi'
 import { imageFileUrlById } from '../datasets/imagesApi'
 import { errorMessage } from '../../shared/api/client'
-import { changeTypeBadge, changeTypeLabel } from '../../shared/constants'
+import { changeTypeLabel } from '../../shared/constants'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import LabelCombobox from '../../shared/components/LabelCombobox'
 import { formatDate } from '../../shared/lib/format'
@@ -167,12 +167,6 @@ export default function OntologyChangeReview() {
       {changeError && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
           {changeError}
-        </div>
-      )}
-
-      {change && (
-        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span className={`badge ${changeTypeBadge(change.changeType)}`}>{changeTypeLabel(change.changeType)}</span>
         </div>
       )}
 

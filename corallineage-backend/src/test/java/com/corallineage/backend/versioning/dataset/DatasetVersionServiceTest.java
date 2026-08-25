@@ -1,5 +1,6 @@
 package com.corallineage.backend.versioning.dataset;
 
+import com.corallineage.backend.annotation.AnnotationJobRepository;
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.datasets.importservice.ImportJobRepository;
@@ -8,6 +9,7 @@ import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.ontology.DirtyAnnotationRepository;
+import com.corallineage.backend.pointannotation.PointAnnotationJob;
 import com.corallineage.backend.pointannotation.PointAnnotationJobRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,6 +57,8 @@ class DatasetVersionServiceTest {
     private ImportJobRepository importJobRepository;
     @Mock
     private PointAnnotationJobRepository pointAnnotationJobRepository;
+    @Mock
+    private AnnotationJobRepository annotationJobRepository;
 
     @InjectMocks
     private DatasetVersionService datasetVersionService;
@@ -274,16 +278,69 @@ class DatasetVersionServiceTest {
         version.setId(1L);
         version.setVersionTag("v1.0");
 
-        Page<DatasetVersion> page = new PageImpl<>(List.of(version));
         when(datasetRepository.existsById(1L)).thenReturn(true);
-        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any()))
-                .thenReturn(page);
+        when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
+                .thenReturn(List.of(version));
 
         Page<DatasetVersionResponse> result =
                 datasetVersionService.getVersionHistory(1L, PageRequest.of(0, 20));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getVersionTag()).isEqualTo("v1.0");
+    }
+
+    @Test
+    void getVersionHistory_usesStagingFilteredQuery_excludingStagingVersions() {
+        DatasetVersion nonStaging = new DatasetVersion();
+        nonStaging.setId(1L);
+        nonStaging.setVersionTag("v1.0");
+
+        // The staging version is simply never returned by the filtered repository query the
+        // service now calls - the exclusion happens in the repository's JPQL, not in this
+        // service method, so the test's job is to confirm the service calls the filtered query
+        // (not the unfiltered one) and passes its result straight through.
+        when(datasetRepository.existsById(1L)).thenReturn(true);
+        when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
+                .thenReturn(List.of(nonStaging));
+
+        Page<DatasetVersionResponse> result =
+                datasetVersionService.getVersionHistory(1L, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(DatasetVersionResponse::getVersionTag).containsExactly("v1.0");
+        verify(datasetVersionRepository, never()).findAllByDatasetIdOrderByCreatedAtDesc(eq(1L), any());
+    }
+
+    @Test
+    void getVersionHistory_excludesUnresolvedVersions() {
+        DatasetVersion resolvedVersion = new DatasetVersion();
+        resolvedVersion.setId(1L);
+        resolvedVersion.setVersionTag("v1.0");
+        Dataset dataset = new Dataset();
+        dataset.setId(1L);
+        resolvedVersion.setDataset(dataset);
+
+        DatasetVersion unresolvedVersion = new DatasetVersion();
+        unresolvedVersion.setId(2L);
+        unresolvedVersion.setVersionTag("blank1");
+        unresolvedVersion.setDataset(dataset);
+
+        when(datasetRepository.existsById(1L)).thenReturn(true);
+        when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
+                .thenReturn(List.of(resolvedVersion, unresolvedVersion));
+
+        PointAnnotationJob pointJob = new PointAnnotationJob();
+        pointJob.setId(9L);
+        pointJob.setStatus("SEED_LABELING");
+        when(pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(1L))
+                .thenReturn(Optional.empty());
+        when(pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(2L))
+                .thenReturn(Optional.of(pointJob));
+
+        Page<DatasetVersionResponse> result =
+                datasetVersionService.getVersionHistory(1L, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(DatasetVersionResponse::getVersionTag).containsExactly("v1.0");
+        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
     @Test
