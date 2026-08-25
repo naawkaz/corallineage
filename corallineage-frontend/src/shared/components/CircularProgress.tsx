@@ -12,7 +12,7 @@ export default function CircularProgress({ percent, danger }: { percent: number;
         cy={size / 2}
         r={r}
         fill="none"
-        stroke={danger ? 'var(--danger)' : 'var(--success)'}
+        stroke={danger ? 'var(--danger)' : 'var(--accent)'}
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={circumference}
