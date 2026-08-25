@@ -89,7 +89,7 @@ public class OntologyChangeService {
         validateNewLabels(changeType, newLabels);
         validateReplacementLabelCode(changeType, request.getReplacementLabelCode(), oldLabelCode, basedOnVersion);
 
-        DatasetVersion newVersion = branchNewVersion(basedOnVersion, changeType, request.getChangedBy(), request.getNotes());
+        DatasetVersion newVersion = branchNewVersion(basedOnVersion, changeType, request);
 
         List<String> createdLabelCodes = applyLabelMutation(changeType, oldLabelCode, newLabels, newVersion);
 
@@ -164,20 +164,17 @@ public class OntologyChangeService {
 
     /** Branches a new DatasetVersion off {@code basedOnVersion}, copying labels + image membership forward. */
     private DatasetVersion branchNewVersion(DatasetVersion basedOnVersion, ChangeType changeType,
-                                            String changedBy, String notes) {
+                                            RecordOntologyChangeRequest request) {
         CreateVersionRequest versionRequest = new CreateVersionRequest();
-        versionRequest.setVersionTag(generateVersionTag(basedOnVersion));
+        versionRequest.setVersionTag(request.getNewVersionTag());
         versionRequest.setTriggerReason(TriggerReason.LABEL_DEFINITION_CHANGED);
-        versionRequest.setCreatedBy(changedBy);
-        versionRequest.setNotes(notes != null ? notes : "Ontology change (" + changeType + ") based on " + basedOnVersion.getVersionTag());
+        versionRequest.setCreatedBy(request.getChangedBy());
+        versionRequest.setNotes(request.getNotes() != null ? request.getNotes()
+                : "Ontology change (" + changeType + ") based on " + basedOnVersion.getVersionTag());
         DatasetVersionResponse newVersionResponse = datasetVersionService.createSnapshotBranchedFrom(
                 basedOnVersion.getDataset().getId(), versionRequest, basedOnVersion);
         return datasetVersionRepository.findById(newVersionResponse.getId())
                 .orElseThrow(() -> new NotFoundException("Dataset version not found: " + newVersionResponse.getId()));
-    }
-
-    private String generateVersionTag(DatasetVersion basedOnVersion) {
-        return "oc-" + basedOnVersion.getId() + "-" + Instant.now().toEpochMilli();
     }
 
     private void validateOldLabelCode(ChangeType changeType, String oldLabelCode, DatasetVersion basedOnVersion) {

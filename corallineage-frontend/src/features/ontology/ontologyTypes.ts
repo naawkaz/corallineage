@@ -39,6 +39,7 @@ export interface NewLabelSpec {
 export interface RecordOntologyChangeRequest {
   changeType: ChangeType
   basedOnDatasetVersionId: number
+  newVersionTag: string
   oldLabelCode?: string
   newLabels: NewLabelSpec[]
   replacementLabelCode?: string
