@@ -11,7 +11,6 @@ import {
   Squares2X2Icon,
   ArrowsRightLeftIcon,
   CubeIcon,
-  TagIcon,
   Square3Stack3DIcon,
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline'
@@ -39,7 +38,6 @@ function sourceNavItems(sourceId: string): SourceNavItem[] {
     { to: `/sources/${sourceId}`, icon: Squares2X2Icon, label: 'Overview', exact: true },
     { to: `/sources/${sourceId}/models`, icon: CubeIcon, label: 'Models' },
     { to: `/sources/${sourceId}/ontology`, icon: Square3Stack3DIcon, label: 'Ontology Changes' },
-    { to: `/sources/${sourceId}/annotation`, icon: TagIcon, label: 'Annotation Jobs' },
     { to: `/sources/${sourceId}/diff`, icon: ArrowsRightLeftIcon, label: 'Compare Versions' },
     { to: `/sources/${sourceId}/events`, icon: ClipboardDocumentListIcon, label: 'Event Log' },
   ]

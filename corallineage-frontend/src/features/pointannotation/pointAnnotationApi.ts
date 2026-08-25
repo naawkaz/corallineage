@@ -3,8 +3,9 @@ import type {
   GeneratedPoint,
   LabelPointRequest,
   PointAnnotationJob,
-  ReviewGeneratedPointRequest,
   StartPointAnnotationJobRequest,
+  TrainPointAnnotationJobRequest,
+  UnlabeledImportQueueEntry,
 } from '../pointannotation/pointAnnotationTypes'
 import type { Page } from '../datasets/versionsTypes'
 
@@ -42,20 +43,26 @@ export async function labelPoint(pointId: number, request: LabelPointRequest): P
   return data
 }
 
-export async function reviewGeneratedPoint(
-  pointId: number,
-  request: ReviewGeneratedPointRequest,
-): Promise<GeneratedPoint> {
-  const { data } = await api.patch<GeneratedPoint>(`/point-annotation/points/${pointId}/review`, request)
-  return data
-}
-
-export async function trainPointAnnotationJob(jobId: number): Promise<PointAnnotationJob> {
-  const { data } = await api.post<PointAnnotationJob>(`/point-annotation/jobs/${jobId}/train`)
+export async function trainPointAnnotationJob(
+  jobId: number,
+  request?: TrainPointAnnotationJobRequest,
+): Promise<PointAnnotationJob> {
+  const { data } = await api.post<PointAnnotationJob>(`/point-annotation/jobs/${jobId}/train`, request)
   return data
 }
 
 export async function autoAnnotatePointAnnotationJob(jobId: number): Promise<PointAnnotationJob> {
   const { data } = await api.post<PointAnnotationJob>(`/point-annotation/jobs/${jobId}/auto-annotate`)
+  return data
+}
+
+export async function fetchUnlabeledImportQueue(
+  datasetId: number,
+  page: number,
+  size: number,
+): Promise<Page<UnlabeledImportQueueEntry>> {
+  const { data } = await api.get<Page<UnlabeledImportQueueEntry>>('/point-annotation/unlabeled-queue', {
+    params: { datasetId, page, size },
+  })
   return data
 }

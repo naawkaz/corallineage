@@ -3,22 +3,23 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
 import {
-  autoAnnotatePointAnnotationJob,
   fetchGeneratedPoints,
   fetchPointAnnotationJob,
   labelPoint,
   trainPointAnnotationJob,
 } from '../pointannotation/pointAnnotationApi'
 import { ArrowLeftIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
-import { fetchTrainingJob } from '../training/trainingApi'
-import { createLabelDefinition, fetchVersion } from '../datasets/versionsApi'
+import { fetchArchitectures, fetchTrainingJob } from '../training/trainingApi'
+import TrainModelDialog from '../training/TrainModelDialog'
+import { createLabelDefinition, fetchVersion, fetchVersions } from '../datasets/versionsApi'
 import { imageFileUrlById } from '../datasets/imagesApi'
 import { errorMessage } from '../../shared/api/client'
 import { useAuthContext } from '../../shared/lib/authContextCore'
+import { useToast } from '../../shared/lib/toastContextCore'
 import LabelCombobox from '../../shared/components/LabelCombobox'
 import type { GeneratedPoint, PointAnnotationJob } from '../pointannotation/pointAnnotationTypes'
-import type { TrainingJob } from '../training/trainingTypes'
-import type { LabelDefinition } from '../datasets/versionsTypes'
+import type { Architecture, TrainingJob } from '../training/trainingTypes'
+import type { DatasetVersion, LabelDefinition } from '../datasets/versionsTypes'
 
 export default function SeedLabeling() {
   const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
@@ -26,6 +27,7 @@ export default function SeedLabeling() {
   const sourceId = Number(sourceIdParam)
   const navigate = useNavigate()
   const { user } = useAuthContext()
+  const toast = useToast()
 
   const [job, setJob] = useState<PointAnnotationJob | null>(null)
   const [points, setPoints] = useState<GeneratedPoint[]>([])
@@ -39,9 +41,10 @@ export default function SeedLabeling() {
   const [dotsVisible, setDotsVisible] = useState(true)
   const transformRef = useRef<ReactZoomPanPinchContentRef>(null)
 
-  const [training, setTraining] = useState(false)
-  const [autoAnnotating, setAutoAnnotating] = useState(false)
   const [trainingJob, setTrainingJob] = useState<TrainingJob | null>(null)
+  const [trainDialogOpen, setTrainDialogOpen] = useState(false)
+  const [architectures, setArchitectures] = useState<Architecture[]>([])
+  const [versions, setVersions] = useState<DatasetVersion[]>([])
 
   const [addLabelOpen, setAddLabelOpen] = useState(false)
   const [newLabelCode, setNewLabelCode] = useState('')
@@ -65,6 +68,20 @@ export default function SeedLabeling() {
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
   }, [jobId, sourceId, loadPoints])
+
+  useEffect(() => {
+    fetchArchitectures()
+      .then((list) => setArchitectures(list))
+      .catch(() => {
+        // architecture dropdown just stays on the default; submit will still validate server-side
+      })
+  }, [])
+
+  useEffect(() => {
+    fetchVersions(sourceId, 0, 50)
+      .then((res) => setVersions(res.content))
+      .catch(() => setVersions([]))
+  }, [sourceId])
 
   const imageIds = useMemo(() => {
     const seen = new Set<number>()
@@ -147,28 +164,63 @@ export default function SeedLabeling() {
     }
   }
 
-  async function handleTrain() {
-    setTraining(true)
-    setError(null)
-    try {
-      const updated = await trainPointAnnotationJob(jobId)
-      setJob(updated)
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setTraining(false)
+  // Submitted via the shared TrainModelDialog (also used unmodified by ModelRegistry.tsx): unlike
+  // that page's own usage, this one routes through trainPointAnnotationJob so the resulting
+  // TrainingJob gets attached to this PointAnnotationJob (job.trainingJobId) instead of created as
+  // a standalone job - see PointAnnotationJobService.trainModel and the plan doc's Part D notes for
+  // why this distinction matters (TrainingJobExecutor.autoAnnotateAfterTraining reads it).
+  //
+  // Per the confirmed UX: once training is kicked off, the user leaves this page immediately
+  // rather than watching progress here - the backend auto-delegates into auto-annotate the moment
+  // training completes (TrainingJobExecutor -> PointAnnotationJobService.autoAnnotateAfterTraining,
+  // no manual "Run Auto-Annotation" click), and cross-page feedback (a spinner on the Unlabeled
+  // import queue entry, a toast once it's ready for review) is JobPollingProvider's job (Part G) -
+  // it fires the "Training complete"/"Ready for review" toasts globally, so this only needs to
+  // push its own immediate "started" acknowledgement before navigating away, since the shared
+  // provider deliberately never toasts on a job's first sight (that's what avoids re-toasting
+  // every already-in-progress job just because the user opened a new page).
+  async function handleTrainSubmit(form: {
+    architecture: string
+    datasetVersionId: number
+    learningRate: number
+    batchSize: number
+    epochs: number
+  }): Promise<TrainingJob> {
+    const updated = await trainPointAnnotationJob(jobId, {
+      architecture: form.architecture,
+      learningRate: form.learningRate,
+      batchSize: form.batchSize,
+      epochs: form.epochs,
+    })
+    if (updated.trainingJobId == null) {
+      throw new Error('Training job was not created')
     }
+    const trainingJobResponse = await fetchTrainingJob(updated.trainingJobId)
+    toast.push({ variant: 'info', title: 'Training started', detail: 'You can track progress from the source overview.' })
+    navigate(`/sources/${sourceId}`)
+    return trainingJobResponse
   }
 
   // Polls the underlying (real, unmodified) Training Job while this point-annotation job is
-  // TRAINING - reuses the existing Training Jobs page's own 3s-polling convention.
+  // TRAINING - reuses the existing Training Jobs page's own 3s-polling convention. Only matters if
+  // the user navigates directly back to this page mid-training (the normal path leaves immediately
+  // after submitting); once the job leaves TRAINING (delegated to auto-annotate), forward straight
+  // to the delegated AnnotationJob's review screen rather than showing a dead-end status here.
   useEffect(() => {
     if (!job || job.status !== 'TRAINING' || job.trainingJobId == null) return
     let cancelled = false
     const interval = setInterval(() => {
-      fetchTrainingJob(job.trainingJobId as number)
-        .then((tj) => {
-          if (!cancelled) setTrainingJob(tj)
+      Promise.all([fetchTrainingJob(job.trainingJobId as number), fetchPointAnnotationJob(jobId)])
+        .then(([tj, pointJob]) => {
+          if (cancelled) return
+          setTrainingJob(tj)
+          if (pointJob.status !== 'TRAINING') {
+            if (pointJob.annotationJobId != null) {
+              navigate(`/sources/${sourceId}/annotation/jobs/${pointJob.annotationJobId}/review`)
+            } else {
+              setJob(pointJob)
+            }
+          }
         })
         .catch(() => {
           /* transient poll failure - try again next tick */
@@ -178,46 +230,7 @@ export default function SeedLabeling() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [job])
-
-  // Auto-annotation now kicks off asynchronously and returns almost immediately with the job
-  // already in AUTO_ANNOTATING status, so this polls the point-annotation job itself (faster
-  // than the 3s training poll, since inference races through points quickly and the status
-  // strip should visibly flicker as it goes) until it reaches REVIEW or COMPLETE.
-  useEffect(() => {
-    if (!job || job.status !== 'AUTO_ANNOTATING') return
-    let cancelled = false
-    const interval = setInterval(() => {
-      fetchPointAnnotationJob(jobId)
-        .then((updated) => {
-          if (cancelled) return
-          setJob(updated)
-          if (updated.status === 'REVIEW') {
-            navigate(`/sources/${sourceId}/blank-import/jobs/${jobId}/review`)
-          }
-        })
-        .catch(() => {
-          /* transient poll failure - try again next tick */
-        })
-    }, 1000)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
   }, [job, jobId, navigate, sourceId])
-
-  async function handleAutoAnnotate() {
-    setAutoAnnotating(true)
-    setError(null)
-    try {
-      const updated = await autoAnnotatePointAnnotationJob(jobId)
-      setJob(updated)
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setAutoAnnotating(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -243,10 +256,6 @@ export default function SeedLabeling() {
   const progressPct = totalCount > 0 ? (labeledCount / totalCount) * 100 : 0
   const allLabeled = totalCount > 0 && labeledCount === totalCount
 
-  const autoAnnotationCurrentFilename =
-    job.autoAnnotationCurrentPointId != null
-      ? points.find((p) => p.id === job.autoAnnotationCurrentPointId)?.filename ?? null
-      : null
   const trainingProgressPct =
     trainingJob?.currentEpoch != null && trainingJob.totalEpochs
       ? (trainingJob.currentEpoch / trainingJob.totalEpochs) * 100
@@ -256,14 +265,12 @@ export default function SeedLabeling() {
   const statusText =
     job.status === 'TRAINING'
       ? `Training, epoch ${trainingJob?.currentEpoch ?? '-'} / ${trainingJob?.totalEpochs ?? '-'}`
-      : job.status === 'AUTO_ANNOTATING'
-        ? `Automated annotation: Point #${job.autoAnnotationProcessedCount ?? 0}${job.autoAnnotationTotalCount != null ? ` / ${job.autoAnnotationTotalCount}` : ''}${autoAnnotationCurrentFilename ? ` ${autoAnnotationCurrentFilename}` : ''}`
-        : `${labeledCount} / ${totalCount} labeled`
+      : `${labeledCount} / ${totalCount} labeled`
 
   return (
     <>
       <div style={{ padding: '36px 28px 0' }}>
-        <button className="btn btn-secondary" onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <button className="btn btn-secondary" onClick={() => navigate(`/sources/${sourceId}`)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <ArrowLeftIcon style={{ width: 14, height: 14 }} />
           Back
         </button>
@@ -272,17 +279,8 @@ export default function SeedLabeling() {
       <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{statusText}</span>
         {job.status === 'SEED_LABELING' && allLabeled && (
-          <button className="btn btn-primary" onClick={handleTrain} disabled={training}>
-            {training ? 'Starting…' : 'Train Model'}
-          </button>
-        )}
-        {job.status === 'TRAINING' && (
-          <button
-            className="btn btn-primary"
-            onClick={handleAutoAnnotate}
-            disabled={autoAnnotating || trainingJob?.status !== 'COMPLETED'}
-          >
-            {autoAnnotating ? 'Running…' : 'Run Auto-Annotation'}
+          <button className="btn btn-primary" onClick={() => setTrainDialogOpen(true)}>
+            Train model &amp; run auto-annotation
           </button>
         )}
       </div>
@@ -291,22 +289,6 @@ export default function SeedLabeling() {
       </div>
 
       <div className="content">
-        {(job.status === 'REVIEW' || job.status === 'COMPLETE') && (
-          <div className="impact-box" style={{ marginBottom: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>
-              Auto-annotation complete with {job.modelTag}.{' '}
-              {job.status === 'REVIEW' ? 'Some points need review.' : 'Every point was auto-confirmed.'}
-            </span>
-            {job.status === 'REVIEW' && (
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate(`/sources/${sourceId}/blank-import/jobs/${jobId}/review`)}
-              >
-                Go to Review Queue
-              </button>
-            )}
-          </div>
-        )}
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             {error}
@@ -320,10 +302,9 @@ export default function SeedLabeling() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div className="inset-container" style={{ maxHeight: '40vh', overflowY: 'auto' }}>
-              <div className="card" style={{ padding: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 300px', gap: 16, height: 'calc(100vh - 149px)' }}>
+            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="card" style={{ padding: 0, flex: 1, overflowY: 'auto' }}>
                 {imageIds.map((imgId) => {
                   const imgPoints = pointsByImage.get(imgId) ?? []
                   const labeled = imgPoints.filter((p) => p.status === 'HUMAN_LABELED').length
@@ -352,9 +333,80 @@ export default function SeedLabeling() {
                   )
                 })}
               </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+                    Labeled
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
+                    Unlabeled
+                  </span>
+                </div>
+                <label className="toggle-checkbox">
+                  <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
+                  Points
+                </label>
+              </div>
+              <div className="image-canvas" style={{ flexShrink: 0 }}>
+                {selectedImageId != null ? (
+                  <TransformWrapper
+                    key={selectedImageId}
+                    ref={transformRef}
+                    initialScale={1}
+                    minScale={1}
+                    maxScale={4}
+                    centerOnInit
+                  >
+                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <img
+                          src={imageFileUrlById(selectedImageId)}
+                          alt={currentFilename}
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                          onLoad={(e) => {
+                            const img = e.currentTarget
+                            setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
+                          }}
+                        />
+                        {dotsVisible &&
+                          canvasNaturalSize &&
+                          currentImagePoints.map((p, idx) => {
+                            const dotClass =
+                              p.id === effectiveSelectedPointId
+                                ? 'dot-selected'
+                                : p.status === 'HUMAN_LABELED'
+                                  ? 'dot-accepted'
+                                  : 'dot-pending'
+                            return (
+                              <div
+                                key={p.id}
+                                id={`seed-dot-${p.id}`}
+                                className={`annotation-dot ${dotClass}`}
+                                style={{
+                                  top: `${(p.rowPosition / canvasNaturalSize.height) * 100}%`,
+                                  left: `${(p.colPosition / canvasNaturalSize.width) * 100}%`,
+                                }}
+                                title={p.status === 'HUMAN_LABELED' ? `${p.finalLabelCode}` : 'Unlabeled'}
+                                onClick={() => setSelectedPointId(p.id)}
+                              >
+                                {idx + 1}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </TransformComponent>
+                  </TransformWrapper>
+                ) : (
+                  <div className="image-placeholder">No image selected</div>
+                )}
               </div>
 
-              <div className="card" style={{ padding: 0 }}>
+              <div className="card" style={{ marginTop: 10, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div
                   style={{
                     display: 'flex',
@@ -379,7 +431,7 @@ export default function SeedLabeling() {
                   </button>
                 </div>
 
-                <div style={{ maxHeight: '30vh', overflowY: 'auto' }}>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
                   {labelOptions.length === 0 ? (
                     <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
                       No labels declared on this dataset version yet.
@@ -406,93 +458,19 @@ export default function SeedLabeling() {
               </div>
             </div>
 
-            <div className="review-layout">
-              <div>
-                <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <label className="toggle-checkbox">
-                    <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
-                    Points
-                  </label>
-                </div>
-                <div className="image-canvas">
-                  {selectedImageId != null ? (
-                    <TransformWrapper
-                      key={selectedImageId}
-                      ref={transformRef}
-                      initialScale={1}
-                      minScale={1}
-                      maxScale={4}
-                      centerOnInit
-                    >
-                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                          <img
-                            src={imageFileUrlById(selectedImageId)}
-                            alt={currentFilename}
-                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                            onLoad={(e) => {
-                              const img = e.currentTarget
-                              setCanvasNaturalSize({ width: img.naturalWidth, height: img.naturalHeight })
-                            }}
-                          />
-                          {dotsVisible &&
-                            canvasNaturalSize &&
-                            currentImagePoints.map((p, idx) => {
-                              const dotClass =
-                                p.id === effectiveSelectedPointId
-                                  ? 'dot-selected'
-                                  : p.status === 'HUMAN_LABELED'
-                                    ? 'dot-accepted'
-                                    : 'dot-pending'
-                              return (
-                                <div
-                                  key={p.id}
-                                  id={`seed-dot-${p.id}`}
-                                  className={`annotation-dot ${dotClass}`}
-                                  style={{
-                                    top: `${(p.rowPosition / canvasNaturalSize.height) * 100}%`,
-                                    left: `${(p.colPosition / canvasNaturalSize.width) * 100}%`,
-                                  }}
-                                  title={p.status === 'HUMAN_LABELED' ? `${p.finalLabelCode}` : 'Unlabeled'}
-                                  onClick={() => setSelectedPointId(p.id)}
-                                >
-                                  {idx + 1}
-                                </div>
-                              )
-                            })}
-                        </div>
-                      </TransformComponent>
-                    </TransformWrapper>
-                  ) : (
-                    <div className="image-placeholder">No image selected</div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: 'var(--text-secondary)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
-                    Labeled
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
-                    Unlabeled
-                  </span>
-                </div>
-              </div>
-
-              <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
-                  {currentImagePoints.map((point, idx) => (
-                    <SeedPointCard
-                      key={point.id}
-                      point={point}
-                      pointNumber={idx + 1}
-                      selected={point.id === effectiveSelectedPointId}
-                      labelOptions={labelOptions}
-                      onSelect={() => setSelectedPointId(point.id)}
-                      onLabel={handleLabel}
-                    />
-                  ))}
-                </div>
+            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                {currentImagePoints.map((point, idx) => (
+                  <SeedPointCard
+                    key={point.id}
+                    point={point}
+                    pointNumber={idx + 1}
+                    selected={point.id === effectiveSelectedPointId}
+                    labelOptions={labelOptions}
+                    onSelect={() => setSelectedPointId(point.id)}
+                    onLabel={handleLabel}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -578,6 +556,21 @@ export default function SeedLabeling() {
           </div>
         </div>
       )}
+
+      {trainDialogOpen && (
+        <TrainModelDialog
+          sourceId={sourceId}
+          initiatedBy={user?.username ?? ''}
+          architectures={architectures}
+          versions={versions}
+          initialVersionId={job.datasetVersionId}
+          onSubmit={handleTrainSubmit}
+          onClose={() => setTrainDialogOpen(false)}
+          onCompleted={() => {
+            fetchPointAnnotationJob(jobId).then(setJob).catch(() => {})
+          }}
+        />
+      )}
     </>
   )
 }
@@ -597,7 +590,9 @@ function SeedPointCard({
   onSelect: () => void
   onLabel: (point: GeneratedPoint, labelCode: string) => void
 }) {
-  const [picked, setPicked] = useState('')
+  // The dropdown alone is the confirm action (no separate "Label" button): picking an option
+  // immediately labels the point - mirrors AnnotationReview.tsx's PredictionCard.
+  const canLabel = point.status !== 'HUMAN_LABELED'
 
   return (
     <div id={`seed-card-${point.id}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
@@ -610,21 +605,15 @@ function SeedPointCard({
         )}
       </div>
 
-      {point.status !== 'HUMAN_LABELED' && (
-        <div onClick={(e) => e.stopPropagation()} onFocus={onSelect}>
-          <LabelCombobox
-            options={labelOptions}
-            value={picked}
-            onChange={setPicked}
-            placeholder="Search labels…"
-          />
-          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-accept" disabled={!picked} onClick={() => onLabel(point, picked)}>
-              Label
-            </button>
-          </div>
-        </div>
-      )}
+      <div onClick={(e) => canLabel && e.stopPropagation()} onFocus={onSelect}>
+        <LabelCombobox
+          options={labelOptions}
+          value={point.finalLabelCode ?? ''}
+          onChange={canLabel ? (labelCode) => onLabel(point, labelCode) : () => {}}
+          disabled={!canLabel}
+          placeholder="Search labels…"
+        />
+      </div>
     </div>
   )
 }

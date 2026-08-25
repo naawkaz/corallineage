@@ -20,6 +20,18 @@ export interface AnnotationJob {
   correctPredictions: number | null
   accuracyPercent: number | null
   addedToProjectVersionId: number | null
+  confidenceThreshold: number | null
+  commitInPlace: boolean
+}
+
+export interface SubmitExistingVersionJobRequest {
+  modelVersionId: number
+  datasetVersionId: number
+  imageIds: number[]
+  gridRows?: number
+  gridCols?: number
+  confidenceThreshold?: number
+  initiatedBy: string
 }
 
 export interface AnnotationPrediction {
