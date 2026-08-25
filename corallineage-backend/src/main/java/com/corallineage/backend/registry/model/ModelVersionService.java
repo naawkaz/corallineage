@@ -1,5 +1,6 @@
 package com.corallineage.backend.registry.model;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.exception.ServiceUnavailableException;
@@ -40,7 +41,7 @@ public class ModelVersionService {
                                                     BigDecimal accuracy, String performanceMetricsJson,
                                                     String classMappingsJson) {
         ModelVersion model = new ModelVersion();
-        model.setModelTag("model-v" + (modelVersionRepository.count() + 1));
+        model.setModelTag("model-v" + nextModelFallbackNumber(job.getDatasetVersion().getDataset()));
         model.setTrainedOnDatasetVersion(job.getDatasetVersion());
         model.setTrainedAt(Instant.now());
         model.setTrainedBy(job.getInitiatedBy());
@@ -103,6 +104,21 @@ public class ModelVersionService {
     @Transactional(readOnly = true)
     public Long getDatasetIdForModel(Long id) {
         return findOrThrow(id).getTrainedOnDatasetVersion().getDataset().getId();
+    }
+
+    /**
+     * Reserves and returns the next fallback model number for {@code dataset}, incrementing its
+     * persisted counter in place (a managed entity within this method's transaction, so the write
+     * flushes on commit without a separate save call). Replaces the previous
+     * {@code modelVersionRepository.count() + 1} approach, which counted every model across every
+     * dataset - a model deleted from a different dataset could shift another dataset's next
+     * fallback number, and two datasets training around the same time could even race onto the
+     * same tag.
+     */
+    private int nextModelFallbackNumber(Dataset dataset) {
+        int number = dataset.getNextModelFallbackNumber() != null ? dataset.getNextModelFallbackNumber() : 1;
+        dataset.setNextModelFallbackNumber(number + 1);
+        return number;
     }
 
     private ModelVersion findOrThrow(Long id) {

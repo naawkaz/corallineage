@@ -27,6 +27,19 @@ public class DatasetVersionResponse {
     // Set once a PointAnnotationJob already exists for this version, so the frontend knows blank
     // import has already been started here and shouldn't offer "Resolve" again.
     private boolean blankImportStarted;
+    // "UNRESOLVED" when this version needs attention before it's usable (a BLANK import that
+    // hasn't been resolved into real points yet, in any stage); null once resolved or not
+    // applicable. See DatasetVersionService.attachResolveStatus.
+    private String resolveStatus;
+    // Where clicking "Resolve" should take the user: "START" (no job yet, open the blank-import
+    // start dialog), "SEED_LABEL" (a point-annotation job exists, any non-COMPLETE status - that
+    // page itself handles every sub-stage), "ANNOTATION_REVIEW" (a warm-start existing-version
+    // job exists, predictions pending review/apply). Null when resolveStatus is null.
+    private String resolveRoute;
+    // The job id resolveRoute's URL is built from (point-annotation job id for SEED_LABEL,
+    // annotation job id for ANNOTATION_REVIEW); null for START (no job exists yet) or when
+    // resolveStatus is null.
+    private Long resolveJobId;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -75,4 +88,13 @@ public class DatasetVersionResponse {
 
     public boolean isBlankImportStarted() { return blankImportStarted; }
     public void setBlankImportStarted(boolean blankImportStarted) { this.blankImportStarted = blankImportStarted; }
+
+    public String getResolveStatus() { return resolveStatus; }
+    public void setResolveStatus(String resolveStatus) { this.resolveStatus = resolveStatus; }
+
+    public String getResolveRoute() { return resolveRoute; }
+    public void setResolveRoute(String resolveRoute) { this.resolveRoute = resolveRoute; }
+
+    public Long getResolveJobId() { return resolveJobId; }
+    public void setResolveJobId(Long resolveJobId) { this.resolveJobId = resolveJobId; }
 }

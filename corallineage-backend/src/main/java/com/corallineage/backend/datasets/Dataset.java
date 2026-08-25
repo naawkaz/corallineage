@@ -28,6 +28,17 @@ public class Dataset {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // The next fallback number a model registered on this dataset without an explicit tag will
+    // get ("model-v{N}"), incremented only at the moment it's actually used - see
+    // ModelVersionService.registerFromTrainingResult. Nullable at the JPA level even though every
+    // row conceptually starts at 1 (Hibernate's ddl-auto=update can't add a NOT NULL column to a
+    // table that already has rows, same gotcha as several other columns in this codebase - see
+    // decisions.md 2026-08-10); application code treats null as 1. Scoped per dataset rather than
+    // a live COUNT(*) across every dataset (the previous approach) so a deleted model can never
+    // cause a fallback number to be reused/collide later.
+    @Column(name = "next_model_fallback_number")
+    private Integer nextModelFallbackNumber;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
@@ -52,4 +63,7 @@ public class Dataset {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Integer getNextModelFallbackNumber() { return nextModelFallbackNumber; }
+    public void setNextModelFallbackNumber(Integer nextModelFallbackNumber) { this.nextModelFallbackNumber = nextModelFallbackNumber; }
 }

@@ -1,5 +1,6 @@
 package com.corallineage.backend.versioning.dataset;
 
+import com.corallineage.backend.annotation.AnnotationJobRepository;
 import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.datasets.importservice.ImportJob;
@@ -11,6 +12,7 @@ import com.corallineage.backend.logging.EventType;
 import com.corallineage.backend.ontology.DirtyAnnotationRepository;
 import com.corallineage.backend.pointannotation.PointAnnotationJobRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +36,7 @@ public class DatasetVersionService {
     private final DatasetVersionMapper datasetVersionMapper;
     private final ImportJobRepository importJobRepository;
     private final PointAnnotationJobRepository pointAnnotationJobRepository;
+    private final AnnotationJobRepository annotationJobRepository;
 
     public DatasetVersionService(DatasetRepository datasetRepository,
                                  DatasetVersionRepository datasetVersionRepository,
@@ -45,7 +48,8 @@ public class DatasetVersionService {
                                  AnnotationEventLoggerService annotationEventLoggerService,
                                  DatasetVersionMapper datasetVersionMapper,
                                  ImportJobRepository importJobRepository,
-                                 PointAnnotationJobRepository pointAnnotationJobRepository) {
+                                 PointAnnotationJobRepository pointAnnotationJobRepository,
+                                 AnnotationJobRepository annotationJobRepository) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
@@ -57,12 +61,27 @@ public class DatasetVersionService {
         this.datasetVersionMapper = datasetVersionMapper;
         this.importJobRepository = importJobRepository;
         this.pointAnnotationJobRepository = pointAnnotationJobRepository;
+        this.annotationJobRepository = annotationJobRepository;
     }
 
     @Transactional
     public DatasetVersionResponse createSnapshot(Long datasetId, CreateVersionRequest request) {
         DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
         return createSnapshotBranchedFrom(datasetId, request, previousLatest);
+    }
+
+    /**
+     * Like {@link #createSnapshot}, but marks the created version {@code isStaging=true} so it's
+     * excluded from {@link #getVersionHistory} (never shown in the researcher-facing Versions list)
+     * while still individually reachable via {@link #getVersionById}. For staging areas that hold
+     * images pending review before being committed for real (e.g. AnnotationJobExecutor's Mode B
+     * "new images" upload) — not exposed on the public {@link CreateVersionRequest} DTO since no
+     * caller outside this internal use case should ever be able to request it.
+     */
+    @Transactional
+    public DatasetVersionResponse createStagingSnapshot(Long datasetId, CreateVersionRequest request) {
+        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        return createSnapshotBranchedFrom(datasetId, request, previousLatest, true);
     }
 
     /**
@@ -75,6 +94,11 @@ public class DatasetVersionService {
     @Transactional
     public DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
                                                               DatasetVersion branchPoint) {
+        return createSnapshotBranchedFrom(datasetId, request, branchPoint, false);
+    }
+
+    private DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
+                                                               DatasetVersion branchPoint, boolean isStaging) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
@@ -94,6 +118,7 @@ public class DatasetVersionService {
         version.setAnnotationCount(0);
         version.setDvcCommitHash(dvcCommitHash);
         version.setNotes(request.getNotes());
+        version.setIsStaging(isStaging);
         DatasetVersion savedVersion = datasetVersionRepository.save(version);
 
         List<LabelDefinition> labels = snapshotCurrentLabelDefinitions(savedVersion, previousLatest);
@@ -167,13 +192,33 @@ public class DatasetVersionService {
         return datasetVersionMapper.toLabelResponse(saved);
     }
 
+    /**
+     * Per the confirmed product decision, an UNRESOLVED version (still needs blank-import
+     * seed-labeling/training or review before it's usable) is excluded here entirely - it only
+     * ever appears in the Unlabeled import queue card (see
+     * {@link com.corallineage.backend.pointannotation.PointAnnotationJobService#getUnlabeledImportQueue}),
+     * never duplicated in this list. Filtering happens after the per-version resolve-status
+     * enrichment (not expressible as a single query spanning DatasetVersion/PointAnnotationJob/
+     * AnnotationJob), so pagination runs in memory over the filtered set rather than at the DB
+     * level - the same N+1/in-memory trade-off {@link #attachCompleteness} already accepts for
+     * this app's data volumes.
+     */
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
             throw new NotFoundException("Dataset not found: " + datasetId);
         }
-        return datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(datasetId, pageable)
-                .map(version -> attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version))));
+        List<DatasetVersionResponse> resolved = datasetVersionRepository
+                .findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(datasetId)
+                .stream()
+                .map(version -> attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version))))
+                .filter(response -> !"UNRESOLVED".equals(response.getResolveStatus()))
+                .toList();
+
+        int total = resolved.size();
+        int start = Math.min((int) pageable.getOffset(), total);
+        int end = Math.min(start + pageable.getPageSize(), total);
+        return new PageImpl<>(resolved.subList(start, end), pageable, total);
     }
 
     /**
@@ -202,7 +247,52 @@ public class DatasetVersionService {
                     response.setImportFormat(job.getFormat());
                 });
         response.setBlankImportStarted(pointAnnotationJobRepository.existsByDatasetVersion_Id(response.getId()));
+        attachResolveStatus(response);
         return response;
+    }
+
+    /**
+     * Populates {@code resolveStatus}/{@code resolveRoute}/{@code resolveJobId}: "UNRESOLVED" plus
+     * where "Resolve" should navigate, for a BLANK-import version that hasn't had its points fully
+     * committed yet. Checked in order: a cold-start {@link com.corallineage.backend.pointannotation.PointAnnotationJob}
+     * still short of its own "COMPLETE" (grid generation through seed-labeling through training -
+     * that job's own label page handles every one of those sub-stages itself, so one route covers
+     * them all); then an {@link com.corallineage.backend.annotation.AnnotationJob}
+     * (commitInPlace=true, not yet applied) - either the warm-start blank-import path's own job, or
+     * the job a cold-start job's auto-annotate delegates into once training completes (see
+     * PointAnnotationJob.annotationJob), both routed identically since review happens on the same
+     * screen either way; then, if neither job exists yet but this version came from a completed
+     * BLANK import, "START" (no job to route into, the frontend opens the blank-import start
+     * dialog itself to decide cold vs warm).
+     */
+    private void attachResolveStatus(DatasetVersionResponse response) {
+        var pointJob = pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(response.getId());
+        if (pointJob.isPresent() && !"COMPLETE".equals(pointJob.get().getStatus())) {
+            response.setResolveStatus("UNRESOLVED");
+            response.setResolveRoute("SEED_LABEL");
+            response.setResolveJobId(pointJob.get().getId());
+            return;
+        }
+
+        // A point-annotation job reaching "COMPLETE" no longer means fully resolved on its own
+        // once startAutoAnnotate delegates into a real AnnotationJob (see PointAnnotationJob.annotationJob) -
+        // its own stage (seed labeling through training) is done, but review may still be pending on
+        // that delegated job, so fall through to the AnnotationJob check below instead of returning here.
+        var annotationJob = annotationJobRepository.findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
+        if (annotationJob.isPresent()) {
+            if (annotationJob.get().getAddedToProjectVersionId() == null) {
+                response.setResolveStatus("UNRESOLVED");
+                response.setResolveRoute("ANNOTATION_REVIEW");
+                response.setResolveJobId(annotationJob.get().getId());
+            }
+            return;
+        }
+
+        if ("BLANK".equals(response.getImportFormat()) && "COMPLETED".equals(response.getImportStatus())
+                && !response.isBlankImportStarted()) {
+            response.setResolveStatus("UNRESOLVED");
+            response.setResolveRoute("START");
+        }
     }
 
     /**

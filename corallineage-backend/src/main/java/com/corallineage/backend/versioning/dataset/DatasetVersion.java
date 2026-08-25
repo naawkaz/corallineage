@@ -46,6 +46,15 @@ public class DatasetVersion {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
+    // True for a staging version created to hold freshly uploaded/imported images pending review
+    // (e.g. AnnotationJobExecutor's Mode B "new images" staging area) — excluded from
+    // DatasetVersionService.getVersionHistory so it never appears in the researcher-facing Versions
+    // list, but still individually reachable via getVersionById. Nullable at the JPA level: existing
+    // rows predate this column (same ddl-auto=update NOT-NULL-on-a-populated-table reasoning as
+    // gridRows/gridCols elsewhere in this codebase); null is treated as "not staging".
+    @Column(name = "is_staging")
+    private Boolean isStaging;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = Instant.now();
@@ -82,4 +91,7 @@ public class DatasetVersion {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public Boolean getIsStaging() { return isStaging; }
+    public void setIsStaging(Boolean isStaging) { this.isStaging = isStaging; }
 }
