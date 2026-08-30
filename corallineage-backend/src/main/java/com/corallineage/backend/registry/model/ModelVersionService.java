@@ -114,9 +114,24 @@ public class ModelVersionService {
      * dataset - a model deleted from a different dataset could shift another dataset's next
      * fallback number, and two datasets training around the same time could even race onto the
      * same tag.
+     *
+     * The stored counter is a cache, not a guarantee, so this also verifies the candidate tag is
+     * actually free and skips forward past any that already exist before returning. Two ways the
+     * counter can get out of sync with reality, both real: (1) next_model_fallback_number is
+     * nullable at the JPA level (see Dataset's field comment) - a dataset predating this column
+     * defaults to null, read here as 1, even if it already has a model tagged "model-v1" from
+     * before this counter existed. (2) registerFromTrainingResult runs inside
+     * TrainingJobStatusService.markCompleted's REQUIRES_NEW transaction - if the model_versions
+     * insert fails (e.g. exactly the collision this method now guards against), the whole
+     * transaction rolls back, including this method's in-memory counter bump, so a naive
+     * "read counter, increment, insert" retries the exact same losing number forever instead of
+     * ever moving past the collision.
      */
     private int nextModelFallbackNumber(Dataset dataset) {
         int number = dataset.getNextModelFallbackNumber() != null ? dataset.getNextModelFallbackNumber() : 1;
+        while (modelVersionRepository.existsByModelTag("model-v" + number)) {
+            number++;
+        }
         dataset.setNextModelFallbackNumber(number + 1);
         return number;
     }

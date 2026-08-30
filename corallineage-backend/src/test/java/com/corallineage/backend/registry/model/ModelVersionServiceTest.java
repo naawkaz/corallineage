@@ -1,10 +1,13 @@
 package com.corallineage.backend.registry.model;
 
+import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.exception.ServiceUnavailableException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
 import com.corallineage.backend.logging.EventType;
+import com.corallineage.backend.training.TrainingJob;
+import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -116,6 +119,33 @@ class ModelVersionServiceTest {
         when(mlflowIntegrationService.buildMlflowDetails(model)).thenReturn(null);
 
         assertThatThrownBy(() -> newService().getMlflowDetails(1L)).isInstanceOf(ServiceUnavailableException.class);
+    }
+
+    @Test
+    void registerFromTrainingResult_counterStaleAndTagTaken_skipsToNextFreeTag() {
+        // Reproduces the real bug: next_model_fallback_number says "1" (either genuinely stale, or
+        // reset by an earlier attempt's transaction rolling back after this exact collision), but
+        // "model-v1" already exists on this dataset. The old code trusted the counter blindly and
+        // would keep generating "model-v1" forever, failing the unique constraint on every retry.
+        Dataset dataset = new Dataset();
+        dataset.setNextModelFallbackNumber(1);
+        DatasetVersion datasetVersion = new DatasetVersion();
+        datasetVersion.setDataset(dataset);
+        TrainingJob job = new TrainingJob();
+        job.setDatasetVersion(datasetVersion);
+        job.setArchitecture("efficientnet_b0");
+        job.setHyperparameters("{}");
+        job.setInitiatedBy("researcher_01");
+
+        when(modelVersionRepository.existsByModelTag("model-v1")).thenReturn(true);
+        when(modelVersionRepository.existsByModelTag("model-v2")).thenReturn(false);
+        when(modelVersionRepository.save(any(ModelVersion.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ModelVersion saved = newService().registerFromTrainingResult(
+                job, "run-123", "/weights/path", null, "{}", "{}");
+
+        assertThat(saved.getModelTag()).isEqualTo("model-v2");
+        assertThat(dataset.getNextModelFallbackNumber()).isEqualTo(3);
     }
 
     @Test
