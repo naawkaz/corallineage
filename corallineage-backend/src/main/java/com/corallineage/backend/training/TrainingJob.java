@@ -45,8 +45,12 @@ public class TrainingJob {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    // One-to-one in practice: markCompleted always registers a fresh ModelVersion for the job and
+    // nothing ever re-points a job at an existing one. unique = true makes the DB enforce that a
+    // given model version is produced by at most one training job. Nullable while the job is
+    // QUEUED/RUNNING/FAILED; SQL treats each NULL as distinct so those rows are unaffected.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "model_version_id")
+    @JoinColumn(name = "model_version_id", unique = true)
     private ModelVersion modelVersion;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
