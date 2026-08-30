@@ -103,6 +103,14 @@ export default function TrainModelDialog({
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
             onCompleted()
+            // Auto-dismiss on success - the registered model is already visible in the
+            // refreshed Model Registry table behind this dialog (onCompleted() above), so
+            // there's nothing left to do here. FAILED is deliberately left open: the error
+            // message this dialog is about to render is the only place that shows it, and
+            // closing on failure would hide it before the user can read it.
+            if (updated.status === 'COMPLETED') {
+              onClose()
+            }
           }
         })
         .catch(() => {
