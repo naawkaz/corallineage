@@ -60,6 +60,7 @@ public class AnnotationJobExecutor {
     private final Path workingDirectory;
     private final String dataDir;
     private final int patchSize;
+    private final AnnotationCommitService annotationCommitService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AnnotationJobExecutor(AnnotationJobRepository annotationJobRepository,
@@ -74,7 +75,8 @@ public class AnnotationJobExecutor {
                                  AnnotationEventLoggerService annotationEventLoggerService,
                                  @Value("${app.dvc.working-directory}") Path workingDirectory,
                                  @Value("${app.dvc.data-dir}") String dataDir,
-                                 @Value("${app.training.patch-size:64}") int patchSize) {
+                                 @Value("${app.training.patch-size:64}") int patchSize,
+                                 AnnotationCommitService annotationCommitService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.imageRepository = imageRepository;
@@ -88,6 +90,7 @@ public class AnnotationJobExecutor {
         this.workingDirectory = workingDirectory;
         this.dataDir = dataDir;
         this.patchSize = patchSize;
+        this.annotationCommitService = annotationCommitService;
     }
 
     /** Legacy whole-image path (kept for backward compatibility; see AnnotationJobService). */
@@ -476,9 +479,18 @@ public class AnnotationJobExecutor {
             long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
             job.setStatus("COMPLETED");
             job.setCompletedAt(Instant.now());
+            boolean fullyAutoAccepted = !savedPredictions.isEmpty() && autoAccepted == savedPredictions.size();
             job.setReviewStatus(autoAccepted == 0 ? "PENDING"
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
-            annotationJobRepository.save(job);
+            AnnotationJob savedJob = annotationJobRepository.save(job);
+
+            // Every predicted point landed at/above the confidence threshold - there is nothing
+            // left for a human to review, so this commitInPlace job's target dataset version
+            // registers immediately instead of sitting in the Unlabeled import queue waiting for
+            // a manual "Apply to Version" click that would just confirm what already happened.
+            if (fullyAutoAccepted && Boolean.TRUE.equals(savedJob.getCommitInPlace())) {
+                annotationCommitService.applyToExistingVersion(savedJob.getId(), savedJob.getInitiatedBy());
+            }
 
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Model " + model.getModelTag() + " applied to " + images.size() + " existing image(s) of dataset version "

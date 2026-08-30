@@ -3,6 +3,8 @@ package com.corallineage.backend.pointannotation;
 import com.corallineage.backend.annotation.AnnotationJob;
 import com.corallineage.backend.annotation.AnnotationJobRepository;
 import com.corallineage.backend.datasets.DatasetService;
+import com.corallineage.backend.datasets.importservice.ImportJob;
+import com.corallineage.backend.datasets.importservice.ImportJobRepository;
 import com.corallineage.backend.exception.InvalidRequestException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.logging.AnnotationEventLoggerService;
@@ -17,6 +19,8 @@ import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
 import com.corallineage.backend.versioning.dataset.LabelDefinition;
@@ -59,6 +63,8 @@ public class PointAnnotationJobService {
     private final AutoAnnotationExecutor autoAnnotationExecutor;
     private final DatasetService datasetService;
     private final AnnotationJobRepository annotationJobRepository;
+    private final DatasetVersionService datasetVersionService;
+    private final ImportJobRepository importJobRepository;
 
     public PointAnnotationJobService(DatasetVersionRepository datasetVersionRepository,
                                      DatasetVersionImageRepository datasetVersionImageRepository,
@@ -75,7 +81,9 @@ public class PointAnnotationJobService {
                                      TrainingJobRepository trainingJobRepository,
                                      AutoAnnotationExecutor autoAnnotationExecutor,
                                      DatasetService datasetService,
-                                     AnnotationJobRepository annotationJobRepository) {
+                                     AnnotationJobRepository annotationJobRepository,
+                                     DatasetVersionService datasetVersionService,
+                                     ImportJobRepository importJobRepository) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.imageRepository = imageRepository;
@@ -92,6 +100,8 @@ public class PointAnnotationJobService {
         this.autoAnnotationExecutor = autoAnnotationExecutor;
         this.datasetService = datasetService;
         this.annotationJobRepository = annotationJobRepository;
+        this.datasetVersionService = datasetVersionService;
+        this.importJobRepository = importJobRepository;
     }
 
     /**
@@ -211,6 +221,21 @@ public class PointAnnotationJobService {
                 .findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(datasetId)) {
             entries.add(toQueueEntry(job));
         }
+        // A BLANK import still uploading/parsing (no DatasetVersion exists yet to attach a
+        // PointAnnotationJob to) - without this, the queue shows nothing at all for the whole
+        // span between "Upload" and the import finishing, even though something is visibly
+        // in flight.
+        for (ImportJob importJob : importJobRepository
+                .findByDataset_IdAndFormatAndCreatedDatasetVersionIdIsNullOrderBySubmittedAtDesc(datasetId, "BLANK")) {
+            if (!"PROCESSING".equals(importJob.getStatus()) && !"FAILED".equals(importJob.getStatus())) continue;
+            entries.add(toQueueEntry(importJob));
+        }
+        // A completed BLANK import that hasn't had cold/warm start chosen yet (see
+        // DatasetVersionService.getPendingBlankStarts) - otherwise it's invisible everywhere
+        // except by navigating to its version URL directly.
+        for (DatasetVersionResponse pendingStart : datasetVersionService.getPendingBlankStarts(datasetId)) {
+            entries.add(toQueueEntry(pendingStart));
+        }
         entries.sort(Comparator.comparing(UnlabeledImportQueueEntryResponse::getStartedAt).reversed());
 
         int total = entries.size();
@@ -225,6 +250,7 @@ public class PointAnnotationJobService {
         entry.setJobType("POINT_ANNOTATION");
         entry.setJobId(job.getId());
         entry.setVersionTag(job.getDatasetVersion().getVersionTag());
+        entry.setVersionNumber(datasetVersionService.getVersionNumber(job.getDatasetVersion()));
         entry.setStatus(job.getStatus());
         entry.setSeedTotalPoints(generatedPointRepository.countByJobIdAndSeedTrue(job.getId()));
         entry.setSeedLabeledPoints(generatedPointRepository.countByJobIdAndSeedTrueAndStatus(job.getId(), "HUMAN_LABELED"));
@@ -235,11 +261,40 @@ public class PointAnnotationJobService {
         return entry;
     }
 
+    /** A BLANK import job still uploading/parsing - not clickable (no target to resolve into yet). */
+    private UnlabeledImportQueueEntryResponse toQueueEntry(ImportJob importJob) {
+        UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
+        entry.setJobType("IMPORT");
+        entry.setJobId(importJob.getId());
+        entry.setVersionTag(importJob.getVersionTag());
+        entry.setStatus(importJob.getStatus());
+        entry.setStartedAt(importJob.getSubmittedAt());
+        entry.setResolveRoute(null);
+        entry.setResolveJobId(null);
+        return entry;
+    }
+
+    /** A completed BLANK import with no cold/warm start chosen yet - resolveRoute "START". */
+    private UnlabeledImportQueueEntryResponse toQueueEntry(DatasetVersionResponse pendingStart) {
+        UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
+        entry.setJobType("VERSION_START");
+        entry.setJobId(pendingStart.getId());
+        entry.setVersionTag(pendingStart.getVersionTag());
+        entry.setVersionNumber(pendingStart.getVersionNumber());
+        entry.setStatus("PENDING_START");
+        entry.setStartedAt(pendingStart.getCreatedAt());
+        entry.setResolveRoute("START");
+        entry.setResolveJobId(pendingStart.getId());
+        entry.setImageCount(pendingStart.getImageCount());
+        return entry;
+    }
+
     private UnlabeledImportQueueEntryResponse toQueueEntry(AnnotationJob job) {
         UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
         entry.setJobType("ANNOTATION");
         entry.setJobId(job.getId());
         entry.setVersionTag(job.getDatasetVersion() != null ? job.getDatasetVersion().getVersionTag() : null);
+        entry.setVersionNumber(job.getDatasetVersion() != null ? datasetVersionService.getVersionNumber(job.getDatasetVersion()) : null);
         entry.setStatus("COMPLETED".equals(job.getStatus()) ? "REVIEW" : job.getStatus());
         entry.setModelTag(job.getModelVersion() != null ? job.getModelVersion().getModelTag() : null);
         entry.setStartedAt(job.getInitiatedAt());
@@ -251,7 +306,7 @@ public class PointAnnotationJobService {
     @Transactional(readOnly = true)
     public Page<GeneratedPointResponse> getPoints(Long jobId, boolean seed, Pageable pageable) {
         findOrThrow(jobId);
-        return generatedPointRepository.findByJobIdAndSeed(jobId, seed, pageable).map(pointAnnotationMapper::toResponse);
+        return generatedPointRepository.findByJobIdAndSeedOrderByIdAsc(jobId, seed, pageable).map(pointAnnotationMapper::toResponse);
     }
 
     /**
@@ -390,6 +445,26 @@ public class PointAnnotationJobService {
         pointAnnotationJobRepository.findByTrainingJob_Id(trainingJobId)
                 .filter(job -> "TRAINING".equals(job.getStatus()))
                 .ifPresent(job -> startAutoAnnotate(job.getId()));
+    }
+
+    /**
+     * Called by {@link com.corallineage.backend.training.TrainingJobExecutor} when a TrainingJob it
+     * ran reaches FAILED - reverts a cold-start job's own status from TRAINING back to
+     * SEED_LABELING, since otherwise nothing ever moves it out of TRAINING again (no queue entry
+     * shows a "Resolve" action for a TRAINING-status row - see DatasetDashboard.tsx's
+     * IN_PROGRESS_STATUSES). Seed labels already entered are untouched, so retraining (a fresh
+     * "Train model" submit) is all that's needed to try again. No-ops under the same conditions as
+     * {@link #autoAnnotateAfterTraining}: not linked to a point-annotation job, or that job already
+     * moved past TRAINING.
+     */
+    @Transactional
+    public void revertAfterTrainingFailure(Long trainingJobId) {
+        pointAnnotationJobRepository.findByTrainingJob_Id(trainingJobId)
+                .filter(job -> "TRAINING".equals(job.getStatus()))
+                .ifPresent(job -> {
+                    job.setStatus("SEED_LABELING");
+                    pointAnnotationJobRepository.save(job);
+                });
     }
 
     /**

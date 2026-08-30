@@ -6,14 +6,17 @@ import com.corallineage.backend.exception.UnauthorizedException;
 import com.corallineage.backend.projects.Project;
 import com.corallineage.backend.projects.ProjectMemberService;
 import com.corallineage.backend.projects.ProjectRepository;
-import com.corallineage.backend.versioning.dataset.DatasetVersion;
-import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,11 +35,11 @@ class DatasetServiceTest {
     @Mock
     private DatasetRepository datasetRepository;
     @Mock
-    private DatasetVersionRepository datasetVersionRepository;
-    @Mock
     private ProjectRepository projectRepository;
     @Mock
     private ProjectMemberService projectMemberService;
+    @Mock
+    private DatasetVersionService datasetVersionService;
 
     @InjectMocks
     private DatasetService datasetService;
@@ -113,17 +117,23 @@ class DatasetServiceTest {
         verify(datasetRepository, never()).save(any(Dataset.class));
     }
 
+    private DatasetVersionResponse resolvedVersion(String tag, Integer imageCount, Integer annotationCount) {
+        DatasetVersionResponse response = new DatasetVersionResponse();
+        response.setVersionTag(tag);
+        response.setImageCount(imageCount);
+        response.setAnnotationCount(annotationCount);
+        return response;
+    }
+
     @Test
     void getAllDatasets_returnsSummaryWithVersionCountAndLatestTag() {
-        DatasetVersion latest = new DatasetVersion();
-        latest.setVersionTag("v1.2");
+        Page<DatasetVersionResponse> resolved = new PageImpl<>(List.of(resolvedVersion("v1.2", 250, 50000)),
+                Pageable.unpaged(), 3);
 
         when(projectRepository.findById(5L)).thenReturn(Optional.of(project()));
         when(projectMemberService.isMember(5L, "researcher_01")).thenReturn(true);
         when(datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(5L)).thenReturn(List.of(dataset()));
-        when(datasetVersionRepository.countByDatasetId(1L)).thenReturn(3L);
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L))
-                .thenReturn(Optional.of(latest));
+        when(datasetVersionService.getVersionHistory(eq(1L), any())).thenReturn(resolved);
 
         List<DatasetResponse> result = datasetService.getAllDatasets(5L, "researcher_01");
 
@@ -143,15 +153,11 @@ class DatasetServiceTest {
 
     @Test
     void getDatasetById_success_includesAggregatedCounts() {
-        DatasetVersion latest = new DatasetVersion();
-        latest.setVersionTag("v1.2");
-        latest.setImageCount(250);
-        latest.setAnnotationCount(50000);
+        Page<DatasetVersionResponse> resolved = new PageImpl<>(List.of(resolvedVersion("v1.2", 250, 50000)),
+                Pageable.unpaged(), 3);
 
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
-        when(datasetVersionRepository.countByDatasetId(1L)).thenReturn(3L);
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(1L))
-                .thenReturn(Optional.of(latest));
+        when(datasetVersionService.getVersionHistory(eq(1L), any())).thenReturn(resolved);
 
         DatasetResponse response = datasetService.getDatasetById(1L);
 

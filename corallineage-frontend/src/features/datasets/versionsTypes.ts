@@ -15,6 +15,9 @@ export interface LabelDefinition {
 export interface DatasetVersion {
   id: number
   datasetId: number
+  // 1-based, permanent ordinal position among every version ever created for this source (oldest
+  // = 1) - distinct from versionTag, which is a free-text label the user picks.
+  versionNumber: number
   versionTag: string
   createdAt: string
   createdBy: string

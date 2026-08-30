@@ -8,8 +8,8 @@ import com.corallineage.backend.projects.Project;
 import com.corallineage.backend.projects.ProjectMemberService;
 import com.corallineage.backend.projects.ProjectRepository;
 import java.util.Set;
-import com.corallineage.backend.versioning.dataset.DatasetVersion;
-import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,21 +19,47 @@ import java.util.List;
 public class DatasetService {
 
     private final DatasetRepository datasetRepository;
-    private final DatasetVersionRepository datasetVersionRepository;
     private final DatasetMapper datasetMapper;
     private final ProjectRepository projectRepository;
     private final ProjectMemberService projectMemberService;
+    private final DatasetVersionService datasetVersionService;
 
     public DatasetService(DatasetRepository datasetRepository,
-                          DatasetVersionRepository datasetVersionRepository,
                           DatasetMapper datasetMapper,
                           ProjectRepository projectRepository,
-                          ProjectMemberService projectMemberService) {
+                          ProjectMemberService projectMemberService,
+                          DatasetVersionService datasetVersionService) {
         this.datasetRepository = datasetRepository;
-        this.datasetVersionRepository = datasetVersionRepository;
         this.datasetMapper = datasetMapper;
         this.projectRepository = projectRepository;
         this.projectMemberService = projectMemberService;
+        this.datasetVersionService = datasetVersionService;
+    }
+
+    /**
+     * A version still sitting in the Unlabeled import queue (resolveStatus "UNRESOLVED" - see
+     * DatasetVersionService.getVersionHistory's own filter) isn't a real, usable dataset version
+     * yet, so it shouldn't count toward the "N versions" figure shown on the Sources page, or be
+     * offered up as the "latest version" tag, either - both should match what a user actually sees
+     * when they open the source's own version list, not a raw row count/latest-by-createdAt that
+     * includes versions still waiting to be resolved.
+     */
+    private record ResolvedVersionSummary(long count, String latestVersionTag, int latestImageCount, int latestAnnotationCount) {
+    }
+
+    private ResolvedVersionSummary resolvedVersionSummary(Long datasetId) {
+        // PageRequest.of(0, 1), not Pageable.unpaged(): getVersionHistory computes its full
+        // resolved-version list and totalElements count internally regardless of page size, so a
+        // 1-row page is exactly as cheap and gets everything this method needs (the total count
+        // plus the single most-recent element for "latest version"). Unpaged() looks like the more
+        // literal fit but isn't safe here - Spring's Unpaged.getPageSize() throws
+        // UnsupportedOperationException, and getVersionHistory calls it to size its sublist.
+        var resolved = datasetVersionService.getVersionHistory(datasetId, PageRequest.of(0, 1));
+        var latest = resolved.getContent().isEmpty() ? null : resolved.getContent().get(0);
+        return new ResolvedVersionSummary(resolved.getTotalElements(),
+                latest != null ? latest.getVersionTag() : null,
+                latest != null && latest.getImageCount() != null ? latest.getImageCount() : 0,
+                latest != null && latest.getAnnotationCount() != null ? latest.getAnnotationCount() : 0);
     }
 
     @Transactional
@@ -76,12 +102,8 @@ public class DatasetService {
         return datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(projectId).stream()
                 .filter(dataset -> accessibleSourceIds.isEmpty() || accessibleSourceIds.get().contains(dataset.getId()))
                 .map(dataset -> {
-                    long versionCount = datasetVersionRepository.countByDatasetId(dataset.getId());
-                    String latestVersionTag = datasetVersionRepository
-                            .findTopByDatasetIdOrderByCreatedAtDesc(dataset.getId())
-                            .map(DatasetVersion::getVersionTag)
-                            .orElse(null);
-                    return datasetMapper.toSummaryResponse(dataset, versionCount, latestVersionTag);
+                    ResolvedVersionSummary summary = resolvedVersionSummary(dataset.getId());
+                    return datasetMapper.toSummaryResponse(dataset, summary.count(), summary.latestVersionTag());
                 })
                 .toList();
     }
@@ -116,14 +138,9 @@ public class DatasetService {
         Dataset dataset = datasetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + id));
 
-        long versionCount = datasetVersionRepository.countByDatasetId(id);
-        DatasetVersion latest = datasetVersionRepository
-                .findTopByDatasetIdOrderByCreatedAtDesc(id)
-                .orElse(null);
+        ResolvedVersionSummary summary = resolvedVersionSummary(id);
 
-        return datasetMapper.toDetailResponse(dataset, versionCount,
-                latest != null ? latest.getVersionTag() : null,
-                latest != null ? latest.getImageCount() : 0,
-                latest != null ? latest.getAnnotationCount() : 0);
+        return datasetMapper.toDetailResponse(dataset, summary.count(),
+                summary.latestVersionTag(), summary.latestImageCount(), summary.latestAnnotationCount());
     }
 }

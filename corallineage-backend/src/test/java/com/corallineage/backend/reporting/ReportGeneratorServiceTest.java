@@ -19,6 +19,7 @@ import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionMapper;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -53,6 +54,7 @@ class ReportGeneratorServiceTest {
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
     @Mock private AnnotationPointRepository annotationPointRepository;
     @Mock private MlflowIntegrationService mlflowIntegrationService;
+    @Mock private DatasetVersionService datasetVersionService;
 
     private final DatasetVersionMapper datasetVersionMapper = new DatasetVersionMapper();
     private final ModelVersionMapper modelVersionMapper = new ModelVersionMapper();
@@ -64,7 +66,7 @@ class ReportGeneratorServiceTest {
     private ReportGeneratorService newService() {
         return new ReportGeneratorService(reportMetadataRepository, datasetVersionRepository, datasetVersionMapper,
                 modelVersionRepository, modelVersionMapper, ontologyChangeRepository,
-                new OntologyChangeMapper(annotationPointRepository),
+                new OntologyChangeMapper(annotationPointRepository, datasetVersionService),
                 dirtyAnnotationRepository, annotationEventRepository, annotationEventMapper,
                 annotationEventLoggerService, annotationPointRepository, mlflowIntegrationService);
     }

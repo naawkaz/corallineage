@@ -44,5 +44,17 @@ public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, 
 
     long countByDatasetId(Long datasetId);
 
+    /**
+     * Counts non-staging versions at or before this one (by id, ascending = creation order) - used
+     * by {@code DatasetVersionService.getVersionNumber} to derive a single version's permanent
+     * ordinal position without recomputing the whole dataset's version list. Same staging/tag
+     * exclusion as the queries above, so a version's number here always matches what it would be
+     * if it appeared in {@code getVersionHistory}'s own numbering pass.
+     */
+    @Query("SELECT COUNT(v) FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
+            + "AND (v.isStaging IS NULL OR v.isStaging = false) "
+            + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' AND v.id <= :versionId")
+    long countByDatasetIdAndIsStagingNotTrueAndIdLessThanEqual(@Param("datasetId") Long datasetId, @Param("versionId") Long versionId);
+
     List<DatasetVersion> findByCreatedAtBetween(Instant from, Instant to);
 }

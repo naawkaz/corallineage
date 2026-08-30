@@ -24,6 +24,7 @@ import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import { useToast } from '../../shared/lib/toastContextCore'
+import { useJobPolling } from '../../shared/lib/jobPollingContextCore'
 import LossCurveChart from '../training/LossCurveChart'
 import TitledCard from '../../shared/components/TitledCard'
 import Pagination from '../../shared/components/Pagination'
@@ -81,6 +82,7 @@ export default function ModelDetail() {
   const modelId = Number(id)
   const modelsListPath = `/sources/${sourceIdParam}/models`
   const { user } = useAuthContext()
+  const { refreshSignal } = useJobPolling()
 
   const [model, setModel] = useState<ModelVersion | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,7 +112,7 @@ export default function ModelDetail() {
   useEffect(() => {
     loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelId])
+  }, [modelId, refreshSignal])
 
   function loadModel() {
     fetchModel(modelId)
@@ -360,9 +362,9 @@ export default function ModelDetail() {
           </TitledCard>
         </div>
 
+        <div className="grid-2" style={{ gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start', marginTop: 24 }}>
         <TitledCard
-          title="MLflow diagnostics"
-          style={{ marginTop: 24 }}
+          title="Model diagnostics"
           actions={
             diagnostics.kind === 'ready' && (
               <a
@@ -431,7 +433,7 @@ export default function ModelDetail() {
             )}
         </TitledCard>
 
-        <TitledCard title="Annotation jobs" style={{ marginTop: 24 }} bodyClassName="no-padding">
+        <TitledCard title="Annotation jobs" bodyClassName="no-padding">
           {jobsError && (
             <div className="alert alert-error" style={{ margin: 16 }}>
               {jobsError}
@@ -504,6 +506,7 @@ export default function ModelDetail() {
             </table>
           )}
         </TitledCard>
+        </div>
       </div>
 
       {validateOpen && (
@@ -561,7 +564,6 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
 
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
-  const toastIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     fetchVersions(sourceId, 0, 50)
@@ -589,6 +591,11 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .finally(() => setImagesLoading(false))
   }, [sourceId, selectedVersionId])
 
+  // Only drives this dialog's own live status UI (spinner/badge/"View results" below) while it
+  // stays open - the toast for the eventual completion/failure is JobPollingProvider's job now
+  // (see its own comment), not this poll's: a toast owned by a poll that dies with this dialog's
+  // unmount is exactly the orphaned-"stuck in progress forever" toast bug that was reported, since
+  // a 'progress'-variant toast never auto-dismisses on its own until something updates it.
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -598,16 +605,6 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
           if (updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
-            if (toastIdRef.current) {
-              toast.update(toastIdRef.current, {
-                variant: updated.status === 'COMPLETED' ? 'success' : 'error',
-                title: updated.status === 'COMPLETED' ? 'Validation complete' : 'Validation failed',
-                detail: updated.status === 'COMPLETED'
-                  ? `${updated.totalPredictions} point(s) checked.`
-                  : updated.errorMessage ?? undefined,
-              })
-              toastIdRef.current = null
-            }
             onCompleted()
           }
         })
@@ -639,7 +636,9 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
         initiatedBy,
       })
       setActiveJob(created)
-      toastIdRef.current = toast.push({ variant: 'progress', title: 'Validation running…' })
+      // A one-shot, self-dismissing notice, not the job's actual progress state - see the note
+      // above the polling effect for why this dialog no longer owns that toast.
+      toast.push({ variant: 'info', title: 'Validation started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
       setSubmitError(errorMessage(err))
@@ -840,8 +839,12 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
 
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
-  const toastIdRef = useRef<string | null>(null)
 
+  // Only drives this dialog's own live status UI (spinner/badge/"View results" below) while it
+  // stays open - the toast for the eventual completion/failure is JobPollingProvider's job now
+  // (see its own comment), not this poll's: a toast owned by a poll that dies with this dialog's
+  // unmount is exactly the orphaned-"stuck in progress forever" toast bug that was reported, since
+  // a 'progress'-variant toast never auto-dismisses on its own until something updates it.
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -851,16 +854,6 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
           if (updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
-            if (toastIdRef.current) {
-              toast.update(toastIdRef.current, {
-                variant: updated.status === 'COMPLETED' ? 'success' : 'error',
-                title: updated.status === 'COMPLETED' ? 'Auto-annotate complete' : 'Auto-annotate failed',
-                detail: updated.status === 'COMPLETED'
-                  ? `${updated.totalPredictions} point(s) ready.`
-                  : updated.errorMessage ?? undefined,
-              })
-              toastIdRef.current = null
-            }
             onCompleted()
           }
         })
@@ -892,7 +885,9 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
       )
       setActiveJob(created)
       setUploadFiles([])
-      toastIdRef.current = toast.push({ variant: 'progress', title: 'Annotating new images…' })
+      // A one-shot, self-dismissing notice, not the job's actual progress state - see the note
+      // above the polling effect for why this dialog no longer owns that toast.
+      toast.push({ variant: 'info', title: 'Annotating new images started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
       setSubmitError(errorMessage(err))

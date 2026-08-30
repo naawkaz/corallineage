@@ -59,6 +59,7 @@ public class AnnotationJobService {
     private final LabelDefinitionRepository labelDefinitionRepository;
     private final DatasetVersionService datasetVersionService;
     private final DatasetService datasetService;
+    private final AnnotationCommitService annotationCommitService;
 
     public AnnotationJobService(AnnotationJobRepository annotationJobRepository,
                                 AnnotationPredictionRepository annotationPredictionRepository,
@@ -72,7 +73,8 @@ public class AnnotationJobService {
                                 AnnotationPointRepository annotationPointRepository,
                                 LabelDefinitionRepository labelDefinitionRepository,
                                 DatasetVersionService datasetVersionService,
-                                DatasetService datasetService) {
+                                DatasetService datasetService,
+                                AnnotationCommitService annotationCommitService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.modelVersionRepository = modelVersionRepository;
@@ -86,6 +88,7 @@ public class AnnotationJobService {
         this.labelDefinitionRepository = labelDefinitionRepository;
         this.datasetVersionService = datasetVersionService;
         this.datasetService = datasetService;
+        this.annotationCommitService = annotationCommitService;
     }
 
     // --- Legacy whole-image submit path (kept for backward compatibility; no longer exposed by
@@ -275,53 +278,7 @@ public class AnnotationJobService {
      */
     @Transactional
     public AnnotationJobResponse applyToExistingVersion(Long jobId, String appliedBy) {
-        AnnotationJob job = findOrThrow(jobId);
-        if (!Boolean.TRUE.equals(job.getCommitInPlace())) {
-            throw new InvalidRequestException("Only existing-version jobs can be applied in place");
-        }
-        if (!"COMPLETED".equals(job.getReviewStatus())) {
-            throw new InvalidRequestException("All points must be reviewed (accepted or overridden) before applying to the version");
-        }
-        if (job.getAddedToProjectVersionId() != null) {
-            throw new ConflictException("Job " + jobId + " was already applied to dataset version "
-                    + job.getAddedToProjectVersionId());
-        }
-        DatasetVersion version = job.getDatasetVersion();
-        if (version == null) {
-            throw new InvalidRequestException("Job " + jobId + " has no target dataset version");
-        }
-
-        List<AnnotationPrediction> predictions = annotationPredictionRepository.findByAnnotationJobId(jobId);
-        int written = 0;
-        for (AnnotationPrediction prediction : predictions) {
-            boolean accepted = Boolean.TRUE.equals(prediction.getAccepted());
-            String finalCode = accepted ? prediction.getPredictedLabelCode() : prediction.getCorrectedLabelCode();
-            if (finalCode == null) {
-                continue; // shouldn't happen once reviewStatus == COMPLETED, but skip defensively
-            }
-            LabelDefinition label = resolveOrDeclareLabel(version, finalCode);
-
-            AnnotationPoint point = annotationPointRepository
-                    .findByImageIdAndPointIndex(prediction.getImage().getId(), prediction.getPointIndex())
-                    .orElseGet(AnnotationPoint::new);
-            point.setImage(prediction.getImage());
-            point.setPointIndex(prediction.getPointIndex());
-            point.setRowPosition(prediction.getRowPosition() != null ? prediction.getRowPosition() : 0);
-            point.setColPosition(prediction.getColPosition() != null ? prediction.getColPosition() : 0);
-            point.setLabelDefinition(label);
-            point.setAnnotationSource(accepted ? "MODEL_PREDICTED" : "MODEL_CORRECTED");
-            point.setConfidenceScore(accepted ? prediction.getConfidenceScore() : null);
-            point.setAnnotatedBy(appliedBy);
-            annotationPointRepository.save(point);
-            written++;
-        }
-
-        version.setAnnotationCount(version.getAnnotationCount() + written);
-        datasetVersionRepository.save(version);
-
-        job.setAddedToProjectVersionId(version.getId());
-        annotationJobRepository.save(job);
-
+        AnnotationJob job = annotationCommitService.applyToExistingVersion(jobId, appliedBy);
         return annotationJobMapper.toResponse(job, countTotal(jobId), countReviewed(jobId));
     }
 
@@ -528,7 +485,7 @@ public class AnnotationJobService {
         } else if (acceptedFilter != null) {
             predictions = annotationPredictionRepository.findByAnnotationJobIdAndAccepted(jobId, acceptedFilter, pageable);
         } else {
-            predictions = annotationPredictionRepository.findByAnnotationJobId(jobId, pageable);
+            predictions = annotationPredictionRepository.findByAnnotationJobIdOrderByIdAsc(jobId, pageable);
         }
         return predictions.map(annotationJobMapper::toPredictionResponse);
     }

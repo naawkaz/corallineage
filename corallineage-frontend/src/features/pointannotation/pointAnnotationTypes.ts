@@ -73,14 +73,20 @@ export interface TrainPointAnnotationJobRequest {
 // already sorted and with resolveRoute/resolveJobId fully resolved server-side. See
 // PointAnnotationJobService.getUnlabeledImportQueue.
 export interface UnlabeledImportQueueEntry {
-  jobType: 'POINT_ANNOTATION' | 'ANNOTATION'
+  jobType: 'POINT_ANNOTATION' | 'ANNOTATION' | 'IMPORT' | 'VERSION_START'
   jobId: number
+  // Permanent ordinal position of the affected dataset version; null for an IMPORT entry (no
+  // version exists yet while it's still uploading/parsing).
+  versionNumber: number | null
   versionTag: string | null
   status: string
   seedLabeledPoints: number | null
   seedTotalPoints: number | null
   modelTag: string | null
   startedAt: string
-  resolveRoute: 'SEED_LABEL' | 'ANNOTATION_REVIEW'
-  resolveJobId: number
+  // Null for a still-processing IMPORT entry (nothing to resolve into yet - not clickable).
+  resolveRoute: 'SEED_LABEL' | 'ANNOTATION_REVIEW' | 'START' | null
+  resolveJobId: number | null
+  // Only set for a VERSION_START entry.
+  imageCount: number | null
 }

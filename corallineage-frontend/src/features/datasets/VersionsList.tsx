@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowRightIcon, FolderOpenIcon } from '@heroicons/react/24/outline'
 import { fetchVersions } from '../datasets/versionsApi'
 import { errorMessage } from '../../shared/api/client'
@@ -85,13 +85,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
       <TitledCard
         title="Dataset versions"
         actions={
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + Add Images
-          </button>
-        }
-      >
-        <div className="filter-row">
-          <div className="filter-row-filters">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               className="form-input"
               placeholder="Search version tag or notes…"
@@ -112,7 +106,13 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                 </option>
               ))}
             </select>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              + Add Images
+            </button>
           </div>
+        }
+      >
+        <div className="filter-row" style={{ justifyContent: 'flex-end' }}>
           {data && data.totalPages > 0 && (
             <Pagination
               page={page}
@@ -149,6 +149,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
           <table>
             <thead>
               <tr>
+                <th className="num">#</th>
                 <th>Version</th>
                 <th>Trigger</th>
                 <th className="num">Images</th>
@@ -174,6 +175,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                     navigate(`/sources/${sourceId}/versions/${v.id}`)
                   }}
                 >
+                  <td className="num" style={{ color: 'var(--text-secondary)' }}>{v.versionNumber}</td>
                   <td>
                     <span className="mono">{v.versionTag}</span>
                   </td>
@@ -185,17 +187,6 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
                       <span className="badge badge-red" style={{ marginLeft: 6 }} title="Import failed">
                         Import failed
                       </span>
-                    )}
-                    {!v.complete && (
-                      <Link
-                        to={`/sources/${sourceId}/ontology?datasetVersionId=${v.id}`}
-                        className="badge badge-amber"
-                        style={{ marginLeft: 6, textDecoration: 'none' }}
-                        onClick={(e) => e.stopPropagation()}
-                        title={`${v.unresolvedDirtyCount} unresolved dirty annotation(s)`}
-                      >
-                        Incomplete
-                      </Link>
                     )}
                   </td>
                   <td className="num">{formatCount(v.imageCount)}</td>

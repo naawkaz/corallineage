@@ -7,6 +7,10 @@ public class DatasetVersionResponse {
 
     private Long id;
     private Long datasetId;
+    // 1-based, permanent ordinal position among every non-staging version ever created for this
+    // dataset (oldest = 1) - distinct from versionTag, which is a free-text label the user picks.
+    // See DatasetVersionService.getVersionHistory for how/when it's assigned.
+    private Integer versionNumber;
     private String versionTag;
     private Instant createdAt;
     private String createdBy;
@@ -46,6 +50,9 @@ public class DatasetVersionResponse {
 
     public Long getDatasetId() { return datasetId; }
     public void setDatasetId(Long datasetId) { this.datasetId = datasetId; }
+
+    public Integer getVersionNumber() { return versionNumber; }
+    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
 
     public String getVersionTag() { return versionTag; }
     public void setVersionTag(String versionTag) { this.versionTag = versionTag; }

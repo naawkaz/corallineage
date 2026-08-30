@@ -234,10 +234,10 @@ export default function OntologyChanges() {
                   <tr>
                     <th>Type</th>
                     <th>Old → New</th>
+                    <th>Dataset version</th>
                     <th>Changed by</th>
                     <th>Changed at</th>
-                    <th className="num">Dirty flags</th>
-                    <th className="num">Remaining</th>
+                    <th className="num">Flags remaining</th>
                     <th>Status</th>
                     <th></th>
                   </tr>
@@ -261,9 +261,14 @@ export default function OntologyChanges() {
                             {c.oldLabelCode ?? '(none)'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
                           </span>
                         </td>
+                        <td>
+                          {c.affectedDatasetVersionNumber != null && (
+                            <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>#{c.affectedDatasetVersionNumber}</span>
+                          )}
+                          <span className="mono">{c.affectedDatasetVersionTag ?? '-'}</span>
+                        </td>
                         <td>{c.changedBy}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
-                        <td className="num">{c.dirtyAnnotationsFlagged}</td>
                         <td className="num">{remaining}/{c.dirtyAnnotationsFlagged}</td>
                         <td>
                           <span className={`badge ${remaining > 0 ? 'badge-amber' : 'badge-green'}`}>

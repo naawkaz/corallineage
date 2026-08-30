@@ -51,6 +51,8 @@ export default function ModelRegistry() {
 
   const [trainDialogOpen, setTrainDialogOpen] = useState(false)
 
+  const inProgressJobs = jobs.filter((j) => j.status === 'QUEUED' || j.status === 'RUNNING')
+
   function loadModels() {
     fetchModels(sourceId, page, PAGE_SIZE, status === 'ALL' ? undefined : status)
       .then((res) => {
@@ -105,32 +107,34 @@ export default function ModelRegistry() {
             title="Model registry"
             bodyClassName="no-padding"
             actions={
-              <button
-                className="btn btn-primary"
-                onClick={() => setTrainDialogOpen(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <PlusIcon style={{ width: 14, height: 14 }} />
-                Train New Model
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select
+                  className="form-select"
+                  style={{ width: 'auto' }}
+                  value={status}
+                  onChange={(e) => {
+                    setLoading(true)
+                    setStatus(e.target.value)
+                    setPage(0)
+                  }}
+                >
+                  <option value="ALL">All statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ARCHIVED">Archived</option>
+                  <option value="DEPRECATED">Deprecated</option>
+                </select>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setTrainDialogOpen(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <PlusIcon style={{ width: 14, height: 14 }} />
+                  Train New Model
+                </button>
+              </div>
             }
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
-              <select
-                className="form-select"
-                style={{ width: 'auto' }}
-                value={status}
-                onChange={(e) => {
-                  setLoading(true)
-                  setStatus(e.target.value)
-                  setPage(0)
-                }}
-              >
-                <option value="ALL">All statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="ARCHIVED">Archived</option>
-                <option value="DEPRECATED">Deprecated</option>
-              </select>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '14px 16px' }}>
               {data && data.totalPages > 0 && (
                 <Pagination
                   page={page}
@@ -149,7 +153,7 @@ export default function ModelRegistry() {
               <div className="loading-state">
                 <span className="spinner" /> Loading models…
               </div>
-            ) : !data || data.content.length === 0 ? (
+            ) : (!data || data.content.length === 0) && inProgressJobs.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">
                   <CubeIcon style={{ width: 32, height: 32 }} />
@@ -171,7 +175,35 @@ export default function ModelRegistry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.content.map((m) => (
+                  {/* A model still training has no ModelVersion row yet (that's only created once
+                      training completes) - only page 0 shows these placeholder rows, so they don't
+                      duplicate across pages of the real, paginated model list below them. */}
+                  {page === 0 &&
+                    inProgressJobs.map((job) => (
+                      <tr key={`job-${job.jobId}`}>
+                        <td>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span className="badge badge-amber">TRAINING</span>
+                            <span className="skeleton-bar" />
+                            {job.currentEpoch != null && (
+                              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                epoch {job.currentEpoch}/{job.totalEpochs ?? '-'}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>-</td>
+                        <td>{job.architecture}</td>
+                        <td className="num">-</td>
+                        <td>
+                          <span className="mono">{job.datasetVersionTag}</span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{formatDate(job.initiatedAt)}</td>
+                        <td style={{ color: 'var(--text-secondary)' }}>{job.initiatedBy}</td>
+                        <td></td>
+                      </tr>
+                    ))}
+                  {data?.content.map((m) => (
                     <tr key={m.id} className="clickable" onClick={() => navigate(`/sources/${sourceId}/models/${m.id}`)}>
                       <td>
                         <span className={`badge ${MODEL_STATUS_BADGE[m.status]}`}>{m.status}</span>

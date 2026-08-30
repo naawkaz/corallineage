@@ -24,6 +24,8 @@ import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
 import com.corallineage.backend.versioning.dataset.LabelDefinition;
 import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
+import com.corallineage.backend.datasets.importservice.ImportJobRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -65,6 +67,8 @@ class PointAnnotationJobServiceTest {
     @Mock private AutoAnnotationExecutor autoAnnotationExecutor;
     @Mock private DatasetService datasetService;
     @Mock private AnnotationJobRepository annotationJobRepository;
+    @Mock private DatasetVersionService datasetVersionService;
+    @Mock private ImportJobRepository importJobRepository;
 
     private final PointAnnotationMapper mapper = new PointAnnotationMapper();
 
@@ -76,7 +80,7 @@ class PointAnnotationJobServiceTest {
                 pointGenerationService, mapper, annotationEventLoggerService,
                 labelDefinitionRepository, annotationPointRepository, annotationPointBridge,
                 trainingJobService, trainingJobRepository, autoAnnotationExecutor, datasetService,
-                annotationJobRepository);
+                annotationJobRepository, datasetVersionService, importJobRepository);
     }
 
     private void writeTestImage(Path file) throws IOException {
@@ -202,7 +206,7 @@ class PointAnnotationJobServiceTest {
         assertThatThrownBy(() -> newService(workingDirectory).getPoints(99L, true,
                 org.springframework.data.domain.PageRequest.of(0, 10)))
                 .isInstanceOf(NotFoundException.class);
-        verify(generatedPointRepository, never()).findByJobIdAndSeed(any(), anyBoolean(), any());
+        verify(generatedPointRepository, never()).findByJobIdAndSeedOrderByIdAsc(any(), anyBoolean(), any());
     }
 
     private PointAnnotationJob job(Long id, String status, DatasetVersion version) {

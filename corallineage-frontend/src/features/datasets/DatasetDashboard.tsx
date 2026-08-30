@@ -13,6 +13,7 @@ import { changeTypeBadge, changeTypeLabel } from '../../shared/constants'
 import { scrollToAndHighlightAll } from '../../shared/lib/highlight'
 import { useJobPolling } from '../../shared/lib/jobPollingContextCore'
 import VersionsList from '../datasets/VersionsList'
+import StartBlankImportDialog from '../datasets/StartBlankImportDialog'
 import TitledCard from '../../shared/components/TitledCard'
 import StatRingCard from '../../shared/components/StatRingCard'
 import type { Dataset } from '../datasets/datasetsTypes'
@@ -30,11 +31,18 @@ function queueEntryStatusBadge(status: string): string {
     case 'TRAINING':
     case 'RUNNING':
     case 'REVIEW':
+    case 'PENDING_START':
       return 'badge-amber'
     default:
       return 'badge-gray'
   }
 }
+
+// A background/no-action-possible status: the row shows a spinner in place of its status text
+// (never alongside it) and isn't clickable, mirroring how VersionsList treats a PROCESSING
+// import row. SEED_LABELING/REVIEW/PENDING_START are deliberately excluded - those are exactly
+// the statuses where the user is expected to click in and act.
+const IN_PROGRESS_STATUSES = new Set(['GENERATING', 'TRAINING', 'RUNNING', 'PROCESSING'])
 
 export default function DatasetDashboard() {
   const navigate = useNavigate()
@@ -48,6 +56,7 @@ export default function DatasetDashboard() {
 
   const [queueEntries, setQueueEntries] = useState<UnlabeledImportQueueEntry[]>([])
   const [queueLoading, setQueueLoading] = useState(true)
+  const [startEntry, setStartEntry] = useState<UnlabeledImportQueueEntry | null>(null)
   const [queueError, setQueueError] = useState<string | null>(null)
 
   const [ontologyChanges, setOntologyChanges] = useState<OntologyChange[]>([])
@@ -149,7 +158,14 @@ export default function DatasetDashboard() {
 
   const pointQueueEntries = queueEntries.filter((e) => e.jobType === 'POINT_ANNOTATION')
   const pendingSeedJobs = pointQueueEntries.filter((e) => e.status === 'SEED_LABELING')
-  const pendingSeedPct = pointQueueEntries.length > 0 ? (pendingSeedJobs.length / pointQueueEntries.length) * 100 : 0
+  // Points, not jobs: a single cold-start job can carry hundreds of seed points, so counting jobs
+  // (1/1 once any job exists) said nothing about how much labeling is actually left - this sums
+  // the same seedTotalPoints/seedLabeledPoints figures the queue table's own "Seed progress"
+  // column already shows per row.
+  const totalSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedTotalPoints ?? 0), 0)
+  const labeledSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedLabeledPoints ?? 0), 0)
+  const pendingSeedPoints = totalSeedPoints - labeledSeedPoints
+  const pendingSeedPct = totalSeedPoints > 0 ? (pendingSeedPoints / totalSeedPoints) * 100 : 0
 
   const totalPredictions = annotationJobs.reduce((sum, j) => sum + j.totalPredictions, 0)
   const pendingPredictions = annotationJobs.reduce((sum, j) => sum + (j.totalPredictions - j.reviewedPredictions), 0)
@@ -166,6 +182,11 @@ export default function DatasetDashboard() {
   ]
 
   function openQueueEntry(entry: UnlabeledImportQueueEntry) {
+    if (entry.resolveRoute == null || IN_PROGRESS_STATUSES.has(entry.status)) return
+    if (entry.resolveRoute === 'START') {
+      setStartEntry(entry)
+      return
+    }
     const suffix = entry.resolveRoute === 'ANNOTATION_REVIEW' ? 'review' : 'label'
     navigate(`/sources/${sourceId}/annotation/jobs/${entry.resolveJobId}/${suffix}`)
   }
@@ -211,10 +232,10 @@ export default function DatasetDashboard() {
                   onGo={() => scrollToAndHighlightAll(dirtyChanges.map((c) => `ontology-change-row-${c.id}`))}
                 />
                 <StatRingCard
-                  fraction={`${pendingSeedJobs.length}/${pointQueueEntries.length}`}
-                  subtitle="Blank images pending labels"
+                  fraction={`${pendingSeedPoints}/${totalSeedPoints}`}
+                  subtitle="Unlabeled images pending labels"
                   percent={pendingSeedPct}
-                  danger={pendingSeedJobs.length > 0}
+                  danger={pendingSeedPoints > 0}
                   onGo={() =>
                     scrollToAndHighlightAll(pendingSeedJobs.map((j) => `blank-import-row-${j.jobId}`))
                   }
@@ -254,6 +275,7 @@ export default function DatasetDashboard() {
                       <thead>
                         <tr>
                           <th>Status</th>
+                          <th className="num">#</th>
                           <th>Version</th>
                           <th className="num">Seed progress</th>
                           <th>Model</th>
@@ -262,21 +284,20 @@ export default function DatasetDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {queueEntries.map((entry) => (
+                        {queueEntries.map((entry) => {
+                          const inProgress = IN_PROGRESS_STATUSES.has(entry.status)
+                          const resolvable = entry.resolveRoute != null && !inProgress
+                          return (
                           <tr
                             key={`${entry.jobType}-${entry.jobId}`}
                             id={`blank-import-row-${entry.jobId}`}
-                            className="clickable"
+                            className={resolvable ? 'clickable' : undefined}
                             onClick={() => openQueueEntry(entry)}
                           >
                             <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                {entry.status !== 'COMPLETE' && entry.status !== 'FAILED' && entry.status !== 'REVIEW' && (
-                                  <span className="spinner" style={{ width: 11, height: 11 }} />
-                                )}
-                                <span className={`badge ${queueEntryStatusBadge(entry.status)}`}>{entry.status}</span>
-                              </span>
+                              <span className={`badge ${queueEntryStatusBadge(entry.status)}`}>{entry.status}</span>
                             </td>
+                            <td className="num" style={{ color: 'var(--text-secondary)' }}>{entry.versionNumber ?? '-'}</td>
                             <td>{entry.versionTag ?? '-'}</td>
                             <td className="num">
                               {entry.seedTotalPoints != null ? `${entry.seedLabeledPoints} / ${entry.seedTotalPoints}` : '-'}
@@ -284,12 +305,19 @@ export default function DatasetDashboard() {
                             <td>{entry.modelTag ?? '-'}</td>
                             <td style={{ color: 'var(--text-secondary)' }}>{formatDate(entry.startedAt)}</td>
                             <td>
-                              <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                                Resolve <ArrowRightIcon style={{ width: 12, height: 12 }} />
-                              </span>
+                              {inProgress ? (
+                                <span className="spinner spinner-gray" style={{ width: 14, height: 14 }} />
+                              ) : resolvable ? (
+                                <span style={{ color: 'var(--accent)', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                  Resolve <ArrowRightIcon style={{ width: 12, height: 12 }} />
+                                </span>
+                              ) : entry.status === 'FAILED' ? (
+                                <span style={{ color: 'var(--danger)', fontSize: 12 }}>Failed</span>
+                              ) : null}
                             </td>
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
                   )}
@@ -372,6 +400,16 @@ export default function DatasetDashboard() {
           )
         )}
       </div>
+
+      {startEntry && (
+        <StartBlankImportDialog
+          sourceId={sourceId}
+          datasetVersionId={startEntry.resolveJobId as number}
+          imageCount={startEntry.imageCount ?? 0}
+          open
+          onClose={() => setStartEntry(null)}
+        />
+      )}
     </>
   )
 }

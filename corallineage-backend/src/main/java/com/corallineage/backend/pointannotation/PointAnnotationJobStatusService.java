@@ -1,5 +1,6 @@
 package com.corallineage.backend.pointannotation;
 
+import com.corallineage.backend.annotation.AnnotationCommitService;
 import com.corallineage.backend.annotation.AnnotationJob;
 import com.corallineage.backend.annotation.AnnotationJobRepository;
 import com.corallineage.backend.annotation.AnnotationPredictionRepository;
@@ -28,13 +29,16 @@ public class PointAnnotationJobStatusService {
     private final PointAnnotationJobRepository pointAnnotationJobRepository;
     private final AnnotationJobRepository annotationJobRepository;
     private final AnnotationPredictionRepository annotationPredictionRepository;
+    private final AnnotationCommitService annotationCommitService;
 
     public PointAnnotationJobStatusService(PointAnnotationJobRepository pointAnnotationJobRepository,
                                            AnnotationJobRepository annotationJobRepository,
-                                           AnnotationPredictionRepository annotationPredictionRepository) {
+                                           AnnotationPredictionRepository annotationPredictionRepository,
+                                           AnnotationCommitService annotationCommitService) {
         this.pointAnnotationJobRepository = pointAnnotationJobRepository;
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
+        this.annotationCommitService = annotationCommitService;
     }
 
     /**
@@ -96,6 +100,15 @@ public class PointAnnotationJobStatusService {
         delegatedJob.setCompletedAt(Instant.now());
         delegatedJob.setReviewStatus(autoAccepted == 0 ? "PENDING" : (autoAccepted < total ? "IN_PROGRESS" : "COMPLETED"));
         AnnotationJob savedDelegated = annotationJobRepository.save(delegatedJob);
+
+        // Every predicted point cleared the confidence threshold - nothing left for a human to
+        // review, so register this dataset version now instead of leaving it sitting in the
+        // Unlabeled import queue waiting for a manual "Apply to Version" click.
+        boolean fullyAutoAccepted = total > 0 && autoAccepted == total;
+        if (fullyAutoAccepted && Boolean.TRUE.equals(savedDelegated.getCommitInPlace())) {
+            annotationCommitService.applyToExistingVersion(savedDelegated.getId(), job.getInitiatedBy());
+        }
+
         long pendingReview = total - autoAccepted;
         String modelTag = savedDelegated.getModelVersion() != null ? savedDelegated.getModelVersion().getModelTag() : null;
         return new CompletionResult(job.getDatasetVersion(), modelTag, job.getInitiatedBy(), pendingReview);

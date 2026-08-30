@@ -56,7 +56,7 @@ class OntologyChangeServiceTest {
     private OntologyChangeService newService() {
         return new OntologyChangeService(ontologyChangeRepository, dirtyAnnotationRepository,
                 datasetVersionRepository, datasetVersionService, labelDefinitionRepository,
-                annotationPointRepository, new OntologyChangeMapper(annotationPointRepository),
+                annotationPointRepository, new OntologyChangeMapper(annotationPointRepository, datasetVersionService),
                 annotationEventLoggerService, annotationEventRepository, datasetService);
     }
 

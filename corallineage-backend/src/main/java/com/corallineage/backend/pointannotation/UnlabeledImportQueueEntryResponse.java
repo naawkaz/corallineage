@@ -14,6 +14,10 @@ public class UnlabeledImportQueueEntryResponse {
 
     private String jobType;
     private Long jobId;
+    // Permanent ordinal position of the affected dataset version (see
+    // DatasetVersionService.getVersionNumber) - null for an IMPORT entry, since no version exists
+    // yet while it's still uploading/parsing.
+    private Integer versionNumber;
     private String versionTag;
     private String status;
     private Long seedLabeledPoints;
@@ -22,12 +26,18 @@ public class UnlabeledImportQueueEntryResponse {
     private Instant startedAt;
     private String resolveRoute;
     private Long resolveJobId;
+    // Only set for a VERSION_START entry - the image count StartBlankImportDialog needs to size
+    // its seed-image-count field / fetch warm-start images. Null for every other jobType.
+    private Integer imageCount;
 
     public String getJobType() { return jobType; }
     public void setJobType(String jobType) { this.jobType = jobType; }
 
     public Long getJobId() { return jobId; }
     public void setJobId(Long jobId) { this.jobId = jobId; }
+
+    public Integer getVersionNumber() { return versionNumber; }
+    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
 
     public String getVersionTag() { return versionTag; }
     public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
@@ -52,4 +62,7 @@ public class UnlabeledImportQueueEntryResponse {
 
     public Long getResolveJobId() { return resolveJobId; }
     public void setResolveJobId(Long resolveJobId) { this.resolveJobId = resolveJobId; }
+
+    public Integer getImageCount() { return imageCount; }
+    public void setImageCount(Integer imageCount) { this.imageCount = imageCount; }
 }

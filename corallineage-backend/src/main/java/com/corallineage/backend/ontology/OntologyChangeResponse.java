@@ -10,6 +10,8 @@ public class OntologyChangeResponse {
     private String oldLabelCode;
     private List<String> newLabelCodes;
     private Long affectedDatasetVersionId;
+    private Integer affectedDatasetVersionNumber;
+    private String affectedDatasetVersionTag;
     private String changedBy;
     private Instant changedAt;
     private String notes;
@@ -31,6 +33,12 @@ public class OntologyChangeResponse {
 
     public Long getAffectedDatasetVersionId() { return affectedDatasetVersionId; }
     public void setAffectedDatasetVersionId(Long affectedDatasetVersionId) { this.affectedDatasetVersionId = affectedDatasetVersionId; }
+
+    public String getAffectedDatasetVersionTag() { return affectedDatasetVersionTag; }
+    public void setAffectedDatasetVersionTag(String affectedDatasetVersionTag) { this.affectedDatasetVersionTag = affectedDatasetVersionTag; }
+
+    public Integer getAffectedDatasetVersionNumber() { return affectedDatasetVersionNumber; }
+    public void setAffectedDatasetVersionNumber(Integer affectedDatasetVersionNumber) { this.affectedDatasetVersionNumber = affectedDatasetVersionNumber; }
 
     public String getChangedBy() { return changedBy; }
     public void setChangedBy(String changedBy) { this.changedBy = changedBy; }

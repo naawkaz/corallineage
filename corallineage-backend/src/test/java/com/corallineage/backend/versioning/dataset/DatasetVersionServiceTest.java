@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -341,6 +342,62 @@ class DatasetVersionServiceTest {
 
         assertThat(result.getContent()).extracting(DatasetVersionResponse::getVersionTag).containsExactly("v1.0");
         assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void getVersionHistory_excludesIncompleteVersions() {
+        DatasetVersion completeVersion = new DatasetVersion();
+        completeVersion.setId(1L);
+        completeVersion.setVersionTag("v1.0");
+        Dataset dataset = new Dataset();
+        dataset.setId(1L);
+        completeVersion.setDataset(dataset);
+
+        DatasetVersion incompleteVersion = new DatasetVersion();
+        incompleteVersion.setId(2L);
+        incompleteVersion.setVersionTag("v2.0");
+        incompleteVersion.setDataset(dataset);
+
+        when(datasetRepository.existsById(1L)).thenReturn(true);
+        when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
+                .thenReturn(List.of(incompleteVersion, completeVersion));
+        when(dirtyAnnotationRepository.countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(1L))
+                .thenReturn(0L);
+        when(dirtyAnnotationRepository.countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(2L))
+                .thenReturn(3L);
+
+        Page<DatasetVersionResponse> result =
+                datasetVersionService.getVersionHistory(1L, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(DatasetVersionResponse::getVersionTag).containsExactly("v1.0");
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void getVersionHistory_assignsPermanentVersionNumbers_oldestIsOne() {
+        DatasetVersion older = new DatasetVersion();
+        older.setId(5L);
+        older.setVersionTag("v1.0");
+        Dataset dataset = new Dataset();
+        dataset.setId(1L);
+        older.setDataset(dataset);
+
+        DatasetVersion newer = new DatasetVersion();
+        newer.setId(9L);
+        newer.setVersionTag("v2.0");
+        newer.setDataset(dataset);
+
+        when(datasetRepository.existsById(1L)).thenReturn(true);
+        // Repository query returns newest-first; version numbering must still come out oldest=1
+        // regardless of id gaps in between (id 5 and 9, not 5 and 6).
+        when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
+                .thenReturn(List.of(newer, older));
+
+        Page<DatasetVersionResponse> result =
+                datasetVersionService.getVersionHistory(1L, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).extracting(DatasetVersionResponse::getVersionTag, DatasetVersionResponse::getVersionNumber)
+                .containsExactly(tuple("v2.0", 2), tuple("v1.0", 1));
     }
 
     @Test

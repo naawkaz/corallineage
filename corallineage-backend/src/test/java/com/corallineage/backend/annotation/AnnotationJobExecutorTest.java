@@ -47,12 +47,13 @@ class AnnotationJobExecutorTest {
     @Mock private DatasetVersionService datasetVersionService;
     @Mock private PythonMlServiceClient pythonMlServiceClient;
     @Mock private AnnotationEventLoggerService annotationEventLoggerService;
+    @Mock private AnnotationCommitService annotationCommitService;
 
     private AnnotationJobExecutor newExecutor(Path workingDirectory) {
         return new AnnotationJobExecutor(annotationJobRepository, annotationPredictionRepository,
                 imageRepository, annotationPointRepository, datasetRepository, datasetVersionRepository,
                 datasetVersionImageRepository, datasetVersionService, pythonMlServiceClient,
-                annotationEventLoggerService, workingDirectory, "dataset", 64);
+                annotationEventLoggerService, workingDirectory, "dataset", 64, annotationCommitService);
     }
 
     private ModelVersion model() {

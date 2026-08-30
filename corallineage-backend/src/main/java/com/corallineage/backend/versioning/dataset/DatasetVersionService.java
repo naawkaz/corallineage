@@ -20,7 +20,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DatasetVersionService {
@@ -197,28 +200,82 @@ public class DatasetVersionService {
      * seed-labeling/training or review before it's usable) is excluded here entirely - it only
      * ever appears in the Unlabeled import queue card (see
      * {@link com.corallineage.backend.pointannotation.PointAnnotationJobService#getUnlabeledImportQueue}),
-     * never duplicated in this list. Filtering happens after the per-version resolve-status
-     * enrichment (not expressible as a single query spanning DatasetVersion/PointAnnotationJob/
-     * AnnotationJob), so pagination runs in memory over the filtered set rather than at the DB
-     * level - the same N+1/in-memory trade-off {@link #attachCompleteness} already accepts for
-     * this app's data volumes.
+     * never duplicated in this list. An incomplete version (unresolved dirty annotations from an
+     * ontology change still affecting it) is excluded the same way - it only shows up via the
+     * Ontology change history list until that change is fully resolved, per the same "not a real,
+     * usable version yet" reasoning. Filtering happens after the per-version resolve-status/
+     * completeness enrichment (not expressible as a single query spanning DatasetVersion/
+     * PointAnnotationJob/AnnotationJob/DirtyAnnotation), so pagination runs in memory over the
+     * filtered set rather than at the DB level - the same N+1/in-memory trade-off
+     * {@link #attachCompleteness} already accepts for this app's data volumes.
+     *
+     * {@code versionNumber} is assigned before either filter, over every non-staging version ever
+     * created for the dataset (oldest = 1), so a version's number is permanent and never shifts
+     * later just because an unrelated version became resolved/hidden - gaps in the visible sequence
+     * are expected and fine, the same way a git log can skip over hidden WIP commits.
      */
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
             throw new NotFoundException("Dataset not found: " + datasetId);
         }
-        List<DatasetVersionResponse> resolved = datasetVersionRepository
-                .findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(datasetId)
-                .stream()
-                .map(version -> attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version))))
-                .filter(response -> !"UNRESOLVED".equals(response.getResolveStatus()))
+        List<DatasetVersion> all = datasetVersionRepository
+                .findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(datasetId);
+
+        Map<Long, Integer> versionNumbersById = new HashMap<>();
+        List<DatasetVersion> byIdAscending = new ArrayList<>(all);
+        byIdAscending.sort(Comparator.comparing(DatasetVersion::getId));
+        for (int i = 0; i < byIdAscending.size(); i++) {
+            versionNumbersById.put(byIdAscending.get(i).getId(), i + 1);
+        }
+
+        List<DatasetVersionResponse> resolved = all.stream()
+                .map(version -> {
+                    DatasetVersionResponse response = attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version)));
+                    response.setVersionNumber(versionNumbersById.get(version.getId()));
+                    return response;
+                })
+                .filter(response -> !"UNRESOLVED".equals(response.getResolveStatus()) && response.isComplete())
                 .toList();
 
         int total = resolved.size();
         int start = Math.min((int) pageable.getOffset(), total);
         int end = Math.min(start + pageable.getPageSize(), total);
         return new PageImpl<>(resolved.subList(start, end), pageable, total);
+    }
+
+    /**
+     * A single version's permanent ordinal number (see {@link #getVersionHistory}'s own javadoc for
+     * what "permanent" means here) without loading/numbering the whole dataset's version list -
+     * for call sites that only ever need one version's number at a time (the Unlabeled import
+     * queue, the Ontology change history list), not a paginated list of versions themselves.
+     */
+    @Transactional(readOnly = true)
+    public Integer getVersionNumber(DatasetVersion version) {
+        return (int) datasetVersionRepository.countByDatasetIdAndIsStagingNotTrueAndIdLessThanEqual(
+                version.getDataset().getId(), version.getId());
+    }
+
+    /**
+     * The versions {@link #getVersionHistory} filters out: completed BLANK imports with no
+     * {@link com.corallineage.backend.pointannotation.PointAnnotationJob} or delegated
+     * {@link com.corallineage.backend.annotation.AnnotationJob} started against them yet
+     * (resolveRoute "START"). Used by {@code PointAnnotationJobService.getUnlabeledImportQueue} to
+     * surface these in the Unlabeled import queue - otherwise a completed BLANK import has nowhere
+     * to show up at all until the user manually opens the version by URL.
+     */
+    @Transactional(readOnly = true)
+    public List<DatasetVersionResponse> getPendingBlankStarts(Long datasetId) {
+        return datasetVersionRepository
+                .findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(datasetId)
+                .stream()
+                .map(version -> {
+                    DatasetVersionResponse response = attachImportStatus(datasetVersionMapper.toResponse(version));
+                    response.setVersionNumber(getVersionNumber(version));
+                    return response;
+                })
+                .filter(response -> "START".equals(response.getResolveRoute()))
+                .toList();
     }
 
     /**

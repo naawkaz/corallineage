@@ -568,6 +568,9 @@ tr.row-highlight td { animation: row-highlight-pulse 1.5s ease-out; }
   border: 2px solid var(--border-md); border-top-color: var(--accent);
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
+/* A row whose status isn't the accent-colored "primary action in progress" kind (e.g. a queue
+   entry that isn't the thing the user is actively driving right now) - same shape, neutral color. */
+.spinner-gray { border-top-color: var(--text-secondary); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* A row still training: a shimmering gradient bar in place of a plain spinner, since there's

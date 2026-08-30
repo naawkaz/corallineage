@@ -479,7 +479,7 @@ export default function AnnotationReview() {
                         key={label.labelCode}
                         style={{ display: 'flex', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid var(--border)' }}
                       >
-                        <span className="mono" style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
+                        <span style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
                         <span style={{ flex: 1, fontSize: 12 }}>{label.labelName}</span>
                         <span style={{ width: 120 }}>{label.labelCategory && <span className="tag">{label.labelCategory}</span>}</span>
                       </div>
@@ -489,51 +489,52 @@ export default function AnnotationReview() {
               </div>
             </div>
 
-            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {!isValidation && (
-                <div style={{ display: 'flex', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                  <div className="toggle-checkbox" style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${filterMode === 'needs_review' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setFilterMode('needs_review')}
-                    >
-                      Needs review
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${filterMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setFilterMode('all')}
-                    >
-                      All points
-                    </button>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                {!isValidation && (
+                  <div style={{ display: 'flex', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                    <div className="toggle-checkbox" style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filterMode === 'needs_review' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setFilterMode('needs_review')}
+                      >
+                        Needs review
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filterMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setFilterMode('all')}
+                      >
+                        All points
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
-                {currentImagePredictions.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 12 }}>
-                    {filterMode === 'needs_review' ? 'Nothing on this image needs review.' : 'No points on this image.'}
-                  </div>
-                ) : (
-                  currentImagePredictions.map((prediction) => (
-                    <PredictionCard
-                      key={prediction.predictionId}
-                      prediction={prediction}
-                      isValidation={isValidation}
-                      selected={prediction.predictionId === effectiveSelectedId}
-                      labelOptions={labelOptions}
-                      onSelect={() => setSelectedPredictionId(prediction.predictionId)}
-                      onResolve={resolvePrediction}
-                    />
-                  ))
                 )}
+                <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                  {currentImagePredictions.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 12 }}>
+                      {filterMode === 'needs_review' ? 'Nothing on this image needs review.' : 'No points on this image.'}
+                    </div>
+                  ) : (
+                    currentImagePredictions.map((prediction) => (
+                      <PredictionCard
+                        key={prediction.predictionId}
+                        prediction={prediction}
+                        isValidation={isValidation}
+                        selected={prediction.predictionId === effectiveSelectedId}
+                        labelOptions={labelOptions}
+                        onSelect={() => setSelectedPredictionId(prediction.predictionId)}
+                        onResolve={resolvePrediction}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
               {!isValidation && (
-                <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
                   <button
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
+                    className="btn btn-accept"
                     disabled={pendingCount === 0 || acceptingAll}
                     onClick={handleAcceptAll}
                   >
@@ -699,11 +700,7 @@ function PredictionCard({
           value={currentLabelCode}
           onChange={canReview ? (labelCode) => onResolve(prediction, labelCode) : () => {}}
           disabled={!canReview}
-          placeholder={
-            canReview
-              ? `Predicted: ${prediction.predictedLabelCode} (conf ${prediction.confidenceScore.toFixed(4)})`
-              : undefined
-          }
+          valueSuffix={canReview ? ` (${(prediction.confidenceScore * 100).toFixed(1)}% confidence)` : undefined}
         />
       </div>
 

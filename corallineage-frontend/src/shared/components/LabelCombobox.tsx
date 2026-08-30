@@ -8,6 +8,12 @@ interface LabelComboboxProps {
   placeholder?: string
   disabled?: boolean
   id?: string
+  // Appended to the displayed text for the current `value` (e.g. a confidence percentage on a
+  // still-pending model prediction) - shown only while the caller keeps passing it, so it
+  // disappears the moment the caller stops (e.g. once the prediction is reviewed/resolved).
+  // Ignored while the dropdown is open or once the user picks a fresh option, since at that point
+  // the displayed text is driven by the user's own selection, not this synced `value`.
+  valueSuffix?: string
 }
 
 /**
@@ -15,12 +21,7 @@ interface LabelComboboxProps {
  * keyboard nav. No combobox library exists anywhere in this codebase, so this is plain state +
  * .filter(), styled to match .form-input sizing (see index.css .combobox-*).
  */
-export default function LabelCombobox({ options, value, onChange, placeholder, disabled, id }: LabelComboboxProps) {
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
+export default function LabelCombobox({ options, value, onChange, placeholder, disabled, id, valueSuffix }: LabelComboboxProps) {
   const selectedOption = options.find((o) => o.labelCode === value) ?? null
 
   // Keep the displayed text in sync when the selection changes from outside (e.g. version switch,
@@ -31,7 +32,22 @@ export default function LabelCombobox({ options, value, onChange, placeholder, d
   // "adjusting state when a prop changes" pattern) rather than in a useEffect, since this is pure
   // state derivation, not a subscription to an external system. Skipped while the dropdown is open
   // so it never clobbers what the user is actively typing.
-  const resolvedQuery = selectedOption ? `${selectedOption.labelName} (${selectedOption.labelCode})` : ''
+  const resolvedQuery = selectedOption
+    ? `${selectedOption.labelName} (${selectedOption.labelCode})${valueSuffix ?? ''}`
+    : ''
+
+  // `query`'s own initial value must be lazily derived from resolvedQuery, not a bare `''` -
+  // otherwise a component that mounts fresh *after* `value`/`options` already resolve (e.g. a
+  // PredictionCard that only renders once a filter toggle reveals it, well after its labelOptions
+  // finished loading) seeds `syncedKey` from that same already-consistent state on its very first
+  // render, so the mismatch check below never fires and `query` is stuck at `''` forever - visibly
+  // an "already accepted/reviewed" combobox showing blank instead of its real label. A real,
+  // previously-unnoticed gap in the fix this same effect's own comment already describes for the
+  // sibling case (options resolving *after* mount).
+  const [query, setQuery] = useState(() => resolvedQuery)
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const syncKey = `${value}::${resolvedQuery}`
   const [syncedKey, setSyncedKey] = useState(syncKey)
   if (syncKey !== syncedKey && !open) {

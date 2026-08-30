@@ -60,14 +60,23 @@ export default function SeedLabeling() {
   useEffect(() => {
     Promise.all([fetchPointAnnotationJob(jobId), loadPoints()])
       .then(([jobRes]) => {
+        // Landed here directly (a stale link, browser back/forward, a bookmark) on a job whose
+        // seed-labeling stage is already behind it - forward straight to the delegated
+        // AnnotationJob's review screen instead of rendering a dead seed-labeling UI for a step
+        // that's already done. Mirrors the redirect the TRAINING poll below already does for the
+        // case where that transition happens while this page is open.
+        if (jobRes.status === 'COMPLETE' && jobRes.annotationJobId != null) {
+          navigate(`/sources/${sourceId}/annotation/jobs/${jobRes.annotationJobId}/review`)
+          return null
+        }
         setJob(jobRes)
         setError(null)
         return fetchVersion(sourceId, jobRes.datasetVersionId)
       })
-      .then((version) => setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
+      .then((version) => version && setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [jobId, sourceId, loadPoints])
+  }, [jobId, sourceId, navigate, loadPoints])
 
   useEffect(() => {
     fetchArchitectures()
@@ -278,11 +287,6 @@ export default function SeedLabeling() {
 
       <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{statusText}</span>
-        {job.status === 'SEED_LABELING' && allLabeled && (
-          <button className="btn btn-primary" onClick={() => setTrainDialogOpen(true)}>
-            Train model &amp; run auto-annotation
-          </button>
-        )}
       </div>
       <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
         <div style={{ height: 4, width: `${displayPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
@@ -458,20 +462,29 @@ export default function SeedLabeling() {
               </div>
             </div>
 
-            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
-                {currentImagePoints.map((point, idx) => (
-                  <SeedPointCard
-                    key={point.id}
-                    point={point}
-                    pointNumber={idx + 1}
-                    selected={point.id === effectiveSelectedPointId}
-                    labelOptions={labelOptions}
-                    onSelect={() => setSelectedPointId(point.id)}
-                    onLabel={handleLabel}
-                  />
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                  {currentImagePoints.map((point, idx) => (
+                    <SeedPointCard
+                      key={point.id}
+                      point={point}
+                      pointNumber={idx + 1}
+                      selected={point.id === effectiveSelectedPointId}
+                      labelOptions={labelOptions}
+                      onSelect={() => setSelectedPointId(point.id)}
+                      onLabel={handleLabel}
+                    />
+                  ))}
+                </div>
               </div>
+              {job.status === 'SEED_LABELING' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button className="btn btn-accept" disabled={!allLabeled} onClick={() => setTrainDialogOpen(true)}>
+                    Train model &amp; run auto-annotation
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

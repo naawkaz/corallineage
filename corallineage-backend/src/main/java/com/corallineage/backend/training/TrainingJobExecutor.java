@@ -98,7 +98,7 @@ public class TrainingJobExecutor {
             }
 
             if ("FAILED".equals(status.status())) {
-                trainingJobStatusService.markFailed(jobId, describeFailure(status.error()));
+                markFailedAndRevertPointJob(jobId, describeFailure(status.error()));
                 return;
             }
 
@@ -124,13 +124,31 @@ public class TrainingJobExecutor {
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            trainingJobStatusService.markFailed(jobId, "Interrupted while waiting for training to complete");
+            markFailedAndRevertPointJob(jobId, "Interrupted while waiting for training to complete");
         } catch (Exception ex) {
-            trainingJobStatusService.markFailed(jobId, describeFailure(ex.getMessage(), ex));
+            markFailedAndRevertPointJob(jobId, describeFailure(ex.getMessage(), ex));
         } finally {
             if (preparedDir != null) {
                 deleteRecursivelyQuietly(preparedDir);
             }
+        }
+    }
+
+    /**
+     * Marks the TrainingJob FAILED, then, if it was a cold-start point-annotation job's own
+     * training step, reverts that job from TRAINING back to SEED_LABELING so the user can fix
+     * whatever caused the failure (bad hyperparameters, an ML-service hiccup) and retry training,
+     * rather than being stuck on a job permanently wedged at TRAINING with no way forward. Mirrors
+     * the defensive try/catch around autoAnnotateAfterTraining above: the TrainingJob's own FAILED
+     * status is already persisted by the time this runs, so a failure reverting the point job must
+     * never be swallowed silently, but also must never look like training itself failed twice.
+     */
+    private void markFailedAndRevertPointJob(Long jobId, String message) {
+        trainingJobStatusService.markFailed(jobId, message);
+        try {
+            pointAnnotationJobService.revertAfterTrainingFailure(jobId);
+        } catch (Exception ex) {
+            log.error("Failed to revert point-annotation job to SEED_LABELING after training job {} failed", jobId, ex);
         }
     }
 
