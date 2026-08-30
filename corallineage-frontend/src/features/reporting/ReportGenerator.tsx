@@ -15,7 +15,7 @@ import {
   YAxis,
 } from 'recharts'
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
-import { exportReportUrl, fetchReports, generateReport } from '../reporting/reportsApi'
+import { exportReport, fetchReports, generateReport } from '../reporting/reportsApi'
 import { errorMessage } from '../../shared/api/client'
 import { changeTypeBadge, changeTypeLabel, eventTypeBadge, eventTypeLabel } from '../../shared/constants'
 import { useAuthContext } from '../../shared/lib/authContextCore'
@@ -158,9 +158,38 @@ export default function ReportGenerator() {
     }
   }
 
+  function downloadJson(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   function handleExportJson() {
     if (!report) return
-    window.open(exportReportUrl(report.reportId), '_blank')
+    const toastId = toast.push({ variant: 'progress', title: 'Exporting JSON…' })
+    try {
+      downloadJson(`${report.reportId}.json`, report)
+      toast.update(toastId, { variant: 'success', title: 'JSON exported', detail: `${report.reportId}.json` })
+    } catch (err) {
+      toast.update(toastId, { variant: 'error', title: 'JSON export failed', detail: errorMessage(err) })
+    }
+  }
+
+  async function handleRedownload(reportId: string) {
+    const toastId = toast.push({ variant: 'progress', title: 'Preparing download…' })
+    try {
+      const data = await exportReport(reportId)
+      downloadJson(`${reportId}.json`, data)
+      toast.update(toastId, { variant: 'success', title: 'Report downloaded', detail: `${reportId}.json` })
+    } catch (err) {
+      toast.update(toastId, { variant: 'error', title: 'Download failed', detail: errorMessage(err) })
+    }
   }
 
   const sourceSplitData = report?.analytics
@@ -214,7 +243,7 @@ export default function ReportGenerator() {
                             className="btn btn-secondary btn-sm"
                             aria-label="Redownload report"
                             title="Redownload report"
-                            onClick={() => window.open(exportReportUrl(r.reportId), '_blank')}
+                            onClick={() => handleRedownload(r.reportId)}
                           >
                             <ArrowDownTrayIcon style={{ width: 13, height: 13 }} />
                           </button>
