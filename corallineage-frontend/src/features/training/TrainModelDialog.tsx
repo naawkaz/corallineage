@@ -33,17 +33,17 @@ interface TrainModelDialogProps {
   initiatedBy: string
   architectures: Architecture[]
   versions: DatasetVersion[]
-  /** Preselects a specific dataset version instead of defaulting to versions[0]. */
+  /** Preselects a specific dataset version instead of defaulting to versions[0] */
   initialVersionId?: number
-  /** Overrides the submit action (defaults to the standalone training-job endpoint). */
+  /** Overrides the submit action 
+   * defaults to the standalone training-job endpoint */
   onSubmit?: (form: TrainModelDialogForm) => Promise<TrainingJob>
   onClose: () => void
   onCompleted: () => void
 }
 
-// Owns the "Train New Model" form state (architecture, selected version, hyperparameters, the
-// active job and its live epoch-metric poll). Mounted only while its parent's open flag is true,
-// so each open is a fresh mount with a clean form.
+// Owns "Train New Model" form state 
+// Mounted only while its parent's open flag is true
 export default function TrainModelDialog({
   sourceId,
   initiatedBy,
@@ -75,8 +75,8 @@ export default function TrainModelDialog({
     if (initialVersionId == null && versions.length > 0) setSelectedVersionId(versions[0].id)
   }, [versions, initialVersionId])
 
-  // Polls the active job every 3s while QUEUED/RUNNING to drive this dialog's epoch-progress bar
-  // and loss curve. The completion toast is JobPollingProvider's job, not this poll's.
+  // Polls the active job every 3s while QUEUED/RUNNING to drive epoch-progress bar
+  // and loss curve
   useEffect(() => {
     if (!activeJob || (activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING')) {
       return
@@ -89,22 +89,18 @@ export default function TrainModelDialog({
             fetchTrainingJobEpochMetrics(updated.jobId)
               .then((points) => setActiveJobEpochMetrics(points))
               .catch(() => {
-                // transient poll failure, the epoch progress bar still covers this tick
               })
           }
           if (updated.status !== 'QUEUED' && updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
             onCompleted()
-            // Auto-dismiss on success; the model is already in the refreshed registry behind
-            // this dialog. FAILED stays open so the user can read the error message.
             if (updated.status === 'COMPLETED') {
               onClose()
             }
           }
         })
         .catch(() => {
-          // transient poll failure - try again next tick
         })
     }, 3000)
     pollingRef.current = intervalId
@@ -257,7 +253,7 @@ export default function TrainModelDialog({
                       }}
                     />
                   </div>
-                  {/* Fed by GET /training/jobs/{id}/epoch-metrics, which reads the job's own
+                  {/* Fed by GET /training/jobs/{id}/epoch-metrics which reads the job's own
                       mlflowRunId rather than requiring a registered ModelVersion, so the same
                       loss curve used for a completed model can grow live while still RUNNING. */}
                   <LossCurveChart epochMetrics={activeJobEpochMetrics} />

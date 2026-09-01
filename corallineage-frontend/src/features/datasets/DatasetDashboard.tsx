@@ -38,8 +38,6 @@ function queueEntryStatusBadge(status: string): string {
   }
 }
 
-// Statuses where no user action is possible yet: the row shows a spinner instead of its status
-// and is not clickable. SEED_LABELING/REVIEW/PENDING_START are excluded since the user acts on those.
 const IN_PROGRESS_STATUSES = new Set(['GENERATING', 'TRAINING', 'RUNNING', 'PROCESSING'])
 
 export default function DatasetDashboard() {
@@ -74,6 +72,8 @@ export default function DatasetDashboard() {
       .then(([datasetRes]) => {
         if (cancelled) return
         setDataset(datasetRes)
+        // setLatestVersion(versionsRes.content[0] ?? null)
+        // setModelCount(modelsRes.totalElements)
         setError(null)
       })
       .catch((err) => {
@@ -87,8 +87,9 @@ export default function DatasetDashboard() {
     }
   }, [sourceId])
 
-  // Re-fetch on JobPollingProvider's refreshSignal so this card reflects live progress without
-  // its own poll interval.
+  // Re-fetches whenever JobPollingProvider's shared refreshSignal changes (it polls this same
+  // endpoint itself and bumps the signal on any observed status transition), so this card reflects
+  // live progress without running its own poll interval.
   useEffect(() => {
     if (!sourceId) return
     let cancelled = false
@@ -153,8 +154,10 @@ export default function DatasetDashboard() {
 
   const pointQueueEntries = queueEntries.filter((e) => e.jobType === 'POINT_ANNOTATION')
   const pendingSeedJobs = pointQueueEntries.filter((e) => e.status === 'SEED_LABELING')
-  // Count points, not jobs: one cold-start job can carry hundreds of seed points, so a job count
-  // says nothing about how much labeling is left.
+
+  // a single cold-start job can carry hundreds of seed points, so counting jobs
+  // this sums the same seedTotalPoints/seedLabeledPoints figures the queue table's own "Seed progress"
+  // column already shows per row
   const totalSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedTotalPoints ?? 0), 0)
   const labeledSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedLabeledPoints ?? 0), 0)
   const pendingSeedPoints = totalSeedPoints - labeledSeedPoints
@@ -163,8 +166,10 @@ export default function DatasetDashboard() {
   const totalPredictions = annotationJobs.reduce((sum, j) => sum + j.totalPredictions, 0)
   const pendingPredictions = annotationJobs.reduce((sum, j) => sum + (j.totalPredictions - j.reviewedPredictions), 0)
   const pendingPredictionsPct = totalPredictions > 0 ? (pendingPredictions / totalPredictions) * 100 : 0
-  // Dataset versions with at least one prediction still in review. Deduped since a version can
-  // have more than one annotation job.
+
+  // Dataset versions carrying at least one prediction that landed below the auto-accept
+  // confidence threshold and is still sitting in review (totalPredictions > reviewedPredictions).
+  // Deduped since a version can have more than one annotation job against it
   const pendingPredictionVersionIds = [
     ...new Set(
       annotationJobs
@@ -334,7 +339,7 @@ export default function DatasetDashboard() {
                       <thead>
                         <tr>
                           <th>Type</th>
-                          <th>Old -> New</th>
+                          <th>Old -&gt; New</th>
                           <th className="num">Remaining</th>
                           <th></th>
                         </tr>
@@ -356,7 +361,7 @@ export default function DatasetDashboard() {
                               </td>
                               <td>
                                 <span className="mono" style={{ fontSize: 12 }}>
-                                  {c.oldLabelCode ?? '(none)'} -> {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
+                                  {c.oldLabelCode ?? '(none)'} -&gt; {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
                                 </span>
                               </td>
                               <td className="num">

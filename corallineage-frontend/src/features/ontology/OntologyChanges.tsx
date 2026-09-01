@@ -76,11 +76,11 @@ export default function OntologyChanges() {
   }, [sourceId])
 
   // The old-label combobox and the replacement-label combobox are both fed from the selected
-  // dataset version's active (non-deprecated) label definitions.
+  // dataset version's active label definitions
   useEffect(() => {
     let cancelled = false
     if (!selectedVersionId) {
-      // Deferred via .then so the reset isn't a synchronous setState call in the effect body.
+      // Deferred via .then so the reset isn't a synchronous setState call in the effect body
       Promise.resolve().then(() => {
         if (!cancelled) setBasedOnVersionLabels([])
       })
@@ -100,8 +100,9 @@ export default function OntologyChanges() {
     }
   }, [sourceId, selectedVersionId])
 
-  // Changing the change type clears fields whose meaning differs across types, so a stale
-  // combination is never submitted by accident. Derived during render.
+  // Changing the change type clears fields with meaning differing across types
+  // a stale combination is never submitted by accident
+  // Derived during render
   const [syncedChangeType, setSyncedChangeType] = useState(changeType)
   if (changeType !== syncedChangeType) {
     setSyncedChangeType(changeType)
@@ -110,7 +111,6 @@ export default function OntologyChanges() {
     setNewLabelRows([emptyRow()])
   }
 
-  // RENAMED auto-fills the new row's category from the selected old label; still editable.
   function handleOldLabelChange(code: string) {
     setOldLabelCode(code)
     if (changeType === 'LABEL_RENAMED') {
@@ -197,7 +197,7 @@ export default function OntologyChanges() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '4fr 1fr', gap: 24, alignItems: 'start' }}>
-          {/* Rows link to a dedicated review page rather than expanding inline. */}
+          {/* Rows link to a dedicated review page rather than expanding inline*/}
           <TitledCard
             title="Ontology change history"
             bodyClassName="no-padding"
@@ -230,7 +230,7 @@ export default function OntologyChanges() {
                 <thead>
                   <tr>
                     <th>Type</th>
-                    <th>Old -> New</th>
+                    <th>Old -&gt; New</th>
                     <th>Dataset version</th>
                     <th>Changed by</th>
                     <th>Changed at</th>
@@ -255,7 +255,7 @@ export default function OntologyChanges() {
                         </td>
                         <td>
                           <span className="mono" style={{ fontSize: 12 }}>
-                            {c.oldLabelCode ?? '(none)'} -> {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
+                            {c.oldLabelCode ?? '(none)'} -&gt; {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
                           </span>
                         </td>
                         <td>

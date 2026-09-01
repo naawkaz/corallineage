@@ -40,9 +40,9 @@ export default function CreateProjectModal({ open, onClose, onCreated }: CreateP
         <div className="modal-header">
           <div>
             <div className="modal-title">Create new project</div>
-            <div className="modal-subtitle">
+            {/* <div className="modal-subtitle">
               A named container that groups one or more Sources and manages who can access them
-            </div>
+            </div> */}
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <XMarkIcon style={{ width: 16, height: 16 }} />

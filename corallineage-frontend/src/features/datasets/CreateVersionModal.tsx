@@ -25,17 +25,6 @@ const FORMATS: { value: ImportFormat; label: string; hint: string }[] = [
   { value: 'COCO_JSON', label: 'COCO JSON', hint: 'annotations.json with images/annotations/categories' },
 ]
 
-/**
- * "Add Images" dialog on the Source Dashboard. Covers a bare manual snapshot (no files picked)
- * and a full dataset import (MLC / CoralNet CSV / COCO JSON / Blank formats, directory upload,
- * Blank-format label declaration with cross-source label reuse).
- *
- * Dismisses itself as soon as the submit request is accepted rather than waiting for the import
- * to process. Import status and the Blank-import "Resolve" step live in VersionsList's table row.
- */
-// The parent mounts this unconditionally, so the wrapper renders the inner component only while
-// `open` is true. Each open is then a fresh mount with fresh initial state; no reset-on-open
-// effect is needed here.
 export default function CreateVersionModal(props: CreateVersionModalProps) {
   if (!props.open) return null
   return <CreateVersionModalInner {...props} />
@@ -168,7 +157,7 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
     onClose()
   }
 
-  // Returns as soon as the request is accepted; the import processes in the background.
+  // Returns as soon as the request is accepted import processes asynchronously in the background
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)

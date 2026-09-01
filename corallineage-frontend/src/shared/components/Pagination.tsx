@@ -32,7 +32,7 @@ function visiblePageNumbers(page: number, totalPages: number): (number | 'ellips
   return pages
 }
 
-/** Shared pagination control: sits top-right of its section, shows ~5 page numbers with ellipsis truncation. */
+/** Shared pagination control: sits top-right of its section ~5 page numbers with ellipsis truncation. */
 export default function Pagination({ page, totalPages, onPageChange, totalElements, pageSize }: PaginationProps) {
   if (totalPages <= 0) return null
   const pages = visiblePageNumbers(page, totalPages)

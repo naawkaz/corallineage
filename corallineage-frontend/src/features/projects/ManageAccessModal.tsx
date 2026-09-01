@@ -68,9 +68,9 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
         <div className="modal-header">
           <div>
             <div className="modal-title">Manage access</div>
-            <div className="modal-subtitle">
+            {/* <div className="modal-subtitle">
               Which sources {member.displayName} can see in this project
-            </div>
+            </div> */}
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <XMarkIcon style={{ width: 16, height: 16 }} />

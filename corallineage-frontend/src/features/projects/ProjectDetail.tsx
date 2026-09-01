@@ -124,7 +124,7 @@ export default function ProjectDetail() {
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
-            {/* Sources: 2/3 width, list-row layout matching the Home projects list */}
+            {/* Sources: 2/3 width*/}
             <TitledCard
               title="Sources"
               actions={
@@ -161,7 +161,7 @@ export default function ProjectDetail() {
               )}
             </TitledCard>
 
-            {/* Collaborators: 1/3 width, to the right */}
+            {/* Collaborators: 1/3*/}
             <TitledCard
               title="Collaborators"
               actions={

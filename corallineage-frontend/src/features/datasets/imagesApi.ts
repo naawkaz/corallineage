@@ -17,8 +17,7 @@ export async function fetchImages(
 }
 
 /**
- * Every annotation point on every image in a dataset version, for the Dataset Versions image
- * grid's optional points overlay. Only meant to be called when the user switches the overlay
+ * Only meant to be called when the user switches the overlay
  * toggle on, since it returns the whole version's points in one request rather than paging.
  */
 export async function fetchAnnotationPoints(

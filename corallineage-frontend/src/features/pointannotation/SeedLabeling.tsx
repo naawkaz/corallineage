@@ -21,8 +21,8 @@ import type { GeneratedPoint, PointAnnotationJob } from '../pointannotation/poin
 import type { Architecture, TrainingJob } from '../training/trainingTypes'
 import type { DatasetVersion, LabelDefinition } from '../datasets/versionsTypes'
 
-// Cold-start seed-labeling screen: the user hand-labels the generated seed points image by
-// image, then trains the first model and hands off to auto-annotation.
+// user hand-labels the generated seed points image by image
+// trains first model and hands off to auto-annotation
 export default function SeedLabeling() {
   const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
@@ -62,8 +62,7 @@ export default function SeedLabeling() {
   useEffect(() => {
     Promise.all([fetchPointAnnotationJob(jobId), loadPoints()])
       .then(([jobRes]) => {
-        // Job whose seed-labeling stage is already done (reached via a stale link or back/forward):
-        // forward to the delegated AnnotationJob's review screen instead of a dead seed UI.
+        // Job where seed-labeling stage is already done
         if (jobRes.status === 'COMPLETE' && jobRes.annotationJobId != null) {
           navigate(`/sources/${sourceId}/annotation/jobs/${jobRes.annotationJobId}/review`)
           return null
@@ -81,7 +80,6 @@ export default function SeedLabeling() {
     fetchArchitectures()
       .then((list) => setArchitectures(list))
       .catch(() => {
-        // architecture dropdown just stays on the default; submit will still validate server-side
       })
   }, [])
 
@@ -113,8 +111,8 @@ export default function SeedLabeling() {
     return map
   }, [points])
 
-  // Re-select the first image when the image set itself changes (e.g. initial load), not when a
-  // single point flips status. Derived during render.
+  // Re-select the first image when the image set itself changes
+  // not when a single point flips status
   const imageKey = imageIds.join(',')
   const [syncedImageKey, setSyncedImageKey] = useState('')
   if (imageKey !== syncedImageKey) {
@@ -145,8 +143,6 @@ export default function SeedLabeling() {
     }
   }
 
-  // Reached only through the label-set panel, not the per-point picker, so adding a vocabulary
-  // entry mid-session is deliberate rather than a mistyped keystroke in the labeling loop.
   async function handleAddLabel() {
     if (!job || !newLabelCode.trim() || !newLabelName.trim()) return
     setAddingLabel(true)
@@ -169,10 +165,8 @@ export default function SeedLabeling() {
     }
   }
 
-  // Routes through trainPointAnnotationJob so the TrainingJob is attached to this
-  // PointAnnotationJob (job.trainingJobId) rather than standalone; the backend reads that to
-  // auto-delegate into auto-annotate once training completes. The user navigates away
-  // immediately after submit; cross-page progress and completion toasts are JobPollingProvider's.
+  // Routed through trainPointAnnotationJob so TrainingJob is attached to this
+  // backend reads it auto-delegate into auto-annotate once training completes
   async function handleTrainSubmit(form: {
     architecture: string
     datasetVersionId: number
@@ -195,8 +189,8 @@ export default function SeedLabeling() {
     return trainingJobResponse
   }
 
-  // Polls the training job every 3s while this job is TRAINING, only relevant if the user
-  // navigates back here mid-training. Once it leaves TRAINING, forward to the review screen.
+  // Polls the training job every 3s while this job is TRAINING
+  // Once TRAINING done forward to the review screen
   useEffect(() => {
     if (!job || job.status !== 'TRAINING' || job.trainingJobId == null) return
     let cancelled = false
@@ -214,7 +208,6 @@ export default function SeedLabeling() {
           }
         })
         .catch(() => {
-          /* transient poll failure - try again next tick */
         })
     }, 3000)
     return () => {
@@ -585,7 +578,6 @@ function SeedPointCard({
   onSelect: () => void
   onLabel: (point: GeneratedPoint, labelCode: string) => void
 }) {
-  // Picking an option is itself the confirm action; there is no separate "Label" button.
   const canLabel = point.status !== 'HUMAN_LABELED'
 
   return (

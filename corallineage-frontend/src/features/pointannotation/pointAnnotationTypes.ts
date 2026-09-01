@@ -20,7 +20,7 @@ export interface PointAnnotationJob {
   seedTotalPoints: number
   seedLabeledPoints: number
   trainingJobId: number | null
-  // Set once auto-annotate is triggered: the id of the AnnotationJob this job's review delegates into.
+  // Set once auto-annotate is triggered
   annotationJobId: number | null
   modelVersionId: number | null
   modelTag: string | null
@@ -67,13 +67,14 @@ export interface TrainPointAnnotationJobRequest {
   epochs?: number
 }
 
-// One row of the unlabeled import queue: cold-start PointAnnotationJob rows and not-yet-applied
-// commitInPlace AnnotationJob rows, sorted and with resolveRoute/resolveJobId resolved server-side.
+// One row of the unlabeled import queue
+// commitInPlace AnnotationJob rows
+// sorted and with resolveRoute/resolveJobId resolved server-side
 export interface UnlabeledImportQueueEntry {
   jobType: 'POINT_ANNOTATION' | 'ANNOTATION' | 'IMPORT' | 'VERSION_START'
   jobId: number
-  // Permanent ordinal position of the affected dataset version; null for an IMPORT entry (no
-  // version exists yet while it's still uploading/parsing).
+  // null for an IMPORT entry
+  // no version exists yet while it's still uploading/parsing
   versionNumber: number | null
   versionTag: string | null
   status: string
@@ -81,9 +82,9 @@ export interface UnlabeledImportQueueEntry {
   seedTotalPoints: number | null
   modelTag: string | null
   startedAt: string
-  // Null for a still-processing IMPORT entry (nothing to resolve into yet - not clickable).
+  // Null for a still-processing IMPORT entry
   resolveRoute: 'SEED_LABEL' | 'ANNOTATION_REVIEW' | 'START' | null
   resolveJobId: number | null
-  // Only set for a VERSION_START entry.
+  // Only set for a VERSION_START entry
   imageCount: number | null
 }

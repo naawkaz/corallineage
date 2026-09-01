@@ -7,8 +7,7 @@ export async function generateReport(request: GenerateReportRequest): Promise<Re
   return data
 }
 
-// This endpoint requires a JWT, so it must go through the authenticated `api` client. A plain
-// browser navigation (window.open / window.location) carries no Authorization header and 401s.
+// This endpoint requires a JWT so it needs to go through the authenticated api client
 export async function exportReport(reportId: string): Promise<ReproducibilityReport> {
   const { data } = await api.get<ReproducibilityReport>(`/reports/${reportId}/export`)
   return data

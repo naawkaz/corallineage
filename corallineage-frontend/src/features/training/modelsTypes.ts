@@ -44,9 +44,7 @@ export interface MlflowEpochMetricPoint {
   trainLoss: number | null
   valLoss: number | null
   valAccuracy: number | null
-  /** Pre validation-split metric keys. Present only for models trained before the
-   *  train/val split was added, used as a single-line fallback when trainLoss/valLoss
-   *  are both null. */
+  // fallback when trainLoss/valLoss are both null
   loss: number | null
   accuracy: number | null
 }

@@ -14,13 +14,11 @@ interface LossCurveChartProps {
   epochMetrics: MlflowEpochMetricPoint[]
 }
 
-// Renders a training loss curve from a series of epoch metric points. Shared between the
-// completed-model diagnostics view (fed a full, static series) and the live in-progress
-// training view (fed a series that grows point by point as polling picks up new epochs).
+// Renders a training loss curve from a series of epoch metric points
 export default function LossCurveChart({ epochMetrics }: LossCurveChartProps) {
   const chartData = epochMetrics.map((p) => ({ ...p, epochLabel: `Epoch ${p.epoch + 1}` }))
-  // Some models only carry a single combined loss series (trainLoss/valLoss null); fall back
-  // to it rather than rendering a blank chart.
+  // Some models only carry a single combined loss series (trainLoss/valLoss null) 
+  // falls back to it rather than rendering a blank chart
   const hasValidationSplit = chartData.some((p) => p.trainLoss != null || p.valLoss != null)
 
   if (chartData.length === 0) return null

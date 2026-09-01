@@ -31,7 +31,8 @@ export default function VersionDetail() {
   const [imagesError, setImagesError] = useState<string | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-  // Points overlay toggle for the image grid. Local state, not persisted.
+  // Points overlay toggle for the image grid
+  // local state
   const [pointsToggle, setPointsToggle] = useState(false)
   const [points, setPoints] = useState<AnnotationPointSummary[] | null>(null)
   const [pointsLoading, setPointsLoading] = useState(false)
@@ -516,8 +517,8 @@ export default function VersionDetail() {
 }
 
 /**
- * Zoomed single-image lightbox. A dedicated component so its label-toggle state is local and
- * resets when the lightbox closes.
+ * Zoomed single-image lightbox
+ * label-toggle state is local and resets when the lightbox closes.
  */
 function Lightbox({
   image,
@@ -561,7 +562,7 @@ function Lightbox({
         className="btn btn-secondary"
         style={{ position: 'absolute', left: 24 }}
       >
-        < Prev
+        &lt; Prev
       </button>
 
       <div
@@ -643,7 +644,7 @@ function Lightbox({
         className="btn btn-secondary"
         style={{ position: 'absolute', right: 24 }}
       >
-        Next >
+        Next &gt;
       </button>
       <button
         onClick={(e) => {

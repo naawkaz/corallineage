@@ -391,8 +391,7 @@ function DirtyPointCard({
   onSelect: () => void
   onResolve: (dirty: DirtyAnnotation, newLabelCode: string) => void
 }) {
-  // The dropdown alone is the confirm action (no separate Resolve button), matching
-  // AnnotationReview.tsx's PredictionCard: picking an option immediately resolves this point.
+  // picking an option immediately resolves this point.
   const canResolve = !dirty.resolved
   const currentValue = dirty.resolved ? dirty.newLabelCode ?? '' : ''
 
@@ -424,7 +423,7 @@ function DirtyPointCard({
 
       {dirty.resolved && (
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
-          {dirty.currentLabelCode} -> {dirty.newLabelCode}
+          {dirty.currentLabelCode} -&gt; {dirty.newLabelCode}
           {dirty.resolvedBy ? ` by ${dirty.resolvedBy}` : ''}
         </div>
       )}

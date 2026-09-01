@@ -8,29 +8,24 @@ interface LabelComboboxProps {
   placeholder?: string
   disabled?: boolean
   id?: string
-  // Appended to the displayed text for the current `value`, e.g. a confidence percentage.
   // Ignored while the dropdown is open or after the user picks an option.
   valueSuffix?: string
 }
 
 /**
  * Searchable typeahead over a set of LabelDefinitions: text input plus a filtered option list
- * with keyboard navigation. Styled to match .form-input sizing (.combobox-* in index.css).
  */
 export default function LabelCombobox({ options, value, onChange, placeholder, disabled, id, valueSuffix }: LabelComboboxProps) {
   const selectedOption = options.find((o) => o.labelCode === value) ?? null
 
-  // Keep the displayed text in sync when the selection changes from outside, including a
-  // same-`value` re-render after async `options` finish loading and the label becomes
-  // resolvable. Derived during render, and skipped while the dropdown is open so it never
-  // clobbers what the user is typing.
+  // Keep the displayed text in sync when the selection changes externally
+  // Derived during render, and skipped while the dropdown is open
   const resolvedQuery = selectedOption
     ? `${selectedOption.labelName} (${selectedOption.labelCode})${valueSuffix ?? ''}`
     : ''
 
-  // Seed `query` lazily from resolvedQuery, not `''`: a component that mounts after `value` and
-  // `options` already resolve seeds `syncedKey` from consistent state, so the mismatch check
-  // below never fires and `query` would otherwise stay `''` forever.
+  // Seed query lazily from resolvedQuery
+  // options already resolve seeds syncedKey from consistent state
   const [query, setQuery] = useState(() => resolvedQuery)
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)

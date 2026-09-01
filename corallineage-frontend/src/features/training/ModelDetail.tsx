@@ -579,7 +579,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .then((res) => {
         setImages(res.content)
         setImagesPage(0)
-        // Filtered images (human-labeled points) are selected by default; user can deselect.
+        // Filtered images selected by default. Able to deselect
         setSelectedImageIds(res.content.map((img) => img.id))
       })
       .catch(() => {
@@ -589,8 +589,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .finally(() => setImagesLoading(false))
   }, [sourceId, selectedVersionId])
 
-  // Drives only this dialog's live status UI while it stays open. The completion/failure toast
-  // is JobPollingProvider's job, so it still fires if the dialog closes first.
+  // Drives live status UI while dialog stays open
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -631,7 +630,6 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
         initiatedBy,
       })
       setActiveJob(created)
-      // A one-shot "started" notice, not the job's progress state.
       toast.push({ variant: 'info', title: 'Validation started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
@@ -833,8 +831,7 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
 
-  // Drives only this dialog's live status UI while it stays open. The completion/failure toast
-  // is JobPollingProvider's job, so it still fires if the dialog closes first.
+  // Drives only live status UI while dialog stays open
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -875,7 +872,6 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
       )
       setActiveJob(created)
       setUploadFiles([])
-      // A one-shot "started" notice, not the job's progress state.
       toast.push({ variant: 'info', title: 'Annotating new images started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {

@@ -36,8 +36,7 @@ export default function ModelRegistry() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Dropdown source data for the train dialog, fetched at page level. The dialog's own form
-  // fields live inside TrainModelDialog and reset by remounting on each open.
+  // Dropdown source data for the train dialog
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
 
@@ -84,7 +83,6 @@ export default function ModelRegistry() {
     fetchArchitectures()
       .then((list) => setArchitectures(list))
       .catch(() => {
-        // architecture dropdown just stays on the default; submit will still validate server-side
       })
   }, [])
 
@@ -172,9 +170,9 @@ export default function ModelRegistry() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* A model still training has no ModelVersion row yet (that's only created once
-                      training completes) - only page 0 shows these placeholder rows, so they don't
-                      duplicate across pages of the real, paginated model list below them. */}
+                  {/* A model still training has no ModelVersion row yet
+                      only page 0 shows these placeholder rows, so they dont
+                      duplicate across pages of the actual paginated model list below them*/}
                   {page === 0 &&
                     inProgressJobs.map((job) => (
                       <tr key={`job-${job.jobId}`}>

@@ -11,7 +11,6 @@ interface RowMenuProps {
   items: RowMenuItem[]
 }
 
-/** Triple-dot row menu, e.g. "Manage access" / "Remove" on a collaborator row. */
 export default function RowMenu({ items }: RowMenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

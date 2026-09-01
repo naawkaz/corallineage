@@ -23,8 +23,8 @@ export default function AddCollaboratorModal({ open, projectId, sources, onClose
 
   useEffect(() => {
     if (open) {
-      // All sources checked by default (full access). Deferred via .then so it is not a
-      // synchronous setState in the effect body.
+      // All sources checked by default 
+      // Deferred via .then so it is not asynchronous setState in the effect body.
       Promise.resolve().then(() => {
         setChecked(new Set(sources.map((s) => s.id)))
         setUsername('')

@@ -19,10 +19,9 @@ interface StartBlankImportDialogProps {
 }
 
 /**
- * "Resolve" dialog opened from the dataset versions list for a completed BLANK import.
- *
- * Forks on whether the source already has a trained model: warm start (model exists) goes
- * straight to auto-annotate then review; cold start falls back to the seed-then-train pipeline.
+ * Forks on whether the source already has a trained model:
+ * warm start goes straight to auto-annotate then review
+ * cold start falls back to the seed-then-train pipeline.
  */
 export default function StartBlankImportDialog({
   sourceId,

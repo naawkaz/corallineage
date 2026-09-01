@@ -570,7 +570,7 @@ export default function ReportGenerator() {
                     <thead>
                       <tr>
                         <th>Type</th>
-                        <th>Old -> New</th>
+                        <th>Old -&gt; New</th>
                         <th>Changed by</th>
                         <th>Changed at</th>
                       </tr>
@@ -583,7 +583,7 @@ export default function ReportGenerator() {
                           </td>
                           <td>
                             <span className="mono" style={{ fontSize: 12 }}>
-                              {c.oldLabelCode ?? '-'} -> {c.newLabelCodes?.join(', ') || '-'}
+                              {c.oldLabelCode ?? '-'} -&gt; {c.newLabelCodes?.join(', ') || '-'}
                             </span>
                           </td>
                           <td>{c.changedBy}</td>

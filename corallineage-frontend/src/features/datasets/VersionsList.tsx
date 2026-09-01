@@ -15,10 +15,6 @@ interface VersionsListProps {
   sourceId: number
 }
 
-/**
- * The dataset versions list (filters, table, pagination), embedded on the Source Dashboard.
- * "Add Images" opens CreateVersionModal, which also carries the full import flow.
- */
 export default function VersionsList({ sourceId }: VersionsListProps) {
   const navigate = useNavigate()
   const { refreshSignal } = useJobPolling()
@@ -52,8 +48,8 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId, page])
 
-  // Imports process in the background, so re-fetch whenever JobPollingProvider's refreshSignal
-  // changes instead of running a poll here.
+  // Imports process in the background
+  // re-fetch whenever JobPollingProvider's refreshSignal changes instead of running a poll here
   const isFirstRefreshSignal = useRef(true)
   useEffect(() => {
     if (isFirstRefreshSignal.current) {
