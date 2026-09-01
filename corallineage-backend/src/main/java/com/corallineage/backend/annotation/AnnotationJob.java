@@ -28,7 +28,7 @@ public class AnnotationJob {
     @JoinColumn(name = "model_version_id", nullable = false)
     private ModelVersion modelVersion;
 
-    // Nullable at the JPA level though conceptually required
+    // Nullable at the JPA level but conceptually required
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_id")
     private Dataset dataset;
@@ -39,7 +39,7 @@ public class AnnotationJob {
     @Column(name = "initiated_at", nullable = false, updatable = false)
     private Instant initiatedAt;
 
-    // Values RUNNING COMPLETED FAILED
+    // one of RUNNING COMPLETED FAILED
     @Column(name = "status", nullable = false, length = 50)
     private String status = "RUNNING";
 
@@ -53,24 +53,24 @@ public class AnnotationJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    // Values PENDING IN_PROGRESS COMPLETED
+    // one of PENDING IN_PROGRESS COMPLETED
     @Column(name = "review_status", nullable = false, length = 50)
     private String reviewStatus = "PENDING";
 
-    // Values VALIDATION or NEW_IMAGES, nullable for the internal whole image path
+    // VALIDATION or NEW_IMAGES, null for the internal whole image path
     @Column(name = "job_type", length = 20)
     private String jobType;
 
-    // The dataset version checked against for VALIDATION, or the staging version for NEW_IMAGES
+    // The version checked against for VALIDATION, or the staging version for NEW_IMAGES
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_version_id")
     private DatasetVersion datasetVersion;
 
-    // The dataset version this job's reviewed points were committed into, null until then
+    // The version this job's reviewed points were committed into, null until then
     @Column(name = "added_to_project_version_id")
     private Long addedToProjectVersionId;
 
-    // A prediction at or above this confidence auto confirms at inference time, nullable at the JPA level
+    // A prediction at or above this confidence auto confirms at inference time, nullable
     @Column(name = "confidence_threshold", precision = 5, scale = 4)
     private BigDecimal confidenceThreshold;
 

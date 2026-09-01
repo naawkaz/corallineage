@@ -30,7 +30,7 @@ public class DatasetVersion {
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
-    // Enum values IMAGES_ADDED IMAGES_REMOVED ANNOTATIONS_MODIFIED LABEL_DEFINITION_CHANGED MANUAL_SNAPSHOT
+    // IMAGES_ADDED, IMAGES_REMOVED, ANNOTATIONS_MODIFIED, LABEL_DEFINITION_CHANGED, MANUAL_SNAPSHOT
     @Column(name = "trigger_reason", nullable = false, length = 50)
     private String triggerReason;
 
@@ -46,7 +46,6 @@ public class DatasetVersion {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // True for a staging version holding images pending review, excluded from the version list
     @Column(name = "is_staging")
     private Boolean isStaging;
 

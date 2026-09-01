@@ -123,10 +123,7 @@ class ModelVersionServiceTest {
 
     @Test
     void registerFromTrainingResult_counterStaleAndTagTaken_skipsToNextFreeTag() {
-        // Reproduces the real bug: next_model_fallback_number says "1" (either genuinely stale, or
-        // reset by an earlier attempt's transaction rolling back after this exact collision), but
-        // "model-v1" already exists on this dataset. The old code trusted the counter blindly and
-        // would keep generating "model-v1" forever, failing the unique constraint on every retry.
+        // Counter says 1 but model-v1 already exists, so the candidate tag must skip forward
         Dataset dataset = new Dataset();
         dataset.setNextModelFallbackNumber(1);
         DatasetVersion datasetVersion = new DatasetVersion();

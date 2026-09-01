@@ -297,18 +297,7 @@ class PointAnnotationJobServiceTest {
         verify(autoAnnotationExecutor, never()).executeAutoAnnotationAsync(any());
     }
 
-    /**
-     * startAutoAnnotate now delegates into a real AnnotationJob (commitInPlace=true) the moment
-     * training completes, marks this point-annotation job COMPLETE immediately (its own
-     * responsibility ends at delegation - see PointAnnotationJob.annotationJob's javadoc), and
-     * still dispatches the same background executor as before (no real Spring transaction/
-     * synchronization is active under Mockito, so dispatchAutoAnnotateAfterCommit's
-     * TransactionSynchronizationManager.isSynchronizationActive() check is false and the dispatch
-     * happens immediately, same as TrainingJobServiceTest's equivalent dispatch-after-commit
-     * coverage). The actual REVIEW/COMPLETE-equivalent completion logic for the delegated job now
-     * lives in PointAnnotationJobStatusService.completeAutoAnnotation, exercised by
-     * AutoAnnotationExecutorTest instead.
-     */
+    /** startAutoAnnotate delegates into an AnnotationJob and marks this job COMPLETE, then dispatches the executor */
     @Test
     void startAutoAnnotate_success_delegatesToAnnotationJobAndDispatchesExecutor(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
         PointAnnotationJob job = job(1L, "TRAINING", version(1L));

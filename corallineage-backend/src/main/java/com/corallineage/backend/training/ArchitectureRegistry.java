@@ -37,7 +37,7 @@ public class ArchitectureRegistry {
                 cached.set(fetched);
             }
         } catch (MlServiceException ex) {
-            // Python ML service not reachable yet - keep the previous/fallback list.
+            // ML service not reachable yet, keep the fallback list
         }
     }
 

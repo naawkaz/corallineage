@@ -86,7 +86,7 @@ public class OntologyChangeService {
 
         List<String> createdLabelCodes = applyLabelMutation(changeType, oldLabelCode, newLabels, newVersion);
 
-        // newVersion is uncommitted in this transaction, so this event is persisted directly instead of through the REQUIRES_NEW logger
+        // newVersion is uncommitted here, so persist this event directly rather than via the REQUIRES_NEW logger
         AnnotationEvent detectedEvent = new AnnotationEvent();
         detectedEvent.setEventType(EventType.ONTOLOGY_CHANGE_DETECTED);
         detectedEvent.setDatasetVersion(newVersion);

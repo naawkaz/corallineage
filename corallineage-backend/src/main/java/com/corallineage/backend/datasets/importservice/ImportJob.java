@@ -32,7 +32,7 @@ public class ImportJob {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // Values: PROCESSING, COMPLETED, FAILED
+    // one of PROCESSING COMPLETED FAILED
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PROCESSING";
 

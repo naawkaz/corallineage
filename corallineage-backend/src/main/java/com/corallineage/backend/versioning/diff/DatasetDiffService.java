@@ -29,10 +29,10 @@ public class DatasetDiffService {
     private final ClassDistributionService classDistributionService;
 
     public DatasetDiffService(DatasetVersionRepository datasetVersionRepository,
-                              LabelDefinitionRepository labelDefinitionRepository,
-                              ImageRepository imageRepository,
-                              DatasetVersionImageRepository datasetVersionImageRepository,
-                              ClassDistributionService classDistributionService) {
+            LabelDefinitionRepository labelDefinitionRepository,
+            ImageRepository imageRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            ClassDistributionService classDistributionService) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
         this.imageRepository = imageRepository;

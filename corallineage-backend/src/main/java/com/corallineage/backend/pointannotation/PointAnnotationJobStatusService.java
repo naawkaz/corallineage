@@ -73,8 +73,7 @@ public class PointAnnotationJobStatusService {
         delegatedJob.setReviewStatus(autoAccepted == 0 ? "PENDING" : (autoAccepted < total ? "IN_PROGRESS" : "COMPLETED"));
         AnnotationJob savedDelegated = annotationJobRepository.save(delegatedJob);
 
-        // Every predicted point cleared the confidence threshold, so register this dataset version
-        // now rather than leaving it in the unlabeled import queue for a manual apply.
+        // Every point cleared the confidence threshold, so register the dataset version now
         boolean fullyAutoAccepted = total > 0 && autoAccepted == total;
         if (fullyAutoAccepted && Boolean.TRUE.equals(savedDelegated.getCommitInPlace())) {
             annotationCommitService.applyToExistingVersion(savedDelegated.getId(), job.getInitiatedBy());

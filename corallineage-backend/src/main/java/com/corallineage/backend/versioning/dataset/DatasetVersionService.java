@@ -42,17 +42,17 @@ public class DatasetVersionService {
     private final AnnotationJobRepository annotationJobRepository;
 
     public DatasetVersionService(DatasetRepository datasetRepository,
-                                 DatasetVersionRepository datasetVersionRepository,
-                                 LabelDefinitionRepository labelDefinitionRepository,
-                                 DatasetVersionImageRepository datasetVersionImageRepository,
-                                 AnnotationPointRepository annotationPointRepository,
-                                 DirtyAnnotationRepository dirtyAnnotationRepository,
-                                 DvcIntegrationService dvcIntegrationService,
-                                 AnnotationEventLoggerService annotationEventLoggerService,
-                                 DatasetVersionMapper datasetVersionMapper,
-                                 ImportJobRepository importJobRepository,
-                                 PointAnnotationJobRepository pointAnnotationJobRepository,
-                                 AnnotationJobRepository annotationJobRepository) {
+            DatasetVersionRepository datasetVersionRepository,
+            LabelDefinitionRepository labelDefinitionRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            DirtyAnnotationRepository dirtyAnnotationRepository,
+            DvcIntegrationService dvcIntegrationService,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            DatasetVersionMapper datasetVersionMapper,
+            ImportJobRepository importJobRepository,
+            PointAnnotationJobRepository pointAnnotationJobRepository,
+            AnnotationJobRepository annotationJobRepository) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.labelDefinitionRepository = labelDefinitionRepository;
@@ -69,31 +69,34 @@ public class DatasetVersionService {
 
     @Transactional
     public DatasetVersionResponse createSnapshot(Long datasetId, CreateVersionRequest request) {
-        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId)
+                .orElse(null);
         return createSnapshotBranchedFrom(datasetId, request, previousLatest);
     }
 
-    /** Creates a staging version excluded from the version list */
+    /** Creates a staging version, excluded from the version list */
     @Transactional
     public DatasetVersionResponse createStagingSnapshot(Long datasetId, CreateVersionRequest request) {
-        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId)
+                .orElse(null);
         return createSnapshotBranchedFrom(datasetId, request, previousLatest, true);
     }
 
-    /** Creates a version branched from a given point rather than the latest */
+    /** Creates a version branched from an explicit point rather than the latest */
     @Transactional
     public DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
-                                                              DatasetVersion branchPoint) {
+            DatasetVersion branchPoint) {
         return createSnapshotBranchedFrom(datasetId, request, branchPoint, false);
     }
 
     private DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
-                                                               DatasetVersion branchPoint, boolean isStaging) {
+            DatasetVersion branchPoint, boolean isStaging) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
         if (datasetVersionRepository.findByDatasetIdAndVersionTag(datasetId, request.getVersionTag()).isPresent()) {
-            throw new ConflictException("Dataset version tag already exists in this dataset: " + request.getVersionTag());
+            throw new ConflictException(
+                    "Dataset version tag already exists in this dataset: " + request.getVersionTag());
         }
 
         DatasetVersion previousLatest = branchPoint;
@@ -115,7 +118,8 @@ public class DatasetVersionService {
         List<DatasetVersionImage> membership = snapshotCurrentImageMembership(savedVersion, previousLatest);
 
         savedVersion.setImageCount(membership.size());
-        savedVersion.setAnnotationCount((int) annotationPointRepository.countByImageOriginDatasetVersionDatasetId(datasetId));
+        savedVersion.setAnnotationCount(
+                (int) annotationPointRepository.countByImageOriginDatasetVersionDatasetId(datasetId));
         savedVersion = datasetVersionRepository.save(savedVersion);
 
         logAfterCommit(EventType.DATASET_VERSION_CREATED, savedVersion,
@@ -130,7 +134,8 @@ public class DatasetVersionService {
         if (previousLatest == null) {
             return snapshot;
         }
-        for (DatasetVersionImage membershipRow : datasetVersionImageRepository.findByDatasetVersionId(previousLatest.getId())) {
+        for (DatasetVersionImage membershipRow : datasetVersionImageRepository
+                .findByDatasetVersionId(previousLatest.getId())) {
             DatasetVersionImage copy = new DatasetVersionImage();
             copy.setDatasetVersion(version);
             copy.setImage(membershipRow.getImage());
@@ -158,7 +163,8 @@ public class DatasetVersionService {
     }
 
     @Transactional
-    public LabelDefinitionResponse addLabelDefinition(Long datasetId, Long versionId, CreateLabelDefinitionRequest request) {
+    public LabelDefinitionResponse addLabelDefinition(Long datasetId, Long versionId,
+            CreateLabelDefinitionRequest request) {
         DatasetVersion version = datasetVersionRepository.findById(versionId)
                 .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionId));
         if (!version.getDataset().getId().equals(datasetId)) {
@@ -178,7 +184,7 @@ public class DatasetVersionService {
         return datasetVersionMapper.toLabelResponse(saved);
     }
 
-    /** Excludes unresolved and incomplete versions from the list, version numbers stay permanent */
+    /** Excludes unresolved and incomplete versions, paginated in memory after enrichment */
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
@@ -196,7 +202,8 @@ public class DatasetVersionService {
 
         List<DatasetVersionResponse> resolved = all.stream()
                 .map(version -> {
-                    DatasetVersionResponse response = attachImportStatus(attachCompleteness(datasetVersionMapper.toResponse(version)));
+                    DatasetVersionResponse response = attachImportStatus(
+                            attachCompleteness(datasetVersionMapper.toResponse(version)));
                     response.setVersionNumber(versionNumbersById.get(version.getId()));
                     return response;
                 })
@@ -216,7 +223,7 @@ public class DatasetVersionService {
                 version.getDataset().getId(), version.getId());
     }
 
-    /** Versions from a completed blank import with no job started yet */
+    /** Completed blank imports with no job started against them yet */
     @Transactional(readOnly = true)
     public List<DatasetVersionResponse> getPendingBlankStarts(Long datasetId) {
         return datasetVersionRepository
@@ -231,7 +238,7 @@ public class DatasetVersionService {
                 .toList();
     }
 
-    /** Populates complete and unresolvedDirtyCount with one extra query per version */
+    /** Populates complete and unresolvedDirtyCount, one extra query per version */
     private DatasetVersionResponse attachCompleteness(DatasetVersionResponse response) {
         long unresolved = dirtyAnnotationRepository
                 .countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(response.getId());
@@ -240,7 +247,7 @@ public class DatasetVersionService {
         return response;
     }
 
-    /** Populates import status from the most recent import job that produced this version */
+    /** Populates import status from the most recent import job for this version */
     private DatasetVersionResponse attachImportStatus(DatasetVersionResponse response) {
         importJobRepository.findTopByCreatedDatasetVersionIdOrderBySubmittedAtDesc(response.getId())
                 .ifPresent(job -> {
@@ -252,7 +259,7 @@ public class DatasetVersionService {
         return response;
     }
 
-    /** Populates resolve status and where to navigate to resolve a blank import version */
+    /** Populates resolve status and route for a blank import version not yet committed */
     private void attachResolveStatus(DatasetVersionResponse response) {
         var pointJob = pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(response.getId());
         if (pointJob.isPresent() && !"COMPLETE".equals(pointJob.get().getStatus())) {
@@ -263,7 +270,8 @@ public class DatasetVersionService {
         }
 
         // A COMPLETE point annotation job may still have a pending delegated review, so fall through
-        var annotationJob = annotationJobRepository.findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
+        var annotationJob = annotationJobRepository
+                .findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
         if (annotationJob.isPresent()) {
             if (annotationJob.get().getAddedToProjectVersionId() == null) {
                 response.setResolveStatus("UNRESOLVED");
@@ -280,9 +288,9 @@ public class DatasetVersionService {
         }
     }
 
-    /** Logs an event after the transaction commits */
+    /** Logs an event, deferred until the surrounding transaction commits */
     private void logAfterCommit(EventType eventType, DatasetVersion version,
-                                String performedBy, String description) {
+            String performedBy, String description) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -295,7 +303,8 @@ public class DatasetVersionService {
         }
     }
 
-    private List<LabelDefinition> snapshotCurrentLabelDefinitions(DatasetVersion version, DatasetVersion previousLatest) {
+    private List<LabelDefinition> snapshotCurrentLabelDefinitions(DatasetVersion version,
+            DatasetVersion previousLatest) {
         List<LabelDefinition> snapshot = new ArrayList<>();
         if (previousLatest == null) {
             return snapshot;

@@ -56,8 +56,7 @@ public class MlflowIntegrationService {
                 try {
                     history = fetchMetricHistory(mlflowRunId, key);
                 } catch (RestClientResponseException ex) {
-                    // MLflow returned an HTTP error for this key, skip it rather than failing the whole call
-                    // a connectivity failure is left uncaught so it propagates and the method returns null
+                    // Skip a key MLflow errors on, a connectivity failure still propagates and returns null
                     log.debug("Metric key {} not available for run {}: {}", key, mlflowRunId, ex.getMessage());
                     history = Map.of();
                 }
@@ -133,8 +132,7 @@ public class MlflowIntegrationService {
         List<MlflowDetailsResponse.EpochMetricPoint> epochMetrics = getEpochMetrics(runId);
 
         String experimentId = (String) info.get("experiment_id");
-        // Artifact bytes are served from MLflow's /get-artifact route, not the /api/2.0/mlflow/
-        // REST API (which is metadata-only and 404s for artifact paths).
+        // Artifact bytes come from the get-artifact route, not the versioned REST API
         MlflowDetailsResponse.ArtifactUrls artifactUrls = new MlflowDetailsResponse.ArtifactUrls(
                 mlflowUrl + "/get-artifact?path=confusion_matrix.png&run_id=" + runId, null);
 

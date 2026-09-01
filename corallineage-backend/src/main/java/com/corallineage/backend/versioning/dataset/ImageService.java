@@ -25,11 +25,11 @@ public class ImageService {
     private final Path workingDirectory;
 
     public ImageService(DatasetVersionRepository datasetVersionRepository,
-                        ImageRepository imageRepository,
-                        DatasetVersionImageRepository datasetVersionImageRepository,
-                        AnnotationPointRepository annotationPointRepository,
-                        ImageMapper imageMapper,
-                        @Value("${app.dvc.working-directory}") Path workingDirectory) {
+            ImageRepository imageRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            ImageMapper imageMapper,
+            @Value("${app.dvc.working-directory}") Path workingDirectory) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.imageRepository = imageRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
@@ -43,9 +43,7 @@ public class ImageService {
         return listImages(datasetId, versionId, false, pageable);
     }
 
-    /**
-     * @param humanLabeledOnly when true, restricts to images with at least one human labeled point
-     */
+    /** @param humanLabeledOnly when true, only images with at least one human labeled point */
     @Transactional(readOnly = true)
     public Page<ImageResponse> listImages(Long datasetId, Long versionId, boolean humanLabeledOnly, Pageable pageable) {
         DatasetVersion version = datasetVersionRepository.findById(versionId)
@@ -90,7 +88,8 @@ public class ImageService {
         } catch (IOException ex) {
             contentType = null;
         }
-        return new LoadedImage(new FileSystemResource(filePath), contentType != null ? contentType : "application/octet-stream");
+        return new LoadedImage(new FileSystemResource(filePath),
+                contentType != null ? contentType : "application/octet-stream");
     }
 
     public record LoadedImage(Resource resource, String contentType) {

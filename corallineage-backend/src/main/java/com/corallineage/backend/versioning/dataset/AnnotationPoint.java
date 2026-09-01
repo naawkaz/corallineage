@@ -34,7 +34,7 @@ public class AnnotationPoint {
     @JoinColumn(name = "label_definition_id", nullable = false)
     private LabelDefinition labelDefinition;
 
-    // Values: HUMAN, MODEL_PREDICTED, MODEL_CORRECTED
+    // one of HUMAN MODEL_PREDICTED MODEL_CORRECTED
     @Column(name = "annotation_source", nullable = false, length = 20)
     private String annotationSource;
 

@@ -27,15 +27,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Calls executeTrainingAsync directly, bypassing the real @Async proxy. Job-status persistence
- * goes through TrainingJobStatusService (mocked here); TrainingJobExecutorIntegrationTest covers
- * the real transactional behavior. This file covers the orchestration logic: which collaborator
- * is called with which arguments on each path.
- *
- * pythonMlServiceClient.pollTrainingStatus is mocked to return RUNNING once then a terminal
- * status, so the real poll loop (with its 2-second sleep) runs rather than being stubbed away.
- */
+/** Calls executeTrainingAsync directly with mocked collaborators, covers the orchestration logic */
 @ExtendWith(MockitoExtension.class)
 class TrainingJobExecutorTest {
 
@@ -126,8 +118,7 @@ class TrainingJobExecutorTest {
 
         newExecutor().executeTrainingAsync(11L);
 
-        // Called on every poll tick where the run id is known, including the terminal COMPLETED
-        // tick, not just once, since MLflow's metric history is polled independently of job status.
+        // Called on every poll tick where the run id is known, not just once
         verify(trainingJobStatusService, org.mockito.Mockito.atLeastOnce()).updateProgress(11L, 3, 10);
     }
 

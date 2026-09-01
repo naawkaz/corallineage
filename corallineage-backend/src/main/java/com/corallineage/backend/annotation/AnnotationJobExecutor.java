@@ -93,7 +93,7 @@ public class AnnotationJobExecutor {
         this.annotationCommitService = annotationCommitService;
     }
 
-    /** Legacy whole image annotation path */
+    /** Legacy whole-image path */
     @Async
     @Transactional
     public void executeAnnotationAsync(Long jobId) {
@@ -150,7 +150,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** Checks each human labeled point's patch against the model and records agreement */
+    /** Validation: classifies a patch around each human labeled point and records agreement */
     @Async
     @Transactional
     public void executeValidationAsync(Long jobId) {
@@ -230,7 +230,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** Stages uploaded images as a new version, generates a point grid, and classifies each point pending review */
+    /** New images: stages the uploads as a version, grids and classifies points, all left pending review */
     @Async
     @Transactional
     public void executeNewImagesAsync(Long jobId, Long datasetId, Path uploadDir, int gridRows, int gridCols) {
@@ -380,7 +380,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** Annotates an existing version's images with a point grid, no staging version needed */
+    /** Annotates an existing version's images with a point grid, no upload or staging version */
     @Async
     @Transactional
     public void executeExistingVersionAsync(Long jobId, int gridRows, int gridCols) {

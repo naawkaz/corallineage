@@ -41,7 +41,7 @@ public class GeneratedPoint {
     @Column(name = "seed", nullable = false)
     private boolean seed;
 
-    // Values: UNLABELED, HUMAN_LABELED, MODEL_PREDICTED, CONFIRMED
+    // one of UNLABELED HUMAN_LABELED MODEL_PREDICTED CONFIRMED
     @Column(name = "status", nullable = false, length = 20)
     private String status = "UNLABELED";
 

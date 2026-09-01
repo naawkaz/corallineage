@@ -20,20 +20,17 @@ public class DatasetVersionResponse {
     private List<LabelDefinitionResponse> labelDefinitions;
     private boolean complete;
     private long unresolvedDirtyCount;
-    // Only set when this version was created by an import that's still PROCESSING (or FAILED) -
-    // null once the import completed or if this version wasn't created by an import at all.
+    // Import status while an import is still processing or failed, else null
     private String importStatus;
-    // The originating ImportJob's format (e.g. "BLANK"), null if not import-created. Used by the
-    // frontend to decide whether to offer "Resolve" (start blank import) on a completed import.
+    // The originating import format, null if not import created
     private String importFormat;
     // True once a point annotation job exists for this version
     private boolean blankImportStarted;
     // UNRESOLVED when this version needs attention before it is usable, else null
     private String resolveStatus;
-    // Where Resolve should navigate, one of START SEED_LABEL ANNOTATION_REVIEW, null when resolveStatus is null
+    // Where Resolve should navigate, one of START SEED_LABEL ANNOTATION_REVIEW, else null
     private String resolveRoute;
-    // The job id the resolve route URL is built from, null for START or when
-    // resolveStatus is null.
+    // The job id the resolve route URL is built from, else null
     private Long resolveJobId;
 
     public Long getId() { return id; }

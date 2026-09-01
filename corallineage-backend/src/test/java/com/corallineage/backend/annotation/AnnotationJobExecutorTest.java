@@ -30,10 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Calls executeAnnotationAsync directly (bypassing the real @Async proxy), same synchronous-test-double
- * pattern already used for TrainingJobExecutorTest/DatasetImportExecutorTest.
- */
+/** Calls executeAnnotationAsync directly, bypassing the async proxy */
 @ExtendWith(MockitoExtension.class)
 class AnnotationJobExecutorTest {
 

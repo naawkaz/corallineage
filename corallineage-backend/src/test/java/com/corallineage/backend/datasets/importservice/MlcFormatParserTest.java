@@ -48,7 +48,7 @@ class MlcFormatParserTest {
 
     @Test
     void parse_realWorldAppendedTxtConvention_matchesFullImageFilename(@TempDir Path dir) throws IOException {
-        // e.g. Moorea Labeled Corals: "foo.jpg" + "foo.jpg.txt" (txt appended, not extension-replaced)
+        // txt appended to the full image name, not extension replaced
         Files.createFile(dir.resolve("mcr_lter1_pole1-2_qu1_20100411.jpg"));
         Files.writeString(dir.resolve("mcr_lter1_pole1-2_qu1_20100411.jpg.txt"), "1440; 1364; CCA\n");
 

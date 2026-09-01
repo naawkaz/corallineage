@@ -35,7 +35,7 @@ public class ModelVersion {
     @Column(name = "architecture", nullable = false, length = 100)
     private String architecture = "efficientnet_b0";
 
-    // Stored as JSON text; Hibernate 6 native JSON mapping (Spring Boot 3+)
+    // Stored as JSON text via Hibernate native JSON mapping
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "hyperparameters")
     private String hyperparameters;
@@ -57,7 +57,7 @@ public class ModelVersion {
     @Column(name = "weights_path", columnDefinition = "TEXT")
     private String weightsPath;
 
-    // Values: ACTIVE, ARCHIVED, DEPRECATED
+    // one of ACTIVE ARCHIVED DEPRECATED
     @Column(name = "status", nullable = false, length = 50)
     private String status = "ACTIVE";
 

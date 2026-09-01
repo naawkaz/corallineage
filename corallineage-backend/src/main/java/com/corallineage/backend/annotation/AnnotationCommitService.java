@@ -60,7 +60,7 @@ public class AnnotationCommitService {
             boolean accepted = Boolean.TRUE.equals(prediction.getAccepted());
             String finalCode = accepted ? prediction.getPredictedLabelCode() : prediction.getCorrectedLabelCode();
             if (finalCode == null) {
-                continue; // shouldn't happen once reviewStatus == COMPLETED, but skip defensively
+                continue; // should not happen once reviewStatus is COMPLETED
             }
             LabelDefinition label = resolveOrDeclareLabel(version, finalCode);
 

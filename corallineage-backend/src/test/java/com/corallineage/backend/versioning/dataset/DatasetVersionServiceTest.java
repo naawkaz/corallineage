@@ -296,10 +296,7 @@ class DatasetVersionServiceTest {
         nonStaging.setId(1L);
         nonStaging.setVersionTag("v1.0");
 
-        // The staging version is simply never returned by the filtered repository query the
-        // service now calls - the exclusion happens in the repository's JPQL, not in this
-        // service method, so the test's job is to confirm the service calls the filtered query
-        // (not the unfiltered one) and passes its result straight through.
+        // The staging version is excluded by the repository query, so confirm the service calls the filtered one
         when(datasetRepository.existsById(1L)).thenReturn(true);
         when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
                 .thenReturn(List.of(nonStaging));
@@ -388,8 +385,7 @@ class DatasetVersionServiceTest {
         newer.setDataset(dataset);
 
         when(datasetRepository.existsById(1L)).thenReturn(true);
-        // Repository query returns newest-first; version numbering must still come out oldest=1
-        // regardless of id gaps in between (id 5 and 9, not 5 and 6).
+        // Query returns newest first, numbering must still come out oldest first regardless of id gaps
         when(datasetVersionRepository.findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(eq(1L)))
                 .thenReturn(List.of(newer, older));
 

@@ -21,7 +21,7 @@ public class OntologyChange {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Values: LABEL_ADDED, LABEL_DEPRECATED, LABEL_SPLIT, LABEL_RENAMED
+    // one of LABEL_ADDED LABEL_DEPRECATED LABEL_SPLIT LABEL_RENAMED
     @Column(name = "change_type", nullable = false, length = 50)
     private String changeType;
 

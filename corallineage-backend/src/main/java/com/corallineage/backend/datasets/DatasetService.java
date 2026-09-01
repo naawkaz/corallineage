@@ -41,7 +41,7 @@ public class DatasetService {
     }
 
     private ResolvedVersionSummary resolvedVersionSummary(Long datasetId) {
-        // A 1 row page gives the total count and the latest version, and avoids Unpaged which getVersionHistory cannot size
+        // A 1 row page gives the total count and the latest version
         var resolved = datasetVersionService.getVersionHistory(datasetId, PageRequest.of(0, 1));
         var latest = resolved.getContent().isEmpty() ? null : resolved.getContent().get(0);
         return new ResolvedVersionSummary(resolved.getTotalElements(),
