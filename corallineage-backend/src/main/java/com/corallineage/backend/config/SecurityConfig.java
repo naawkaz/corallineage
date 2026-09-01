@@ -16,7 +16,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/** Stateless JWT security, auth endpoints and docs are public, everything else requires a bearer token */
+/**
+ * Stateless JWT security, auth endpoints and docs are public, everything else
+ * requires a bearer token
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -44,13 +47,13 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/v3/api-docs.yaml"
-                        ).permitAll()
-                        // img tags cannot attach an Authorization header, so the raw file byte endpoint stays public
+                                "/v3/api-docs.yaml")
+                        .permitAll()
+                        // img tags cannot attach an Authorization header, so the raw file byte endpoint
+                        // stays public
                         .requestMatchers("/api/v1/images/*/file").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
-                        .anyRequest().permitAll()
-                )
+                        .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

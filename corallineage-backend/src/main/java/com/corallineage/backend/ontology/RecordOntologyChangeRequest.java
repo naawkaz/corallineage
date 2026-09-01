@@ -34,27 +34,67 @@ public class RecordOntologyChangeRequest {
 
     private String notes;
 
-    public ChangeType getChangeType() { return changeType; }
-    public void setChangeType(ChangeType changeType) { this.changeType = changeType; }
+    public ChangeType getChangeType() {
+        return changeType;
+    }
 
-    public Long getBasedOnDatasetVersionId() { return basedOnDatasetVersionId; }
-    public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) { this.basedOnDatasetVersionId = basedOnDatasetVersionId; }
+    public void setChangeType(ChangeType changeType) {
+        this.changeType = changeType;
+    }
 
-    public String getNewVersionTag() { return newVersionTag; }
-    public void setNewVersionTag(String newVersionTag) { this.newVersionTag = newVersionTag; }
+    public Long getBasedOnDatasetVersionId() {
+        return basedOnDatasetVersionId;
+    }
 
-    public String getOldLabelCode() { return oldLabelCode; }
-    public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }
+    public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) {
+        this.basedOnDatasetVersionId = basedOnDatasetVersionId;
+    }
 
-    public List<NewLabelSpec> getNewLabels() { return newLabels; }
-    public void setNewLabels(List<NewLabelSpec> newLabels) { this.newLabels = newLabels; }
+    public String getNewVersionTag() {
+        return newVersionTag;
+    }
 
-    public String getReplacementLabelCode() { return replacementLabelCode; }
-    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
+    public void setNewVersionTag(String newVersionTag) {
+        this.newVersionTag = newVersionTag;
+    }
 
-    public String getChangedBy() { return changedBy; }
-    public void setChangedBy(String changedBy) { this.changedBy = changedBy; }
+    public String getOldLabelCode() {
+        return oldLabelCode;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setOldLabelCode(String oldLabelCode) {
+        this.oldLabelCode = oldLabelCode;
+    }
+
+    public List<NewLabelSpec> getNewLabels() {
+        return newLabels;
+    }
+
+    public void setNewLabels(List<NewLabelSpec> newLabels) {
+        this.newLabels = newLabels;
+    }
+
+    public String getReplacementLabelCode() {
+        return replacementLabelCode;
+    }
+
+    public void setReplacementLabelCode(String replacementLabelCode) {
+        this.replacementLabelCode = replacementLabelCode;
+    }
+
+    public String getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+        this.changedBy = changedBy;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 }

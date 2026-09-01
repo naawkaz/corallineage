@@ -10,7 +10,10 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-/** Resolves label code strings to label definitions, aborts if any code is missing */
+/**
+ * Resolves label code strings to label definitions, aborts if any code is
+ * missing
+ */
 @Component
 public class LabelCodeResolver {
 

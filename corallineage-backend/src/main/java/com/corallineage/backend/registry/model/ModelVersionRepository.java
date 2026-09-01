@@ -15,7 +15,8 @@ public interface ModelVersionRepository extends JpaRepository<ModelVersion, Long
 
     Page<ModelVersion> findByTrainedOnDatasetVersion_Dataset_Id(Long datasetId, Pageable pageable);
 
-    Page<ModelVersion> findByTrainedOnDatasetVersion_Dataset_IdAndStatus(Long datasetId, String status, Pageable pageable);
+    Page<ModelVersion> findByTrainedOnDatasetVersion_Dataset_IdAndStatus(Long datasetId, String status,
+            Pageable pageable);
 
     boolean existsByModelTag(String modelTag);
 }

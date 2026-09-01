@@ -50,7 +50,8 @@ public class CocoJsonParser implements DatasetFormatParser {
                 imagePath = found;
             }
             if (imagePath == null || !Files.exists(imagePath)) {
-                throw new ImportParseException("Image file \"" + filename + "\" referenced in " + ANNOTATIONS_FILENAME + " not found in archive");
+                throw new ImportParseException("Image file \"" + filename + "\" referenced in " + ANNOTATIONS_FILENAME
+                        + " not found in archive");
             }
             imagesById.put(imageId, new ParsedImage(filename, imagePath));
             imageIdToFilename.put(imageId, filename);
@@ -91,12 +92,14 @@ public class CocoJsonParser implements DatasetFormatParser {
             double height = bbox.get(3).asDouble();
             return new int[] { (int) Math.round(y + height / 2), (int) Math.round(x + width / 2) };
         }
-        throw new ImportParseException("Annotation in " + jsonFile.getFileName() + " has neither a \"point\" nor a \"bbox\" field");
+        throw new ImportParseException(
+                "Annotation in " + jsonFile.getFileName() + " has neither a \"point\" nor a \"bbox\" field");
     }
 
     private Path findAnnotationsFile(Path extractedDir) {
         Path direct = extractedDir.resolve(ANNOTATIONS_FILENAME);
-        if (Files.exists(direct)) return direct;
+        if (Files.exists(direct))
+            return direct;
         return findByFilename(extractedDir, ANNOTATIONS_FILENAME);
     }
 
@@ -114,7 +117,8 @@ public class CocoJsonParser implements DatasetFormatParser {
     private Iterable<JsonNode> requireArray(JsonNode root, String field, Path jsonFile) {
         JsonNode node = root.get(field);
         if (node == null || !node.isArray()) {
-            throw new ImportParseException(jsonFile.getFileName() + " is missing required array field \"" + field + "\"");
+            throw new ImportParseException(
+                    jsonFile.getFileName() + " is missing required array field \"" + field + "\"");
         }
         return node;
     }

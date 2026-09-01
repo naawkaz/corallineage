@@ -184,7 +184,10 @@ public class DatasetVersionService {
         return datasetVersionMapper.toLabelResponse(saved);
     }
 
-    /** Excludes unresolved and incomplete versions, paginated in memory after enrichment */
+    /**
+     * Excludes unresolved and incomplete versions, paginated in memory after
+     * enrichment
+     */
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
@@ -259,7 +262,10 @@ public class DatasetVersionService {
         return response;
     }
 
-    /** Populates resolve status and route for a blank import version not yet committed */
+    /**
+     * Populates resolve status and route for a blank import version not yet
+     * committed
+     */
     private void attachResolveStatus(DatasetVersionResponse response) {
         var pointJob = pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(response.getId());
         if (pointJob.isPresent() && !"COMPLETE".equals(pointJob.get().getStatus())) {
@@ -269,7 +275,8 @@ public class DatasetVersionService {
             return;
         }
 
-        // A COMPLETE point annotation job may still have a pending delegated review, so fall through
+        // A COMPLETE point annotation job may still have a pending delegated review, so
+        // fall through
         var annotationJob = annotationJobRepository
                 .findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
         if (annotationJob.isPresent()) {

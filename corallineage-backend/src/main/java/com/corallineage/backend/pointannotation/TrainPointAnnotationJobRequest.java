@@ -8,15 +8,35 @@ public class TrainPointAnnotationJobRequest {
     private Integer batchSize;
     private Integer epochs;
 
-    public String getArchitecture() { return architecture; }
-    public void setArchitecture(String architecture) { this.architecture = architecture; }
+    public String getArchitecture() {
+        return architecture;
+    }
 
-    public Double getLearningRate() { return learningRate; }
-    public void setLearningRate(Double learningRate) { this.learningRate = learningRate; }
+    public void setArchitecture(String architecture) {
+        this.architecture = architecture;
+    }
 
-    public Integer getBatchSize() { return batchSize; }
-    public void setBatchSize(Integer batchSize) { this.batchSize = batchSize; }
+    public Double getLearningRate() {
+        return learningRate;
+    }
 
-    public Integer getEpochs() { return epochs; }
-    public void setEpochs(Integer epochs) { this.epochs = epochs; }
+    public void setLearningRate(Double learningRate) {
+        this.learningRate = learningRate;
+    }
+
+    public Integer getBatchSize() {
+        return batchSize;
+    }
+
+    public void setBatchSize(Integer batchSize) {
+        this.batchSize = batchSize;
+    }
+
+    public Integer getEpochs() {
+        return epochs;
+    }
+
+    public void setEpochs(Integer epochs) {
+        this.epochs = epochs;
+    }
 }

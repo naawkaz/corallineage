@@ -40,14 +40,14 @@ public class TrainingJobService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrainingJobService(DatasetRepository datasetRepository,
-                              DatasetVersionRepository datasetVersionRepository,
-                              DatasetVersionService datasetVersionService,
-                              TrainingJobRepository trainingJobRepository,
-                              TrainingJobMapper trainingJobMapper,
-                              ArchitectureRegistry architectureRegistry,
-                              TrainingJobExecutor trainingJobExecutor,
-                              AnnotationEventLoggerService annotationEventLoggerService,
-                              MlflowIntegrationService mlflowIntegrationService) {
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionService datasetVersionService,
+            TrainingJobRepository trainingJobRepository,
+            TrainingJobMapper trainingJobMapper,
+            ArchitectureRegistry architectureRegistry,
+            TrainingJobExecutor trainingJobExecutor,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            MlflowIntegrationService mlflowIntegrationService) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionService = datasetVersionService;
@@ -101,7 +101,8 @@ public class TrainingJobService {
     @Transactional(readOnly = true)
     public Page<TrainingJobResponse> getTrainingJobs(Long datasetId, Pageable pageable, String status) {
         Page<TrainingJob> jobs = status != null && !status.isBlank()
-                ? trainingJobRepository.findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(datasetId, status, pageable)
+                ? trainingJobRepository.findByDatasetVersion_Dataset_IdAndStatusOrderByInitiatedAtDesc(datasetId,
+                        status, pageable)
                 : trainingJobRepository.findByDatasetVersion_Dataset_IdOrderByInitiatedAtDesc(datasetId, pageable);
         return jobs.map(trainingJobMapper::toResponse);
     }
@@ -119,7 +120,8 @@ public class TrainingJobService {
         if (job.getMlflowRunId() == null) {
             return List.of();
         }
-        List<MlflowDetailsResponse.EpochMetricPoint> points = mlflowIntegrationService.getEpochMetrics(job.getMlflowRunId());
+        List<MlflowDetailsResponse.EpochMetricPoint> points = mlflowIntegrationService
+                .getEpochMetrics(job.getMlflowRunId());
         return points != null ? points : List.of();
     }
 
@@ -128,7 +130,8 @@ public class TrainingJobService {
             DatasetVersion version = datasetVersionRepository.findById(requestedVersionId)
                     .orElseThrow(() -> new InvalidRequestException("Dataset version not found: " + requestedVersionId));
             if (!version.getDataset().getId().equals(datasetId)) {
-                throw new InvalidRequestException("Dataset version " + requestedVersionId + " does not belong to dataset " + datasetId);
+                throw new InvalidRequestException(
+                        "Dataset version " + requestedVersionId + " does not belong to dataset " + datasetId);
             }
             if (!datasetVersionService.isComplete(version.getId())) {
                 throw new InvalidRequestException("Dataset version " + version.getVersionTag()

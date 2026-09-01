@@ -5,13 +5,12 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "dirty_annotations",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"image_id", "point_index", "ontology_change_id"}),
-       indexes = {
-           @Index(name = "idx_dirty_annotations_image", columnList = "image_id"),
-           @Index(name = "idx_dirty_annotations_ontology_change", columnList = "ontology_change_id"),
-           @Index(name = "idx_dirty_annotations_resolved_at", columnList = "resolved_at")
-       })
+@Table(name = "dirty_annotations", uniqueConstraints = @UniqueConstraint(columnNames = { "image_id", "point_index",
+        "ontology_change_id" }), indexes = {
+                @Index(name = "idx_dirty_annotations_image", columnList = "image_id"),
+                @Index(name = "idx_dirty_annotations_ontology_change", columnList = "ontology_change_id"),
+                @Index(name = "idx_dirty_annotations_resolved_at", columnList = "resolved_at")
+        })
 public class DirtyAnnotation {
 
     @Id
@@ -46,34 +45,79 @@ public class DirtyAnnotation {
 
     @PrePersist
     protected void onCreate() {
-        if (flaggedAt == null) flaggedAt = Instant.now();
+        if (flaggedAt == null)
+            flaggedAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Image getImage() { return image; }
-    public void setImage(Image image) { this.image = image; }
+    public Image getImage() {
+        return image;
+    }
 
-    public Integer getPointIndex() { return pointIndex; }
-    public void setPointIndex(Integer pointIndex) { this.pointIndex = pointIndex; }
+    public void setImage(Image image) {
+        this.image = image;
+    }
 
-    public String getCurrentLabelCode() { return currentLabelCode; }
-    public void setCurrentLabelCode(String currentLabelCode) { this.currentLabelCode = currentLabelCode; }
+    public Integer getPointIndex() {
+        return pointIndex;
+    }
 
-    public OntologyChange getOntologyChange() { return ontologyChange; }
-    public void setOntologyChange(OntologyChange ontologyChange) { this.ontologyChange = ontologyChange; }
+    public void setPointIndex(Integer pointIndex) {
+        this.pointIndex = pointIndex;
+    }
 
-    public Instant getFlaggedAt() { return flaggedAt; }
-    public void setFlaggedAt(Instant flaggedAt) { this.flaggedAt = flaggedAt; }
+    public String getCurrentLabelCode() {
+        return currentLabelCode;
+    }
 
-    public Instant getResolvedAt() { return resolvedAt; }
-    public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }
+    public void setCurrentLabelCode(String currentLabelCode) {
+        this.currentLabelCode = currentLabelCode;
+    }
 
-    public String getResolvedBy() { return resolvedBy; }
-    public void setResolvedBy(String resolvedBy) { this.resolvedBy = resolvedBy; }
+    public OntologyChange getOntologyChange() {
+        return ontologyChange;
+    }
 
-    public String getNewLabelCode() { return newLabelCode; }
-    public void setNewLabelCode(String newLabelCode) { this.newLabelCode = newLabelCode; }
+    public void setOntologyChange(OntologyChange ontologyChange) {
+        this.ontologyChange = ontologyChange;
+    }
+
+    public Instant getFlaggedAt() {
+        return flaggedAt;
+    }
+
+    public void setFlaggedAt(Instant flaggedAt) {
+        this.flaggedAt = flaggedAt;
+    }
+
+    public Instant getResolvedAt() {
+        return resolvedAt;
+    }
+
+    public void setResolvedAt(Instant resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public String getResolvedBy() {
+        return resolvedBy;
+    }
+
+    public void setResolvedBy(String resolvedBy) {
+        this.resolvedBy = resolvedBy;
+    }
+
+    public String getNewLabelCode() {
+        return newLabelCode;
+    }
+
+    public void setNewLabelCode(String newLabelCode) {
+        this.newLabelCode = newLabelCode;
+    }
 }

@@ -19,7 +19,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-/** Runs a training job's background execution and polls MLflow for live epoch progress */
+/**
+ * Runs a training job's background execution and polls MLflow for live epoch
+ * progress
+ */
 @Service
 public class TrainingJobExecutor {
 
@@ -35,11 +38,11 @@ public class TrainingJobExecutor {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrainingJobExecutor(TrainingJobStatusService trainingJobStatusService,
-                               DatasetPreparationService datasetPreparationService,
-                               PythonMlServiceClient pythonMlServiceClient,
-                               MlflowIntegrationService mlflowIntegrationService,
-                               AnnotationEventLoggerService annotationEventLoggerService,
-                               @Lazy PointAnnotationJobService pointAnnotationJobService) {
+            DatasetPreparationService datasetPreparationService,
+            PythonMlServiceClient pythonMlServiceClient,
+            MlflowIntegrationService mlflowIntegrationService,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            @Lazy PointAnnotationJobService pointAnnotationJobService) {
         this.trainingJobStatusService = trainingJobStatusService;
         this.datasetPreparationService = datasetPreparationService;
         this.pythonMlServiceClient = pythonMlServiceClient;
@@ -100,7 +103,8 @@ public class TrainingJobExecutor {
             try {
                 pointAnnotationJobService.autoAnnotateAfterTraining(jobId);
             } catch (Exception ex) {
-                // Training already succeeded, a failure delegating into auto annotate is not a training failure
+                // Training already succeeded, a failure delegating into auto annotate is not a
+                // training failure
                 log.error("Failed to auto-delegate into auto-annotate after training job {} completed", jobId, ex);
             }
         } catch (InterruptedException ex) {
@@ -115,7 +119,10 @@ public class TrainingJobExecutor {
         }
     }
 
-    /** Marks the job failed and reverts a linked point annotation job to seed labeling */
+    /**
+     * Marks the job failed and reverts a linked point annotation job to seed
+     * labeling
+     */
     private void markFailedAndRevertPointJob(Long jobId, String message) {
         trainingJobStatusService.markFailed(jobId, message);
         try {

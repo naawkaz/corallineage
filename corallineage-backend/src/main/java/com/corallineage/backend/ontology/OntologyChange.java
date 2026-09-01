@@ -9,12 +9,11 @@ import java.time.Instant;
 import java.util.List;
 
 @Entity
-@Table(name = "ontology_changes",
-       indexes = {
-           @Index(name = "idx_ontology_changes_type", columnList = "change_type"),
-           @Index(name = "idx_ontology_changes_dataset_version", columnList = "affected_dataset_version_id"),
-           @Index(name = "idx_ontology_changes_old_label", columnList = "old_label_code")
-       })
+@Table(name = "ontology_changes", indexes = {
+        @Index(name = "idx_ontology_changes_type", columnList = "change_type"),
+        @Index(name = "idx_ontology_changes_dataset_version", columnList = "affected_dataset_version_id"),
+        @Index(name = "idx_ontology_changes_old_label", columnList = "old_label_code")
+})
 public class OntologyChange {
 
     @Id
@@ -55,37 +54,87 @@ public class OntologyChange {
 
     @PrePersist
     protected void onCreate() {
-        if (changedAt == null) changedAt = Instant.now();
+        if (changedAt == null)
+            changedAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getChangeType() { return changeType; }
-    public void setChangeType(String changeType) { this.changeType = changeType; }
+    public String getChangeType() {
+        return changeType;
+    }
 
-    public String getOldLabelCode() { return oldLabelCode; }
-    public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }
+    public void setChangeType(String changeType) {
+        this.changeType = changeType;
+    }
 
-    public List<String> getNewLabelCodes() { return newLabelCodes; }
-    public void setNewLabelCodes(List<String> newLabelCodes) { this.newLabelCodes = newLabelCodes; }
+    public String getOldLabelCode() {
+        return oldLabelCode;
+    }
 
-    public DatasetVersion getAffectedDatasetVersion() { return affectedDatasetVersion; }
-    public void setAffectedDatasetVersion(DatasetVersion affectedDatasetVersion) { this.affectedDatasetVersion = affectedDatasetVersion; }
+    public void setOldLabelCode(String oldLabelCode) {
+        this.oldLabelCode = oldLabelCode;
+    }
 
-    public String getChangedBy() { return changedBy; }
-    public void setChangedBy(String changedBy) { this.changedBy = changedBy; }
+    public List<String> getNewLabelCodes() {
+        return newLabelCodes;
+    }
 
-    public Instant getChangedAt() { return changedAt; }
-    public void setChangedAt(Instant changedAt) { this.changedAt = changedAt; }
+    public void setNewLabelCodes(List<String> newLabelCodes) {
+        this.newLabelCodes = newLabelCodes;
+    }
 
-    public AnnotationEvent getAnnotationEvent() { return annotationEvent; }
-    public void setAnnotationEvent(AnnotationEvent annotationEvent) { this.annotationEvent = annotationEvent; }
+    public DatasetVersion getAffectedDatasetVersion() {
+        return affectedDatasetVersion;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setAffectedDatasetVersion(DatasetVersion affectedDatasetVersion) {
+        this.affectedDatasetVersion = affectedDatasetVersion;
+    }
 
-    public String getReplacementLabelCode() { return replacementLabelCode; }
-    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
+    public String getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+        this.changedBy = changedBy;
+    }
+
+    public Instant getChangedAt() {
+        return changedAt;
+    }
+
+    public void setChangedAt(Instant changedAt) {
+        this.changedAt = changedAt;
+    }
+
+    public AnnotationEvent getAnnotationEvent() {
+        return annotationEvent;
+    }
+
+    public void setAnnotationEvent(AnnotationEvent annotationEvent) {
+        this.annotationEvent = annotationEvent;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public String getReplacementLabelCode() {
+        return replacementLabelCode;
+    }
+
+    public void setReplacementLabelCode(String replacementLabelCode) {
+        this.replacementLabelCode = replacementLabelCode;
+    }
 }

@@ -16,12 +16,27 @@ public class LabelDeclarationRequest {
         this.labelCategory = labelCategory;
     }
 
-    public String getLabelCode() { return labelCode; }
-    public void setLabelCode(String labelCode) { this.labelCode = labelCode; }
+    public String getLabelCode() {
+        return labelCode;
+    }
 
-    public String getLabelName() { return labelName; }
-    public void setLabelName(String labelName) { this.labelName = labelName; }
+    public void setLabelCode(String labelCode) {
+        this.labelCode = labelCode;
+    }
 
-    public String getLabelCategory() { return labelCategory; }
-    public void setLabelCategory(String labelCategory) { this.labelCategory = labelCategory; }
+    public String getLabelName() {
+        return labelName;
+    }
+
+    public void setLabelName(String labelName) {
+        this.labelName = labelName;
+    }
+
+    public String getLabelCategory() {
+        return labelCategory;
+    }
+
+    public void setLabelCategory(String labelCategory) {
+        this.labelCategory = labelCategory;
+    }
 }

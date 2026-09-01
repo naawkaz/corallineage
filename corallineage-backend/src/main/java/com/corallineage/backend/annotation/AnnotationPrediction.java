@@ -6,12 +6,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "annotation_predictions",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"annotation_job_id", "image_id", "point_index"}),
-       indexes = {
-           @Index(name = "idx_predictions_job", columnList = "annotation_job_id"),
-           @Index(name = "idx_predictions_image", columnList = "image_id")
-       })
+@Table(name = "annotation_predictions", uniqueConstraints = @UniqueConstraint(columnNames = { "annotation_job_id",
+        "image_id", "point_index" }), indexes = {
+                @Index(name = "idx_predictions_job", columnList = "annotation_job_id"),
+                @Index(name = "idx_predictions_image", columnList = "image_id")
+        })
 public class AnnotationPrediction {
 
     @Id
@@ -48,54 +47,120 @@ public class AnnotationPrediction {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
-    // Pixel coordinates of the point this prediction was made against, nullable for legacy rows
+    // Pixel coordinates of the point this prediction was made against, nullable for
+    // legacy rows
     @Column(name = "row_position")
     private Integer rowPosition;
 
     @Column(name = "col_position")
     private Integer colPosition;
 
-    // For validation jobs, whether the predicted label matches the human label, else null
+    // For validation jobs, whether the predicted label matches the human label,
+    // else null
     @Column(name = "agrees_with_human")
     private Boolean agreesWithHuman;
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public AnnotationJob getAnnotationJob() { return annotationJob; }
-    public void setAnnotationJob(AnnotationJob annotationJob) { this.annotationJob = annotationJob; }
+    public AnnotationJob getAnnotationJob() {
+        return annotationJob;
+    }
 
-    public Image getImage() { return image; }
-    public void setImage(Image image) { this.image = image; }
+    public void setAnnotationJob(AnnotationJob annotationJob) {
+        this.annotationJob = annotationJob;
+    }
 
-    public Integer getPointIndex() { return pointIndex; }
-    public void setPointIndex(Integer pointIndex) { this.pointIndex = pointIndex; }
+    public Image getImage() {
+        return image;
+    }
 
-    public String getPredictedLabelCode() { return predictedLabelCode; }
-    public void setPredictedLabelCode(String predictedLabelCode) { this.predictedLabelCode = predictedLabelCode; }
+    public void setImage(Image image) {
+        this.image = image;
+    }
 
-    public BigDecimal getConfidenceScore() { return confidenceScore; }
-    public void setConfidenceScore(BigDecimal confidenceScore) { this.confidenceScore = confidenceScore; }
+    public Integer getPointIndex() {
+        return pointIndex;
+    }
 
-    public Boolean getAccepted() { return accepted; }
-    public void setAccepted(Boolean accepted) { this.accepted = accepted; }
+    public void setPointIndex(Integer pointIndex) {
+        this.pointIndex = pointIndex;
+    }
 
-    public String getCorrectedLabelCode() { return correctedLabelCode; }
-    public void setCorrectedLabelCode(String correctedLabelCode) { this.correctedLabelCode = correctedLabelCode; }
+    public String getPredictedLabelCode() {
+        return predictedLabelCode;
+    }
 
-    public String getReviewedBy() { return reviewedBy; }
-    public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
+    public void setPredictedLabelCode(String predictedLabelCode) {
+        this.predictedLabelCode = predictedLabelCode;
+    }
 
-    public Instant getReviewedAt() { return reviewedAt; }
-    public void setReviewedAt(Instant reviewedAt) { this.reviewedAt = reviewedAt; }
+    public BigDecimal getConfidenceScore() {
+        return confidenceScore;
+    }
 
-    public Integer getRowPosition() { return rowPosition; }
-    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+    public void setConfidenceScore(BigDecimal confidenceScore) {
+        this.confidenceScore = confidenceScore;
+    }
 
-    public Integer getColPosition() { return colPosition; }
-    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
+    public Boolean getAccepted() {
+        return accepted;
+    }
 
-    public Boolean getAgreesWithHuman() { return agreesWithHuman; }
-    public void setAgreesWithHuman(Boolean agreesWithHuman) { this.agreesWithHuman = agreesWithHuman; }
+    public void setAccepted(Boolean accepted) {
+        this.accepted = accepted;
+    }
+
+    public String getCorrectedLabelCode() {
+        return correctedLabelCode;
+    }
+
+    public void setCorrectedLabelCode(String correctedLabelCode) {
+        this.correctedLabelCode = correctedLabelCode;
+    }
+
+    public String getReviewedBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewedBy(String reviewedBy) {
+        this.reviewedBy = reviewedBy;
+    }
+
+    public Instant getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(Instant reviewedAt) {
+        this.reviewedAt = reviewedAt;
+    }
+
+    public Integer getRowPosition() {
+        return rowPosition;
+    }
+
+    public void setRowPosition(Integer rowPosition) {
+        this.rowPosition = rowPosition;
+    }
+
+    public Integer getColPosition() {
+        return colPosition;
+    }
+
+    public void setColPosition(Integer colPosition) {
+        this.colPosition = colPosition;
+    }
+
+    public Boolean getAgreesWithHuman() {
+        return agreesWithHuman;
+    }
+
+    public void setAgreesWithHuman(Boolean agreesWithHuman) {
+        this.agreesWithHuman = agreesWithHuman;
+    }
 }

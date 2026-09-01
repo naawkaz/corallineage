@@ -27,11 +27,11 @@ public class ProjectMemberService {
     private final DatasetRepository datasetRepository;
 
     public ProjectMemberService(ProjectMemberRepository projectMemberRepository,
-                                 ProjectRepository projectRepository,
-                                 UserRepository userRepository,
-                                 ProjectMemberMapper projectMemberMapper,
-                                 ProjectMemberSourceAccessRepository sourceAccessRepository,
-                                 DatasetRepository datasetRepository) {
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            ProjectMemberMapper projectMemberMapper,
+            ProjectMemberSourceAccessRepository sourceAccessRepository,
+            DatasetRepository datasetRepository) {
         this.projectMemberRepository = projectMemberRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
@@ -125,7 +125,8 @@ public class ProjectMemberService {
 
     /** Replaces a collaborator's source access scope */
     @Transactional
-    public SourceAccessResponse setSourceAccess(Long projectId, Long userId, SourceAccessRequest request, String actingUsername) {
+    public SourceAccessResponse setSourceAccess(Long projectId, Long userId, SourceAccessRequest request,
+            String actingUsername) {
         Project project = requireProject(projectId);
         requireOwner(projectId, actingUsername);
 
@@ -180,19 +181,25 @@ public class ProjectMemberService {
 
     public boolean isMember(Long projectId, String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return false;
+        if (actingUser == null)
+            return false;
         return projectMemberRepository.existsByProjectIdAndUserId(projectId, actingUser.getId());
     }
 
-    /** Returns the source ids a user may access in a project, empty optional means unrestricted */
+    /**
+     * Returns the source ids a user may access in a project, empty optional means
+     * unrestricted
+     */
     @Transactional(readOnly = true)
     public java.util.Optional<Set<Long>> getAccessibleSourceIds(Long projectId, String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return java.util.Optional.of(Set.of());
+        if (actingUser == null)
+            return java.util.Optional.of(Set.of());
 
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, actingUser.getId())
                 .orElse(null);
-        if (member == null) return java.util.Optional.of(Set.of());
+        if (member == null)
+            return java.util.Optional.of(Set.of());
 
         if (member.getRole() == ProjectRole.OWNER || !member.isSourceAccessRestricted()) {
             return java.util.Optional.empty();
@@ -207,7 +214,8 @@ public class ProjectMemberService {
     @Transactional(readOnly = true)
     public Set<Long> getAllAccessibleDatasetIds(String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return Set.of();
+        if (actingUser == null)
+            return Set.of();
 
         List<ProjectMember> memberships = projectMemberRepository.findByUserId(actingUser.getId());
         Set<Long> accessible = new java.util.HashSet<>();

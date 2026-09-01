@@ -19,42 +19,107 @@ public class OntologyChangeResponse {
     private long dirtyAnnotationsFlagged;
     private long resolvedCount;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public ChangeType getChangeType() { return changeType; }
-    public void setChangeType(ChangeType changeType) { this.changeType = changeType; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getOldLabelCode() { return oldLabelCode; }
-    public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }
+    public ChangeType getChangeType() {
+        return changeType;
+    }
 
-    public List<String> getNewLabelCodes() { return newLabelCodes; }
-    public void setNewLabelCodes(List<String> newLabelCodes) { this.newLabelCodes = newLabelCodes; }
+    public void setChangeType(ChangeType changeType) {
+        this.changeType = changeType;
+    }
 
-    public Long getAffectedDatasetVersionId() { return affectedDatasetVersionId; }
-    public void setAffectedDatasetVersionId(Long affectedDatasetVersionId) { this.affectedDatasetVersionId = affectedDatasetVersionId; }
+    public String getOldLabelCode() {
+        return oldLabelCode;
+    }
 
-    public String getAffectedDatasetVersionTag() { return affectedDatasetVersionTag; }
-    public void setAffectedDatasetVersionTag(String affectedDatasetVersionTag) { this.affectedDatasetVersionTag = affectedDatasetVersionTag; }
+    public void setOldLabelCode(String oldLabelCode) {
+        this.oldLabelCode = oldLabelCode;
+    }
 
-    public Integer getAffectedDatasetVersionNumber() { return affectedDatasetVersionNumber; }
-    public void setAffectedDatasetVersionNumber(Integer affectedDatasetVersionNumber) { this.affectedDatasetVersionNumber = affectedDatasetVersionNumber; }
+    public List<String> getNewLabelCodes() {
+        return newLabelCodes;
+    }
 
-    public String getChangedBy() { return changedBy; }
-    public void setChangedBy(String changedBy) { this.changedBy = changedBy; }
+    public void setNewLabelCodes(List<String> newLabelCodes) {
+        this.newLabelCodes = newLabelCodes;
+    }
 
-    public Instant getChangedAt() { return changedAt; }
-    public void setChangedAt(Instant changedAt) { this.changedAt = changedAt; }
+    public Long getAffectedDatasetVersionId() {
+        return affectedDatasetVersionId;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setAffectedDatasetVersionId(Long affectedDatasetVersionId) {
+        this.affectedDatasetVersionId = affectedDatasetVersionId;
+    }
 
-    public String getReplacementLabelCode() { return replacementLabelCode; }
-    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
+    public String getAffectedDatasetVersionTag() {
+        return affectedDatasetVersionTag;
+    }
 
-    public long getDirtyAnnotationsFlagged() { return dirtyAnnotationsFlagged; }
-    public void setDirtyAnnotationsFlagged(long dirtyAnnotationsFlagged) { this.dirtyAnnotationsFlagged = dirtyAnnotationsFlagged; }
+    public void setAffectedDatasetVersionTag(String affectedDatasetVersionTag) {
+        this.affectedDatasetVersionTag = affectedDatasetVersionTag;
+    }
 
-    public long getResolvedCount() { return resolvedCount; }
-    public void setResolvedCount(long resolvedCount) { this.resolvedCount = resolvedCount; }
+    public Integer getAffectedDatasetVersionNumber() {
+        return affectedDatasetVersionNumber;
+    }
+
+    public void setAffectedDatasetVersionNumber(Integer affectedDatasetVersionNumber) {
+        this.affectedDatasetVersionNumber = affectedDatasetVersionNumber;
+    }
+
+    public String getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+        this.changedBy = changedBy;
+    }
+
+    public Instant getChangedAt() {
+        return changedAt;
+    }
+
+    public void setChangedAt(Instant changedAt) {
+        this.changedAt = changedAt;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public String getReplacementLabelCode() {
+        return replacementLabelCode;
+    }
+
+    public void setReplacementLabelCode(String replacementLabelCode) {
+        this.replacementLabelCode = replacementLabelCode;
+    }
+
+    public long getDirtyAnnotationsFlagged() {
+        return dirtyAnnotationsFlagged;
+    }
+
+    public void setDirtyAnnotationsFlagged(long dirtyAnnotationsFlagged) {
+        this.dirtyAnnotationsFlagged = dirtyAnnotationsFlagged;
+    }
+
+    public long getResolvedCount() {
+        return resolvedCount;
+    }
+
+    public void setResolvedCount(long resolvedCount) {
+        this.resolvedCount = resolvedCount;
+    }
 }

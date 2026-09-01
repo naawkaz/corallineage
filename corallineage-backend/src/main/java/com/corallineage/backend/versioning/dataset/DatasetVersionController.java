@@ -40,7 +40,8 @@ public class DatasetVersionController {
     }
 
     @GetMapping("/{id}")
-    public DatasetVersionResponse getVersion(@PathVariable Long datasetId, @PathVariable Long id, Authentication authentication) {
+    public DatasetVersionResponse getVersion(@PathVariable Long datasetId, @PathVariable Long id,
+            Authentication authentication) {
         datasetService.requireAccess(datasetId, authentication.getName());
         return datasetVersionService.getVersionById(datasetId, id);
     }

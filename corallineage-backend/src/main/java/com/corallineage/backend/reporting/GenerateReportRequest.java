@@ -23,30 +23,75 @@ public class GenerateReportRequest {
     private boolean includeAnalytics;
     private boolean includeMlflowDetails;
 
-    public String getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(String requestedBy) { this.requestedBy = requestedBy; }
+    public String getRequestedBy() {
+        return requestedBy;
+    }
 
-    public Instant getFromDate() { return fromDate; }
-    public void setFromDate(Instant fromDate) { this.fromDate = fromDate; }
+    public void setRequestedBy(String requestedBy) {
+        this.requestedBy = requestedBy;
+    }
 
-    public Instant getToDate() { return toDate; }
-    public void setToDate(Instant toDate) { this.toDate = toDate; }
+    public Instant getFromDate() {
+        return fromDate;
+    }
 
-    public boolean isIncludeEventLog() { return includeEventLog; }
-    public void setIncludeEventLog(boolean includeEventLog) { this.includeEventLog = includeEventLog; }
+    public void setFromDate(Instant fromDate) {
+        this.fromDate = fromDate;
+    }
 
-    public boolean isIncludeOntologyChanges() { return includeOntologyChanges; }
-    public void setIncludeOntologyChanges(boolean includeOntologyChanges) { this.includeOntologyChanges = includeOntologyChanges; }
+    public Instant getToDate() {
+        return toDate;
+    }
 
-    public boolean isIncludeModelRegistry() { return includeModelRegistry; }
-    public void setIncludeModelRegistry(boolean includeModelRegistry) { this.includeModelRegistry = includeModelRegistry; }
+    public void setToDate(Instant toDate) {
+        this.toDate = toDate;
+    }
 
-    public boolean isIncludeDatasetVersionHistory() { return includeDatasetVersionHistory; }
-    public void setIncludeDatasetVersionHistory(boolean includeDatasetVersionHistory) { this.includeDatasetVersionHistory = includeDatasetVersionHistory; }
+    public boolean isIncludeEventLog() {
+        return includeEventLog;
+    }
 
-    public boolean isIncludeAnalytics() { return includeAnalytics; }
-    public void setIncludeAnalytics(boolean includeAnalytics) { this.includeAnalytics = includeAnalytics; }
+    public void setIncludeEventLog(boolean includeEventLog) {
+        this.includeEventLog = includeEventLog;
+    }
 
-    public boolean isIncludeMlflowDetails() { return includeMlflowDetails; }
-    public void setIncludeMlflowDetails(boolean includeMlflowDetails) { this.includeMlflowDetails = includeMlflowDetails; }
+    public boolean isIncludeOntologyChanges() {
+        return includeOntologyChanges;
+    }
+
+    public void setIncludeOntologyChanges(boolean includeOntologyChanges) {
+        this.includeOntologyChanges = includeOntologyChanges;
+    }
+
+    public boolean isIncludeModelRegistry() {
+        return includeModelRegistry;
+    }
+
+    public void setIncludeModelRegistry(boolean includeModelRegistry) {
+        this.includeModelRegistry = includeModelRegistry;
+    }
+
+    public boolean isIncludeDatasetVersionHistory() {
+        return includeDatasetVersionHistory;
+    }
+
+    public void setIncludeDatasetVersionHistory(boolean includeDatasetVersionHistory) {
+        this.includeDatasetVersionHistory = includeDatasetVersionHistory;
+    }
+
+    public boolean isIncludeAnalytics() {
+        return includeAnalytics;
+    }
+
+    public void setIncludeAnalytics(boolean includeAnalytics) {
+        this.includeAnalytics = includeAnalytics;
+    }
+
+    public boolean isIncludeMlflowDetails() {
+        return includeMlflowDetails;
+    }
+
+    public void setIncludeMlflowDetails(boolean includeMlflowDetails) {
+        this.includeMlflowDetails = includeMlflowDetails;
+    }
 }

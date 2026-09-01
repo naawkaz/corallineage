@@ -28,10 +28,10 @@ public class DatasetImportService {
     private final DatasetImportExecutor datasetImportExecutor;
 
     public DatasetImportService(DatasetRepository datasetRepository,
-                                DatasetVersionRepository datasetVersionRepository,
-                                ImportJobRepository importJobRepository,
-                                ImportJobMapper importJobMapper,
-                                DatasetImportExecutor datasetImportExecutor) {
+            DatasetVersionRepository datasetVersionRepository,
+            ImportJobRepository importJobRepository,
+            ImportJobMapper importJobMapper,
+            DatasetImportExecutor datasetImportExecutor) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.importJobRepository = importJobRepository;
@@ -41,8 +41,8 @@ public class DatasetImportService {
 
     @Transactional
     public ImportJobResponse submitImport(Long datasetId, MultipartFile[] files, String[] relativePaths,
-                                          ImportFormat format, String versionTag, String importedBy, String notes,
-                                          List<LabelDeclarationRequest> labels) {
+            ImportFormat format, String versionTag, String importedBy, String notes,
+            List<LabelDeclarationRequest> labels) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
@@ -75,12 +75,13 @@ public class DatasetImportService {
     }
 
     private void dispatchAfterCommit(Long jobId, Long datasetId, Path tempDir, ImportFormat format,
-                                     String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
+            String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy, labels);
+                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy,
+                            labels);
                 }
             });
         } else {

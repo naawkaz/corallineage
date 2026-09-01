@@ -30,23 +30,25 @@ public class AnnotationJobController {
     private final ModelVersionService modelVersionService;
 
     public AnnotationJobController(AnnotationJobService annotationJobService, DatasetService datasetService,
-                                    ModelVersionService modelVersionService) {
+            ModelVersionService modelVersionService) {
         this.annotationJobService = annotationJobService;
         this.datasetService = datasetService;
         this.modelVersionService = modelVersionService;
     }
 
     @PostMapping("/jobs")
-    public ResponseEntity<AnnotationJobResponse> submitAnnotationJob(@Valid @RequestBody InitiateAnnotationJobRequest request,
-                                                                       Authentication authentication) {
+    public ResponseEntity<AnnotationJobResponse> submitAnnotationJob(
+            @Valid @RequestBody InitiateAnnotationJobRequest request,
+            Authentication authentication) {
         AnnotationJobResponse response = annotationJobService.submitAnnotationJob(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     /** Rechecks a model's accuracy against human labeled points */
     @PostMapping("/jobs/validate")
-    public ResponseEntity<AnnotationJobResponse> submitValidationJob(@Valid @RequestBody SubmitValidationJobRequest request,
-                                                                       Authentication authentication) {
+    public ResponseEntity<AnnotationJobResponse> submitValidationJob(
+            @Valid @RequestBody SubmitValidationJobRequest request,
+            Authentication authentication) {
         AnnotationJobResponse response = annotationJobService.submitValidationJob(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
@@ -71,7 +73,7 @@ public class AnnotationJobController {
     /** Creates a dataset version from a reviewed job's images and labels */
     @PostMapping("/jobs/{jobId}/add-to-project")
     public AnnotationJobResponse addToProject(@PathVariable Long jobId, @Valid @RequestBody AddToProjectRequest request,
-                                               Authentication authentication) {
+            Authentication authentication) {
         Long datasetId = annotationJobService.getDatasetIdForJob(jobId);
         datasetService.requireAccess(datasetId, authentication.getName());
         return annotationJobService.addToProject(jobId, request);
@@ -81,7 +83,8 @@ public class AnnotationJobController {
     @PostMapping("/jobs/existing-version")
     public ResponseEntity<AnnotationJobResponse> submitExistingVersionJob(
             @Valid @RequestBody SubmitExistingVersionJobRequest request, Authentication authentication) {
-        AnnotationJobResponse response = annotationJobService.submitExistingVersionJob(request, authentication.getName());
+        AnnotationJobResponse response = annotationJobService.submitExistingVersionJob(request,
+                authentication.getName());
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -110,7 +113,8 @@ public class AnnotationJobController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
-        datasetService.requireAccess(modelVersionService.getDatasetIdForModel(modelVersionId), authentication.getName());
+        datasetService.requireAccess(modelVersionService.getDatasetIdForModel(modelVersionId),
+                authentication.getName());
         return annotationJobService.getJobsByModel(modelVersionId, PageRequest.of(page, size));
     }
 

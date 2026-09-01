@@ -18,7 +18,7 @@ class AnnotationPointBridge {
     }
 
     void upsert(GeneratedPoint point, LabelDefinition label, String annotationSource, String annotatedBy,
-                BigDecimal confidenceScore) {
+            BigDecimal confidenceScore) {
         AnnotationPoint annotationPoint = annotationPointRepository
                 .findByImageIdAndPointIndex(point.getImage().getId(), point.getPointIndex())
                 .orElseGet(AnnotationPoint::new);

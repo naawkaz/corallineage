@@ -5,12 +5,11 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "dataset_versions",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"dataset_id", "version_tag"}),
-       indexes = {
-           @Index(name = "idx_dataset_versions_created_at", columnList = "createdAt"),
-           @Index(name = "idx_dataset_versions_dataset", columnList = "dataset_id")
-       })
+@Table(name = "dataset_versions", uniqueConstraints = @UniqueConstraint(columnNames = { "dataset_id",
+        "version_tag" }), indexes = {
+                @Index(name = "idx_dataset_versions_created_at", columnList = "createdAt"),
+                @Index(name = "idx_dataset_versions_dataset", columnList = "dataset_id")
+        })
 public class DatasetVersion {
 
     @Id
@@ -30,7 +29,8 @@ public class DatasetVersion {
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
-    // IMAGES_ADDED, IMAGES_REMOVED, ANNOTATIONS_MODIFIED, LABEL_DEFINITION_CHANGED, MANUAL_SNAPSHOT
+    // IMAGES_ADDED, IMAGES_REMOVED, ANNOTATIONS_MODIFIED, LABEL_DEFINITION_CHANGED,
+    // MANUAL_SNAPSHOT
     @Column(name = "trigger_reason", nullable = false, length = 50)
     private String triggerReason;
 
@@ -51,40 +51,95 @@ public class DatasetVersion {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Dataset getDataset() { return dataset; }
-    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    public Dataset getDataset() {
+        return dataset;
+    }
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public void setDataset(Dataset dataset) {
+        this.dataset = dataset;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public String getTriggerReason() { return triggerReason; }
-    public void setTriggerReason(String triggerReason) { this.triggerReason = triggerReason; }
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 
-    public Integer getImageCount() { return imageCount; }
-    public void setImageCount(Integer imageCount) { this.imageCount = imageCount; }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 
-    public Integer getAnnotationCount() { return annotationCount; }
-    public void setAnnotationCount(Integer annotationCount) { this.annotationCount = annotationCount; }
+    public String getCreatedBy() {
+        return createdBy;
+    }
 
-    public String getDvcCommitHash() { return dvcCommitHash; }
-    public void setDvcCommitHash(String dvcCommitHash) { this.dvcCommitHash = dvcCommitHash; }
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public String getTriggerReason() {
+        return triggerReason;
+    }
 
-    public Boolean getIsStaging() { return isStaging; }
-    public void setIsStaging(Boolean isStaging) { this.isStaging = isStaging; }
+    public void setTriggerReason(String triggerReason) {
+        this.triggerReason = triggerReason;
+    }
+
+    public Integer getImageCount() {
+        return imageCount;
+    }
+
+    public void setImageCount(Integer imageCount) {
+        this.imageCount = imageCount;
+    }
+
+    public Integer getAnnotationCount() {
+        return annotationCount;
+    }
+
+    public void setAnnotationCount(Integer annotationCount) {
+        this.annotationCount = annotationCount;
+    }
+
+    public String getDvcCommitHash() {
+        return dvcCommitHash;
+    }
+
+    public void setDvcCommitHash(String dvcCommitHash) {
+        this.dvcCommitHash = dvcCommitHash;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public Boolean getIsStaging() {
+        return isStaging;
+    }
+
+    public void setIsStaging(Boolean isStaging) {
+        this.isStaging = isStaging;
+    }
 }

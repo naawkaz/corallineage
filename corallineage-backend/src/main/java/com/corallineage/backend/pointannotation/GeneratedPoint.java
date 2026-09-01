@@ -8,13 +8,12 @@ import java.time.Instant;
 
 /** A grid point before it has a confirmed label */
 @Entity
-@Table(name = "generated_points",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"job_id", "image_id", "point_index"}),
-       indexes = {
-           @Index(name = "idx_generated_points_job", columnList = "job_id"),
-           @Index(name = "idx_generated_points_image", columnList = "image_id"),
-           @Index(name = "idx_generated_points_status", columnList = "status")
-       })
+@Table(name = "generated_points", uniqueConstraints = @UniqueConstraint(columnNames = { "job_id", "image_id",
+        "point_index" }), indexes = {
+                @Index(name = "idx_generated_points_job", columnList = "job_id"),
+                @Index(name = "idx_generated_points_image", columnList = "image_id"),
+                @Index(name = "idx_generated_points_status", columnList = "status")
+        })
 public class GeneratedPoint {
 
     @Id
@@ -64,40 +63,99 @@ public class GeneratedPoint {
         updatedAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Image getImage() { return image; }
-    public void setImage(Image image) { this.image = image; }
+    public Image getImage() {
+        return image;
+    }
 
-    public PointAnnotationJob getJob() { return job; }
-    public void setJob(PointAnnotationJob job) { this.job = job; }
+    public void setImage(Image image) {
+        this.image = image;
+    }
 
-    public Integer getPointIndex() { return pointIndex; }
-    public void setPointIndex(Integer pointIndex) { this.pointIndex = pointIndex; }
+    public PointAnnotationJob getJob() {
+        return job;
+    }
 
-    public Integer getRowPosition() { return rowPosition; }
-    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+    public void setJob(PointAnnotationJob job) {
+        this.job = job;
+    }
 
-    public Integer getColPosition() { return colPosition; }
-    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
+    public Integer getPointIndex() {
+        return pointIndex;
+    }
 
-    public boolean isSeed() { return seed; }
-    public void setSeed(boolean seed) { this.seed = seed; }
+    public void setPointIndex(Integer pointIndex) {
+        this.pointIndex = pointIndex;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public Integer getRowPosition() {
+        return rowPosition;
+    }
 
-    public LabelDefinition getPredictedLabelDefinition() { return predictedLabelDefinition; }
-    public void setPredictedLabelDefinition(LabelDefinition predictedLabelDefinition) { this.predictedLabelDefinition = predictedLabelDefinition; }
+    public void setRowPosition(Integer rowPosition) {
+        this.rowPosition = rowPosition;
+    }
 
-    public BigDecimal getConfidenceScore() { return confidenceScore; }
-    public void setConfidenceScore(BigDecimal confidenceScore) { this.confidenceScore = confidenceScore; }
+    public Integer getColPosition() {
+        return colPosition;
+    }
 
-    public LabelDefinition getFinalLabelDefinition() { return finalLabelDefinition; }
-    public void setFinalLabelDefinition(LabelDefinition finalLabelDefinition) { this.finalLabelDefinition = finalLabelDefinition; }
+    public void setColPosition(Integer colPosition) {
+        this.colPosition = colPosition;
+    }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public boolean isSeed() {
+        return seed;
+    }
+
+    public void setSeed(boolean seed) {
+        this.seed = seed;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public LabelDefinition getPredictedLabelDefinition() {
+        return predictedLabelDefinition;
+    }
+
+    public void setPredictedLabelDefinition(LabelDefinition predictedLabelDefinition) {
+        this.predictedLabelDefinition = predictedLabelDefinition;
+    }
+
+    public BigDecimal getConfidenceScore() {
+        return confidenceScore;
+    }
+
+    public void setConfidenceScore(BigDecimal confidenceScore) {
+        this.confidenceScore = confidenceScore;
+    }
+
+    public LabelDefinition getFinalLabelDefinition() {
+        return finalLabelDefinition;
+    }
+
+    public void setFinalLabelDefinition(LabelDefinition finalLabelDefinition) {
+        this.finalLabelDefinition = finalLabelDefinition;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

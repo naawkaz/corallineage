@@ -18,9 +18,11 @@ public interface AnnotationPredictionRepository extends JpaRepository<Annotation
 
     Page<AnnotationPrediction> findByAnnotationJobIdAndImageId(Long annotationJobId, Long imageId, Pageable pageable);
 
-    Page<AnnotationPrediction> findByAnnotationJobIdAndAccepted(Long annotationJobId, Boolean accepted, Pageable pageable);
+    Page<AnnotationPrediction> findByAnnotationJobIdAndAccepted(Long annotationJobId, Boolean accepted,
+            Pageable pageable);
 
-    Page<AnnotationPrediction> findByAnnotationJobIdAndImageIdAndAccepted(Long annotationJobId, Long imageId, Boolean accepted, Pageable pageable);
+    Page<AnnotationPrediction> findByAnnotationJobIdAndImageIdAndAccepted(Long annotationJobId, Long imageId,
+            Boolean accepted, Pageable pageable);
 
     long countByAnnotationJobId(Long annotationJobId);
 

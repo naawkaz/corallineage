@@ -13,24 +13,59 @@ public class ImageResponse {
     private LocalDate surveyDate;
     private Instant addedAt;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getFilename() { return filename; }
-    public void setFilename(String filename) { this.filename = filename; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getUrl() { return url; }
-    public void setUrl(String url) { this.url = url; }
+    public String getFilename() {
+        return filename;
+    }
 
-    public String getDvcFileHash() { return dvcFileHash; }
-    public void setDvcFileHash(String dvcFileHash) { this.dvcFileHash = dvcFileHash; }
+    public void setFilename(String filename) {
+        this.filename = filename;
+    }
 
-    public String getSite() { return site; }
-    public void setSite(String site) { this.site = site; }
+    public String getUrl() {
+        return url;
+    }
 
-    public LocalDate getSurveyDate() { return surveyDate; }
-    public void setSurveyDate(LocalDate surveyDate) { this.surveyDate = surveyDate; }
+    public void setUrl(String url) {
+        this.url = url;
+    }
 
-    public Instant getAddedAt() { return addedAt; }
-    public void setAddedAt(Instant addedAt) { this.addedAt = addedAt; }
+    public String getDvcFileHash() {
+        return dvcFileHash;
+    }
+
+    public void setDvcFileHash(String dvcFileHash) {
+        this.dvcFileHash = dvcFileHash;
+    }
+
+    public String getSite() {
+        return site;
+    }
+
+    public void setSite(String site) {
+        this.site = site;
+    }
+
+    public LocalDate getSurveyDate() {
+        return surveyDate;
+    }
+
+    public void setSurveyDate(LocalDate surveyDate) {
+        this.surveyDate = surveyDate;
+    }
+
+    public Instant getAddedAt() {
+        return addedAt;
+    }
+
+    public void setAddedAt(Instant addedAt) {
+        this.addedAt = addedAt;
+    }
 }

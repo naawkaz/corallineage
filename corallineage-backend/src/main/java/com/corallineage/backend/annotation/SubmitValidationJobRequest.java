@@ -21,15 +21,35 @@ public class SubmitValidationJobRequest {
     @NotBlank
     private String initiatedBy;
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public List<Long> getImageIds() { return imageIds; }
-    public void setImageIds(List<Long> imageIds) { this.imageIds = imageIds; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
+
+    public List<Long> getImageIds() {
+        return imageIds;
+    }
+
+    public void setImageIds(List<Long> imageIds) {
+        this.imageIds = imageIds;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 }

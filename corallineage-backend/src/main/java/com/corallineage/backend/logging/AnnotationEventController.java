@@ -25,8 +25,8 @@ public class AnnotationEventController {
     private final ProjectMemberService projectMemberService;
 
     public AnnotationEventController(AnnotationEventService annotationEventService,
-                                      DatasetService datasetService,
-                                      ProjectMemberService projectMemberService) {
+            DatasetService datasetService,
+            ProjectMemberService projectMemberService) {
         this.annotationEventService = annotationEventService;
         this.datasetService = datasetService;
         this.projectMemberService = projectMemberService;
@@ -46,14 +46,17 @@ public class AnnotationEventController {
         // Native SQL column name since findByFilters is a native query
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurred_at"));
 
-        Long scopedDatasetId = annotationEventService.resolveScopedDatasetId(datasetVersionId, modelVersionId, datasetId);
+        Long scopedDatasetId = annotationEventService.resolveScopedDatasetId(datasetVersionId, modelVersionId,
+                datasetId);
         if (scopedDatasetId != null) {
             datasetService.requireAccess(scopedDatasetId, authentication.getName());
-            return annotationEventService.queryEvents(eventType, datasetVersionId, modelVersionId, datasetId, from, to, pageable);
+            return annotationEventService.queryEvents(eventType, datasetVersionId, modelVersionId, datasetId, from, to,
+                    pageable);
         }
 
         // No dataset scoping filter, so filter to the requester's accessible datasets
         Set<Long> accessibleDatasetIds = projectMemberService.getAllAccessibleDatasetIds(authentication.getName());
-        return annotationEventService.queryEventsAccessibleWithNoDatasetFilter(eventType, from, to, accessibleDatasetIds, pageable);
+        return annotationEventService.queryEventsAccessibleWithNoDatasetFilter(eventType, from, to,
+                accessibleDatasetIds, pageable);
     }
 }

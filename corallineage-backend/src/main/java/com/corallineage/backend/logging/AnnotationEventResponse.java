@@ -14,30 +14,75 @@ public class AnnotationEventResponse {
     private String description;
     private String metadata;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public EventType getEventType() { return eventType; }
-    public void setEventType(EventType eventType) { this.eventType = eventType; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public EventType getEventType() {
+        return eventType;
+    }
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public void setEventType(EventType eventType) {
+        this.eventType = eventType;
+    }
 
-    public Long getImageId() { return imageId; }
-    public void setImageId(Long imageId) { this.imageId = imageId; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public String getPerformedBy() { return performedBy; }
-    public void setPerformedBy(String performedBy) { this.performedBy = performedBy; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
 
-    public Instant getOccurredAt() { return occurredAt; }
-    public void setOccurredAt(Instant occurredAt) { this.occurredAt = occurredAt; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public String getMetadata() { return metadata; }
-    public void setMetadata(String metadata) { this.metadata = metadata; }
+    public Long getImageId() {
+        return imageId;
+    }
+
+    public void setImageId(Long imageId) {
+        this.imageId = imageId;
+    }
+
+    public String getPerformedBy() {
+        return performedBy;
+    }
+
+    public void setPerformedBy(String performedBy) {
+        this.performedBy = performedBy;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
+
+    public void setOccurredAt(Instant occurredAt) {
+        this.occurredAt = occurredAt;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(String metadata) {
+        this.metadata = metadata;
+    }
 }

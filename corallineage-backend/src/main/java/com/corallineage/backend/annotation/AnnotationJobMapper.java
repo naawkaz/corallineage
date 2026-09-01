@@ -29,7 +29,7 @@ public class AnnotationJobMapper {
 
     /** Includes the accuracy summary for validation jobs */
     public AnnotationJobResponse toResponse(AnnotationJob job, long totalPredictions, long reviewedPredictions,
-                                            long correctPredictions) {
+            long correctPredictions) {
         AnnotationJobResponse response = toResponse(job, totalPredictions, reviewedPredictions);
         response.setCorrectPredictions(correctPredictions);
         response.setAccuracyPercent(totalPredictions > 0 ? (correctPredictions * 100.0) / totalPredictions : null);

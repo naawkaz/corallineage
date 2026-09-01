@@ -12,7 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 
-/** Runs a point annotation job's auto annotate phase in the background, polling progress */
+/**
+ * Runs a point annotation job's auto annotate phase in the background, polling
+ * progress
+ */
 @Service
 public class AutoAnnotationExecutor {
 
@@ -24,9 +27,9 @@ public class AutoAnnotationExecutor {
     private final AnnotationEventLoggerService annotationEventLoggerService;
 
     public AutoAnnotationExecutor(PointInferenceService pointInferenceService,
-                                  PythonMlServiceClient pythonMlServiceClient,
-                                  PointAnnotationJobStatusService pointAnnotationJobStatusService,
-                                  AnnotationEventLoggerService annotationEventLoggerService) {
+            PythonMlServiceClient pythonMlServiceClient,
+            PointAnnotationJobStatusService pointAnnotationJobStatusService,
+            AnnotationEventLoggerService annotationEventLoggerService) {
         this.pointInferenceService = pointInferenceService;
         this.pythonMlServiceClient = pythonMlServiceClient;
         this.pointAnnotationJobStatusService = pointAnnotationJobStatusService;
@@ -64,15 +67,16 @@ public class AutoAnnotationExecutor {
                 pointInferenceService.applyPredictions(jobId, result);
             }
 
-            PointAnnotationJobStatusService.CompletionResult completion =
-                    pointAnnotationJobStatusService.completeAutoAnnotation(jobId);
+            PointAnnotationJobStatusService.CompletionResult completion = pointAnnotationJobStatusService
+                    .completeAutoAnnotation(jobId);
 
             annotationEventLoggerService.log(EventType.AUTO_ANNOTATION_COMPLETED, completion.datasetVersion(),
                     completion.initiatedBy(), "Auto-annotation completed with model " + completion.modelTag()
                             + ", " + completion.pendingReviewCount() + " point(s) pending review");
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            pointAnnotationJobStatusService.markFailed(jobId, "Interrupted while waiting for auto-annotation to complete");
+            pointAnnotationJobStatusService.markFailed(jobId,
+                    "Interrupted while waiting for auto-annotation to complete");
         } catch (Exception ex) {
             pointAnnotationJobStatusService.markFailed(jobId, describeFailure(ex));
         } finally {

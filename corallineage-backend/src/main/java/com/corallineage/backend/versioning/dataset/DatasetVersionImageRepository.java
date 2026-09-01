@@ -15,7 +15,8 @@ public interface DatasetVersionImageRepository extends JpaRepository<DatasetVers
     Page<DatasetVersionImage> findByDatasetVersionId(Long datasetVersionId, Pageable pageable);
 
     /** Paged membership rows for a version restricted to given image ids */
-    Page<DatasetVersionImage> findByDatasetVersionIdAndImageIdIn(Long datasetVersionId, List<Long> imageIds, Pageable pageable);
+    Page<DatasetVersionImage> findByDatasetVersionIdAndImageIdIn(Long datasetVersionId, List<Long> imageIds,
+            Pageable pageable);
 
     /** Membership rows for a version, not paged */
     List<DatasetVersionImage> findByDatasetVersionId(Long datasetVersionId);

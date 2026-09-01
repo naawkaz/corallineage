@@ -5,12 +5,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "annotation_points",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"image_id", "point_index"}),
-       indexes = {
-           @Index(name = "idx_annotation_points_image", columnList = "image_id"),
-           @Index(name = "idx_annotation_points_label", columnList = "label_definition_id")
-       })
+@Table(name = "annotation_points", uniqueConstraints = @UniqueConstraint(columnNames = { "image_id",
+        "point_index" }), indexes = {
+                @Index(name = "idx_annotation_points_image", columnList = "image_id"),
+                @Index(name = "idx_annotation_points_label", columnList = "label_definition_id")
+        })
 public class AnnotationPoint {
 
     @Id
@@ -52,7 +51,8 @@ public class AnnotationPoint {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
     @PreUpdate
@@ -60,37 +60,91 @@ public class AnnotationPoint {
         updatedAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Image getImage() { return image; }
-    public void setImage(Image image) { this.image = image; }
+    public Image getImage() {
+        return image;
+    }
 
-    public Integer getPointIndex() { return pointIndex; }
-    public void setPointIndex(Integer pointIndex) { this.pointIndex = pointIndex; }
+    public void setImage(Image image) {
+        this.image = image;
+    }
 
-    public Integer getRowPosition() { return rowPosition; }
-    public void setRowPosition(Integer rowPosition) { this.rowPosition = rowPosition; }
+    public Integer getPointIndex() {
+        return pointIndex;
+    }
 
-    public Integer getColPosition() { return colPosition; }
-    public void setColPosition(Integer colPosition) { this.colPosition = colPosition; }
+    public void setPointIndex(Integer pointIndex) {
+        this.pointIndex = pointIndex;
+    }
 
-    public LabelDefinition getLabelDefinition() { return labelDefinition; }
-    public void setLabelDefinition(LabelDefinition labelDefinition) { this.labelDefinition = labelDefinition; }
+    public Integer getRowPosition() {
+        return rowPosition;
+    }
 
-    public String getAnnotationSource() { return annotationSource; }
-    public void setAnnotationSource(String annotationSource) { this.annotationSource = annotationSource; }
+    public void setRowPosition(Integer rowPosition) {
+        this.rowPosition = rowPosition;
+    }
 
-    public BigDecimal getConfidenceScore() { return confidenceScore; }
-    public void setConfidenceScore(BigDecimal confidenceScore) { this.confidenceScore = confidenceScore; }
+    public Integer getColPosition() {
+        return colPosition;
+    }
 
-    public String getAnnotatedBy() { return annotatedBy; }
-    public void setAnnotatedBy(String annotatedBy) { this.annotatedBy = annotatedBy; }
+    public void setColPosition(Integer colPosition) {
+        this.colPosition = colPosition;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public LabelDefinition getLabelDefinition() {
+        return labelDefinition;
+    }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public void setLabelDefinition(LabelDefinition labelDefinition) {
+        this.labelDefinition = labelDefinition;
+    }
+
+    public String getAnnotationSource() {
+        return annotationSource;
+    }
+
+    public void setAnnotationSource(String annotationSource) {
+        this.annotationSource = annotationSource;
+    }
+
+    public BigDecimal getConfidenceScore() {
+        return confidenceScore;
+    }
+
+    public void setConfidenceScore(BigDecimal confidenceScore) {
+        this.confidenceScore = confidenceScore;
+    }
+
+    public String getAnnotatedBy() {
+        return annotatedBy;
+    }
+
+    public void setAnnotatedBy(String annotatedBy) {
+        this.annotatedBy = annotatedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

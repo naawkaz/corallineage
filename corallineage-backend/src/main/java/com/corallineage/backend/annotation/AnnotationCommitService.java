@@ -24,10 +24,10 @@ public class AnnotationCommitService {
     private final LabelDefinitionRepository labelDefinitionRepository;
 
     public AnnotationCommitService(AnnotationJobRepository annotationJobRepository,
-                                   AnnotationPredictionRepository annotationPredictionRepository,
-                                   AnnotationPointRepository annotationPointRepository,
-                                   DatasetVersionRepository datasetVersionRepository,
-                                   LabelDefinitionRepository labelDefinitionRepository) {
+            AnnotationPredictionRepository annotationPredictionRepository,
+            AnnotationPointRepository annotationPointRepository,
+            DatasetVersionRepository datasetVersionRepository,
+            LabelDefinitionRepository labelDefinitionRepository) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.annotationPointRepository = annotationPointRepository;
@@ -43,7 +43,8 @@ public class AnnotationCommitService {
             throw new InvalidRequestException("Only existing-version jobs can be applied in place");
         }
         if (!"COMPLETED".equals(job.getReviewStatus())) {
-            throw new InvalidRequestException("All points must be reviewed (accepted or overridden) before applying to the version");
+            throw new InvalidRequestException(
+                    "All points must be reviewed (accepted or overridden) before applying to the version");
         }
         if (job.getAddedToProjectVersionId() != null) {
             throw new ConflictException("Job " + jobId + " was already applied to dataset version "

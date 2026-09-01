@@ -45,15 +45,15 @@ public class OntologyChangeService {
     private final DatasetService datasetService;
 
     public OntologyChangeService(OntologyChangeRepository ontologyChangeRepository,
-                                 DirtyAnnotationRepository dirtyAnnotationRepository,
-                                 DatasetVersionRepository datasetVersionRepository,
-                                 DatasetVersionService datasetVersionService,
-                                 LabelDefinitionRepository labelDefinitionRepository,
-                                 AnnotationPointRepository annotationPointRepository,
-                                 OntologyChangeMapper ontologyChangeMapper,
-                                 AnnotationEventLoggerService annotationEventLoggerService,
-                                 AnnotationEventRepository annotationEventRepository,
-                                 DatasetService datasetService) {
+            DirtyAnnotationRepository dirtyAnnotationRepository,
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionService datasetVersionService,
+            LabelDefinitionRepository labelDefinitionRepository,
+            AnnotationPointRepository annotationPointRepository,
+            OntologyChangeMapper ontologyChangeMapper,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            AnnotationEventRepository annotationEventRepository,
+            DatasetService datasetService) {
         this.ontologyChangeRepository = ontologyChangeRepository;
         this.dirtyAnnotationRepository = dirtyAnnotationRepository;
         this.datasetVersionRepository = datasetVersionRepository;
@@ -66,7 +66,10 @@ public class OntologyChangeService {
         this.datasetService = datasetService;
     }
 
-    /** Records an ontology change by branching a new version and applying the label mutation */
+    /**
+     * Records an ontology change by branching a new version and applying the label
+     * mutation
+     */
     @Transactional
     public OntologyChangeResponse recordChange(RecordOntologyChangeRequest request, String actingUsername) {
         DatasetVersion basedOnVersion = datasetVersionRepository.findById(request.getBasedOnDatasetVersionId())
@@ -86,7 +89,8 @@ public class OntologyChangeService {
 
         List<String> createdLabelCodes = applyLabelMutation(changeType, oldLabelCode, newLabels, newVersion);
 
-        // newVersion is uncommitted here, so persist this event directly rather than via the REQUIRES_NEW logger
+        // newVersion is uncommitted here, so persist this event directly rather than
+        // via the REQUIRES_NEW logger
         AnnotationEvent detectedEvent = new AnnotationEvent();
         detectedEvent.setEventType(EventType.ONTOLOGY_CHANGE_DETECTED);
         detectedEvent.setDatasetVersion(newVersion);
@@ -106,7 +110,8 @@ public class OntologyChangeService {
         change.setReplacementLabelCode(request.getReplacementLabelCode());
         OntologyChange savedChange = ontologyChangeRepository.save(change);
 
-        // Only SPLIT and DEPRECATE flag annotations dirty, RENAME is a direct identity preserving update
+        // Only SPLIT and DEPRECATE flag annotations dirty, RENAME is a direct identity
+        // preserving update
         List<DirtyAnnotation> dirtyAnnotations = new ArrayList<>();
         if (changeType == ChangeType.LABEL_SPLIT || changeType == ChangeType.LABEL_DEPRECATED) {
             List<AnnotationPoint> affectedPoints = annotationPointRepository
@@ -147,7 +152,7 @@ public class OntologyChangeService {
 
     /** Branches a new version, copying labels and image membership forward */
     private DatasetVersion branchNewVersion(DatasetVersion basedOnVersion, ChangeType changeType,
-                                            RecordOntologyChangeRequest request) {
+            RecordOntologyChangeRequest request) {
         CreateVersionRequest versionRequest = new CreateVersionRequest();
         versionRequest.setVersionTag(request.getNewVersionTag());
         versionRequest.setTriggerReason(TriggerReason.LABEL_DEFINITION_CHANGED);
@@ -172,8 +177,10 @@ public class OntologyChangeService {
                 if (blank) {
                     throw new InvalidRequestException("oldLabelCode is required for " + changeType);
                 }
-                if (!labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(basedOnVersion.getId(), oldLabelCode)) {
-                    throw new InvalidRequestException("oldLabelCode does not exist on this dataset version: " + oldLabelCode);
+                if (!labelDefinitionRepository.existsByDatasetVersionIdAndLabelCode(basedOnVersion.getId(),
+                        oldLabelCode)) {
+                    throw new InvalidRequestException(
+                            "oldLabelCode does not exist on this dataset version: " + oldLabelCode);
                 }
             }
         }
@@ -200,7 +207,7 @@ public class OntologyChangeService {
     }
 
     private void validateReplacementLabelCode(ChangeType changeType, String replacementLabelCode,
-                                              String oldLabelCode, DatasetVersion basedOnVersion) {
+            String oldLabelCode, DatasetVersion basedOnVersion) {
         if (replacementLabelCode == null || replacementLabelCode.isBlank()) {
             return;
         }
@@ -215,13 +222,14 @@ public class OntologyChangeService {
                 .orElseThrow(() -> new InvalidRequestException(
                         "replacementLabelCode does not exist on this dataset version: " + replacementLabelCode));
         if (replacement.getDeprecatedAt() != null) {
-            throw new InvalidRequestException("replacementLabelCode must reference a non-deprecated label: " + replacementLabelCode);
+            throw new InvalidRequestException(
+                    "replacementLabelCode must reference a non-deprecated label: " + replacementLabelCode);
         }
     }
 
     /** Applies the label mutation for a change type, returns any new label codes */
     private List<String> applyLabelMutation(ChangeType changeType, String oldLabelCode, List<NewLabelSpec> newLabels,
-                                            DatasetVersion newVersion) {
+            DatasetVersion newVersion) {
         return switch (changeType) {
             case LABEL_ADDED -> List.of(createLabel(newVersion, newLabels.get(0)).getLabelCode());
             case LABEL_RENAMED -> {
@@ -283,8 +291,10 @@ public class OntologyChangeService {
     @Transactional(readOnly = true)
     public Page<OntologyChangeResponse> getChanges(Long datasetId, Long datasetVersionId, Pageable pageable) {
         Page<OntologyChange> changes = datasetVersionId != null
-                ? ontologyChangeRepository.findByAffectedDatasetVersionIdOrderByChangedAtDesc(datasetVersionId, pageable)
-                : ontologyChangeRepository.findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(datasetId, pageable);
+                ? ontologyChangeRepository.findByAffectedDatasetVersionIdOrderByChangedAtDesc(datasetVersionId,
+                        pageable)
+                : ontologyChangeRepository.findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(datasetId,
+                        pageable);
         return changes.map(change -> ontologyChangeMapper.toResponse(change,
                 dirtyAnnotationRepository.countByOntologyChangeId(change.getId()),
                 dirtyAnnotationRepository.countByOntologyChangeIdAndResolvedAtIsNotNull(change.getId())));
@@ -314,7 +324,8 @@ public class OntologyChangeService {
             return change.getAffectedDatasetVersion().getDataset().getId();
         }
         if (imageId != null) {
-            List<DirtyAnnotation> forImage = dirtyAnnotationRepository.findByImageId(imageId, Pageable.unpaged()).getContent();
+            List<DirtyAnnotation> forImage = dirtyAnnotationRepository.findByImageId(imageId, Pageable.unpaged())
+                    .getContent();
             if (!forImage.isEmpty()) {
                 return forImage.get(0).getImage().getOriginDatasetVersion().getDataset().getId();
             }
@@ -325,7 +336,8 @@ public class OntologyChangeService {
 
     /** Filters dirty annotations to the requester's accessible datasets */
     @Transactional(readOnly = true)
-    public Page<DirtyAnnotationResponse> getDirtyAnnotationsAccessibleWithNoFilter(java.util.Set<Long> accessibleDatasetIds, Pageable pageable) {
+    public Page<DirtyAnnotationResponse> getDirtyAnnotationsAccessibleWithNoFilter(
+            java.util.Set<Long> accessibleDatasetIds, Pageable pageable) {
         // Filter before paginating so page metadata stays correct for the filtered set
         List<DirtyAnnotationResponse> filtered = dirtyAnnotationRepository.findAll().stream()
                 .filter(d -> accessibleDatasetIds.contains(d.getImage().getOriginDatasetVersion().getDataset().getId()))
@@ -339,7 +351,8 @@ public class OntologyChangeService {
     }
 
     @Transactional
-    public DirtyAnnotationResponse resolveDirtyAnnotation(Long id, ResolveDirtyAnnotationRequest request, String actingUsername) {
+    public DirtyAnnotationResponse resolveDirtyAnnotation(Long id, ResolveDirtyAnnotationRequest request,
+            String actingUsername) {
         DirtyAnnotation dirty = dirtyAnnotationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Dirty annotation not found: " + id));
         datasetService.requireAccess(dirty.getImage().getOriginDatasetVersion().getDataset().getId(), actingUsername);

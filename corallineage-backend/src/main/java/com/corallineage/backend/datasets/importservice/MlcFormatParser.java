@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** Imports MLC text files, one per image, each line holds row col and label code */
+/**
+ * Imports MLC text files, one per image, each line holds row col and label code
+ */
 @Component
 public class MlcFormatParser implements DatasetFormatParser {
 
@@ -38,11 +40,13 @@ public class MlcFormatParser implements DatasetFormatParser {
                 int pointIndex = 0;
                 for (String line : lines) {
                     String trimmed = line.trim();
-                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+                    if (trimmed.isEmpty() || trimmed.startsWith("#"))
+                        continue;
                     String[] parts = splitFields(trimmed);
                     if (parts.length < 3) {
                         throw new ImportParseException(
-                                "Malformed line in " + txtFile.getFileName() + ": \"" + line + "\" (expected \"row col label_code\")");
+                                "Malformed line in " + txtFile.getFileName() + ": \"" + line
+                                        + "\" (expected \"row col label_code\")");
                     }
                     int row = parseInt(parts[0], txtFile);
                     int col = parseInt(parts[1], txtFile);
@@ -64,12 +68,14 @@ public class MlcFormatParser implements DatasetFormatParser {
 
         String appendedConventionName = txtFilename.substring(0, txtFilename.length() - ".txt".length());
         Path direct = dir.resolve(appendedConventionName);
-        if (Files.exists(direct)) return direct;
+        if (Files.exists(direct))
+            return direct;
 
         String baseName = stripExtension(appendedConventionName);
         for (String ext : IMAGE_EXTENSIONS) {
             Path candidate = dir.resolve(baseName + ext);
-            if (Files.exists(candidate)) return candidate;
+            if (Files.exists(candidate))
+                return candidate;
         }
         return null;
     }

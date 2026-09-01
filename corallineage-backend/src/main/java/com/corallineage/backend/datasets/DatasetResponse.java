@@ -15,33 +15,83 @@ public class DatasetResponse {
     private Integer imageCount;
     private Integer annotationCount;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getProjectId() { return projectId; }
-    public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDatasetName() { return datasetName; }
-    public void setDatasetName(String datasetName) { this.datasetName = datasetName; }
+    public Long getProjectId() {
+        return projectId;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getDatasetName() {
+        return datasetName;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setDatasetName(String datasetName) {
+        this.datasetName = datasetName;
+    }
 
-    public long getVersionCount() { return versionCount; }
-    public void setVersionCount(long versionCount) { this.versionCount = versionCount; }
+    public String getDescription() {
+        return description;
+    }
 
-    public String getLatestVersionTag() { return latestVersionTag; }
-    public void setLatestVersionTag(String latestVersionTag) { this.latestVersionTag = latestVersionTag; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public Integer getImageCount() { return imageCount; }
-    public void setImageCount(Integer imageCount) { this.imageCount = imageCount; }
+    public String getCreatedBy() {
+        return createdBy;
+    }
 
-    public Integer getAnnotationCount() { return annotationCount; }
-    public void setAnnotationCount(Integer annotationCount) { this.annotationCount = annotationCount; }
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public long getVersionCount() {
+        return versionCount;
+    }
+
+    public void setVersionCount(long versionCount) {
+        this.versionCount = versionCount;
+    }
+
+    public String getLatestVersionTag() {
+        return latestVersionTag;
+    }
+
+    public void setLatestVersionTag(String latestVersionTag) {
+        this.latestVersionTag = latestVersionTag;
+    }
+
+    public Integer getImageCount() {
+        return imageCount;
+    }
+
+    public void setImageCount(Integer imageCount) {
+        this.imageCount = imageCount;
+    }
+
+    public Integer getAnnotationCount() {
+        return annotationCount;
+    }
+
+    public void setAnnotationCount(Integer annotationCount) {
+        this.annotationCount = annotationCount;
+    }
 }

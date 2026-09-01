@@ -34,28 +34,63 @@ public class Dataset {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getDatasetName() { return datasetName; }
-    public void setDatasetName(String datasetName) { this.datasetName = datasetName; }
+    public String getDatasetName() {
+        return datasetName;
+    }
 
-    public Project getProject() { return project; }
-    public void setProject(Project project) { this.project = project; }
+    public void setDatasetName(String datasetName) {
+        this.datasetName = datasetName;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public Project getProject() {
+        return project;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public void setProject(Project project) {
+        this.project = project;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getDescription() {
+        return description;
+    }
 
-    public Integer getNextModelFallbackNumber() { return nextModelFallbackNumber; }
-    public void setNextModelFallbackNumber(Integer nextModelFallbackNumber) { this.nextModelFallbackNumber = nextModelFallbackNumber; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Integer getNextModelFallbackNumber() {
+        return nextModelFallbackNumber;
+    }
+
+    public void setNextModelFallbackNumber(Integer nextModelFallbackNumber) {
+        this.nextModelFallbackNumber = nextModelFallbackNumber;
+    }
 }

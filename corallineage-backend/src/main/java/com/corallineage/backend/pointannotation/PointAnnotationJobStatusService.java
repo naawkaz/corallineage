@@ -22,9 +22,9 @@ public class PointAnnotationJobStatusService {
     private final AnnotationCommitService annotationCommitService;
 
     public PointAnnotationJobStatusService(PointAnnotationJobRepository pointAnnotationJobRepository,
-                                           AnnotationJobRepository annotationJobRepository,
-                                           AnnotationPredictionRepository annotationPredictionRepository,
-                                           AnnotationCommitService annotationCommitService) {
+            AnnotationJobRepository annotationJobRepository,
+            AnnotationPredictionRepository annotationPredictionRepository,
+            AnnotationCommitService annotationCommitService) {
         this.pointAnnotationJobRepository = pointAnnotationJobRepository;
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
@@ -57,7 +57,9 @@ public class PointAnnotationJobStatusService {
         });
     }
 
-    /** Marks the delegated annotation job completed and derives its review status */
+    /**
+     * Marks the delegated annotation job completed and derives its review status
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CompletionResult completeAutoAnnotation(Long jobId) {
         PointAnnotationJob job = pointAnnotationJobRepository.findById(jobId)
@@ -70,21 +72,24 @@ public class PointAnnotationJobStatusService {
         long autoAccepted = annotationPredictionRepository.countByAnnotationJobIdAndAcceptedTrue(delegatedJob.getId());
         delegatedJob.setStatus("COMPLETED");
         delegatedJob.setCompletedAt(Instant.now());
-        delegatedJob.setReviewStatus(autoAccepted == 0 ? "PENDING" : (autoAccepted < total ? "IN_PROGRESS" : "COMPLETED"));
+        delegatedJob
+                .setReviewStatus(autoAccepted == 0 ? "PENDING" : (autoAccepted < total ? "IN_PROGRESS" : "COMPLETED"));
         AnnotationJob savedDelegated = annotationJobRepository.save(delegatedJob);
 
-        // Every point cleared the confidence threshold, so register the dataset version now
+        // Every point cleared the confidence threshold, so register the dataset version
+        // now
         boolean fullyAutoAccepted = total > 0 && autoAccepted == total;
         if (fullyAutoAccepted && Boolean.TRUE.equals(savedDelegated.getCommitInPlace())) {
             annotationCommitService.applyToExistingVersion(savedDelegated.getId(), job.getInitiatedBy());
         }
 
         long pendingReview = total - autoAccepted;
-        String modelTag = savedDelegated.getModelVersion() != null ? savedDelegated.getModelVersion().getModelTag() : null;
+        String modelTag = savedDelegated.getModelVersion() != null ? savedDelegated.getModelVersion().getModelTag()
+                : null;
         return new CompletionResult(job.getDatasetVersion(), modelTag, job.getInitiatedBy(), pendingReview);
     }
 
     public record CompletionResult(DatasetVersion datasetVersion, String modelTag, String initiatedBy,
-                                    long pendingReviewCount) {
+            long pendingReviewCount) {
     }
 }

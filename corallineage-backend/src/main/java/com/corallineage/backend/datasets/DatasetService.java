@@ -25,10 +25,10 @@ public class DatasetService {
     private final DatasetVersionService datasetVersionService;
 
     public DatasetService(DatasetRepository datasetRepository,
-                          DatasetMapper datasetMapper,
-                          ProjectRepository projectRepository,
-                          ProjectMemberService projectMemberService,
-                          DatasetVersionService datasetVersionService) {
+            DatasetMapper datasetMapper,
+            ProjectRepository projectRepository,
+            ProjectMemberService projectMemberService,
+            DatasetVersionService datasetVersionService) {
         this.datasetRepository = datasetRepository;
         this.datasetMapper = datasetMapper;
         this.projectRepository = projectRepository;
@@ -37,7 +37,8 @@ public class DatasetService {
     }
 
     /** Excludes unresolved versions from the version count and latest tag */
-    private record ResolvedVersionSummary(long count, String latestVersionTag, int latestImageCount, int latestAnnotationCount) {
+    private record ResolvedVersionSummary(long count, String latestVersionTag, int latestImageCount,
+            int latestAnnotationCount) {
     }
 
     private ResolvedVersionSummary resolvedVersionSummary(Long datasetId) {
@@ -85,7 +86,8 @@ public class DatasetService {
             throw new UnauthorizedException("You are not a member of this project");
         }
 
-        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId,
+                actingUsername);
 
         return datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(projectId).stream()
                 .filter(dataset -> accessibleSourceIds.isEmpty() || accessibleSourceIds.get().contains(dataset.getId()))
@@ -108,7 +110,8 @@ public class DatasetService {
             throw new ForbiddenException("You are not a member of the project that owns this dataset");
         }
 
-        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId,
+                actingUsername);
         if (accessibleSourceIds.isPresent() && !accessibleSourceIds.get().contains(datasetId)) {
             throw new ForbiddenException("You do not have access to this dataset");
         }

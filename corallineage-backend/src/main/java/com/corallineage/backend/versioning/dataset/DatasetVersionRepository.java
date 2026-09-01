@@ -12,31 +12,34 @@ import java.util.Optional;
 
 public interface DatasetVersionRepository extends JpaRepository<DatasetVersion, Long> {
 
-    Optional<DatasetVersion> findByDatasetIdAndVersionTag(Long datasetId, String versionTag);
+        Optional<DatasetVersion> findByDatasetIdAndVersionTag(Long datasetId, String versionTag);
 
-    Page<DatasetVersion> findAllByDatasetIdOrderByCreatedAtDesc(Long datasetId, Pageable pageable);
+        Page<DatasetVersion> findAllByDatasetIdOrderByCreatedAtDesc(Long datasetId, Pageable pageable);
 
-    /** Excludes staging versions */
-    @Query("SELECT v FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
-            + "AND (v.isStaging IS NULL OR v.isStaging = false) "
-            + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' ORDER BY v.createdAt DESC")
-    Page<DatasetVersion> findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(@Param("datasetId") Long datasetId, Pageable pageable);
+        /** Excludes staging versions */
+        @Query("SELECT v FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
+                        + "AND (v.isStaging IS NULL OR v.isStaging = false) "
+                        + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' ORDER BY v.createdAt DESC")
+        Page<DatasetVersion> findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(
+                        @Param("datasetId") Long datasetId, Pageable pageable);
 
-    /** Same filter as above without pagination */
-    @Query("SELECT v FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
-            + "AND (v.isStaging IS NULL OR v.isStaging = false) "
-            + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' ORDER BY v.createdAt DESC")
-    List<DatasetVersion> findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(@Param("datasetId") Long datasetId);
+        /** Same filter as above without pagination */
+        @Query("SELECT v FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
+                        + "AND (v.isStaging IS NULL OR v.isStaging = false) "
+                        + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' ORDER BY v.createdAt DESC")
+        List<DatasetVersion> findAllByDatasetIdAndIsStagingNotTrueOrderByCreatedAtDesc(
+                        @Param("datasetId") Long datasetId);
 
-    Optional<DatasetVersion> findTopByDatasetIdOrderByCreatedAtDesc(Long datasetId);
+        Optional<DatasetVersion> findTopByDatasetIdOrderByCreatedAtDesc(Long datasetId);
 
-    long countByDatasetId(Long datasetId);
+        long countByDatasetId(Long datasetId);
 
-    /** Counts non staging versions up to this one by creation order */
-    @Query("SELECT COUNT(v) FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
-            + "AND (v.isStaging IS NULL OR v.isStaging = false) "
-            + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' AND v.id <= :versionId")
-    long countByDatasetIdAndIsStagingNotTrueAndIdLessThanEqual(@Param("datasetId") Long datasetId, @Param("versionId") Long versionId);
+        /** Counts non staging versions up to this one by creation order */
+        @Query("SELECT COUNT(v) FROM DatasetVersion v WHERE v.dataset.id = :datasetId "
+                        + "AND (v.isStaging IS NULL OR v.isStaging = false) "
+                        + "AND v.versionTag NOT LIKE 'staging-annotation-job-%' AND v.id <= :versionId")
+        long countByDatasetIdAndIsStagingNotTrueAndIdLessThanEqual(@Param("datasetId") Long datasetId,
+                        @Param("versionId") Long versionId);
 
-    List<DatasetVersion> findByCreatedAtBetween(Instant from, Instant to);
+        List<DatasetVersion> findByCreatedAtBetween(Instant from, Instant to);
 }

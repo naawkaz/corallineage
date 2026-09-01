@@ -39,11 +39,11 @@ public class PointInferenceService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public PointInferenceService(PointAnnotationJobRepository pointAnnotationJobRepository,
-                                 GeneratedPointRepository generatedPointRepository,
-                                 AnnotationPredictionRepository annotationPredictionRepository,
-                                 PythonMlServiceClient pythonMlServiceClient,
-                                 @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                 @Value("${app.training.patch-size:64}") int patchSize) {
+            GeneratedPointRepository generatedPointRepository,
+            AnnotationPredictionRepository annotationPredictionRepository,
+            PythonMlServiceClient pythonMlServiceClient,
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.training.patch-size:64}") int patchSize) {
         this.pointAnnotationJobRepository = pointAnnotationJobRepository;
         this.generatedPointRepository = generatedPointRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
@@ -78,13 +78,15 @@ public class PointInferenceService {
             for (GeneratedPoint point : pending) {
                 BufferedImage source = imageCache.computeIfAbsent(point.getImage().getId(),
                         id -> ImagePatchUtil.readImage(workingDirectory, point.getImage().getFilePath()));
-                BufferedImage patch = ImagePatchUtil.cropPatch(source, point.getRowPosition(), point.getColPosition(), patchSize);
+                BufferedImage patch = ImagePatchUtil.cropPatch(source, point.getRowPosition(), point.getColPosition(),
+                        patchSize);
                 Path patchFile = patchDir.resolve("point-" + point.getId() + ".jpg");
                 ImageIO.write(patch, "jpg", patchFile.toFile());
                 inputs.add(new AnnotateImageInput(point.getId(), patchFile.toString()));
             }
 
-            pythonMlServiceClient.startAnnotate(model.getArchitecture(), model.getWeightsPath(), classMappings, inputs, jobId);
+            pythonMlServiceClient.startAnnotate(model.getArchitecture(), model.getWeightsPath(), classMappings, inputs,
+                    jobId);
             return new AnnotationKickoff(true, patchDir);
         } catch (IOException ex) {
             throw new UncheckedIOException("Failed to prepare point patches for inference", ex);
@@ -115,7 +117,8 @@ public class PointInferenceService {
                 continue;
             }
             AnnotateResult.AnnotatedPoint predicted = annotated.points().get(0);
-            BigDecimal confidenceScore = predicted.confidenceScore() != null ? predicted.confidenceScore() : BigDecimal.ZERO;
+            BigDecimal confidenceScore = predicted.confidenceScore() != null ? predicted.confidenceScore()
+                    : BigDecimal.ZERO;
 
             AnnotationPrediction prediction = new AnnotationPrediction();
             prediction.setAnnotationJob(delegatedJob);

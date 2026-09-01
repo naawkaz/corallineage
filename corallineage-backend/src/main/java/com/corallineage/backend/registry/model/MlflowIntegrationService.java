@@ -15,14 +15,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-/** Passthrough layer to the MLflow REST API, degrades to null when unreachable */
+/**
+ * Passthrough layer to the MLflow REST API, degrades to null when unreachable
+ */
 @Service
 public class MlflowIntegrationService {
 
     private static final Logger log = LoggerFactory.getLogger(MlflowIntegrationService.class);
-    // loss and accuracy are older pre validation split keys, kept as a fallback for older runs
-    private static final List<String> TRACKED_METRIC_KEYS =
-            List.of("train_loss", "val_loss", "val_accuracy", "loss", "accuracy");
+    // loss and accuracy are older pre validation split keys, kept as a fallback for
+    // older runs
+    private static final List<String> TRACKED_METRIC_KEYS = List.of("train_loss", "val_loss", "val_accuracy", "loss",
+            "accuracy");
 
     private final RestClient restClient;
     private final String mlflowUrl;
@@ -37,7 +40,8 @@ public class MlflowIntegrationService {
     public Map<String, Object> getRunDetails(String mlflowRunId) {
         try {
             return restClient.get()
-                    .uri(uriBuilder -> uriBuilder.path("/api/2.0/mlflow/runs/get").queryParam("run_id", mlflowRunId).build())
+                    .uri(uriBuilder -> uriBuilder.path("/api/2.0/mlflow/runs/get").queryParam("run_id", mlflowRunId)
+                            .build())
                     .retrieve()
                     .body(Map.class);
         } catch (RestClientException ex) {
@@ -56,7 +60,8 @@ public class MlflowIntegrationService {
                 try {
                     history = fetchMetricHistory(mlflowRunId, key);
                 } catch (RestClientResponseException ex) {
-                    // Skip a key MLflow errors on, a connectivity failure still propagates and returns null
+                    // Skip a key MLflow errors on, a connectivity failure still propagates and
+                    // returns null
                     log.debug("Metric key {} not available for run {}: {}", key, mlflowRunId, ex.getMessage());
                     history = Map.of();
                 }

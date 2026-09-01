@@ -21,21 +21,51 @@ public class StartPointAnnotationJobRequest {
     @NotBlank
     private String initiatedBy;
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public Integer getGridRows() { return gridRows; }
-    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
 
-    public Integer getGridCols() { return gridCols; }
-    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
+    public Integer getGridRows() {
+        return gridRows;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public void setGridRows(Integer gridRows) {
+        this.gridRows = gridRows;
+    }
 
-    public Integer getSeedImageCount() { return seedImageCount; }
-    public void setSeedImageCount(Integer seedImageCount) { this.seedImageCount = seedImageCount; }
+    public Integer getGridCols() {
+        return gridCols;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public void setGridCols(Integer gridCols) {
+        this.gridCols = gridCols;
+    }
+
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
+
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
+
+    public Integer getSeedImageCount() {
+        return seedImageCount;
+    }
+
+    public void setSeedImageCount(Integer seedImageCount) {
+        this.seedImageCount = seedImageCount;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 }

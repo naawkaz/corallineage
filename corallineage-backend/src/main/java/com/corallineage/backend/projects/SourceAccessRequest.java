@@ -6,6 +6,11 @@ public class SourceAccessRequest {
 
     private List<Long> sourceIds;
 
-    public List<Long> getSourceIds() { return sourceIds; }
-    public void setSourceIds(List<Long> sourceIds) { this.sourceIds = sourceIds; }
+    public List<Long> getSourceIds() {
+        return sourceIds;
+    }
+
+    public void setSourceIds(List<Long> sourceIds) {
+        this.sourceIds = sourceIds;
+    }
 }

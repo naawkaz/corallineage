@@ -12,7 +12,7 @@ public class OntologyChangeMapper {
     private final DatasetVersionService datasetVersionService;
 
     public OntologyChangeMapper(AnnotationPointRepository annotationPointRepository,
-                                DatasetVersionService datasetVersionService) {
+            DatasetVersionService datasetVersionService) {
         this.annotationPointRepository = annotationPointRepository;
         this.datasetVersionService = datasetVersionService;
     }
@@ -29,7 +29,8 @@ public class OntologyChangeMapper {
                 change.getAffectedDatasetVersion() != null ? change.getAffectedDatasetVersion().getVersionTag() : null);
         response.setAffectedDatasetVersionNumber(
                 change.getAffectedDatasetVersion() != null
-                        ? datasetVersionService.getVersionNumber(change.getAffectedDatasetVersion()) : null);
+                        ? datasetVersionService.getVersionNumber(change.getAffectedDatasetVersion())
+                        : null);
         response.setChangedBy(change.getChangedBy());
         response.setChangedAt(change.getChangedAt());
         response.setNotes(change.getNotes());

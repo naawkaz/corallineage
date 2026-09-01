@@ -16,12 +16,27 @@ public class AddMemberRequest {
     /** Source ids this member can access, omitted means unrestricted */
     private List<Long> sourceIds;
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public String getUsername() {
+        return username;
+    }
 
-    public ProjectRole getRole() { return role; }
-    public void setRole(ProjectRole role) { this.role = role; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-    public List<Long> getSourceIds() { return sourceIds; }
-    public void setSourceIds(List<Long> sourceIds) { this.sourceIds = sourceIds; }
+    public ProjectRole getRole() {
+        return role;
+    }
+
+    public void setRole(ProjectRole role) {
+        this.role = role;
+    }
+
+    public List<Long> getSourceIds() {
+        return sourceIds;
+    }
+
+    public void setSourceIds(List<Long> sourceIds) {
+        this.sourceIds = sourceIds;
+    }
 }

@@ -24,7 +24,7 @@ public class DatasetMapper {
     }
 
     public DatasetResponse toDetailResponse(Dataset dataset, long versionCount, String latestVersionTag,
-                                            Integer imageCount, Integer annotationCount) {
+            Integer imageCount, Integer annotationCount) {
         DatasetResponse response = toSummaryResponse(dataset, versionCount, latestVersionTag);
         response.setImageCount(imageCount);
         response.setAnnotationCount(annotationCount);

@@ -67,23 +67,23 @@ public class PointAnnotationJobService {
     private final ImportJobRepository importJobRepository;
 
     public PointAnnotationJobService(DatasetVersionRepository datasetVersionRepository,
-                                     DatasetVersionImageRepository datasetVersionImageRepository,
-                                     ImageRepository imageRepository,
-                                     PointAnnotationJobRepository pointAnnotationJobRepository,
-                                     GeneratedPointRepository generatedPointRepository,
-                                     PointGenerationService pointGenerationService,
-                                     PointAnnotationMapper pointAnnotationMapper,
-                                     AnnotationEventLoggerService annotationEventLoggerService,
-                                     LabelDefinitionRepository labelDefinitionRepository,
-                                     AnnotationPointRepository annotationPointRepository,
-                                     AnnotationPointBridge annotationPointBridge,
-                                     TrainingJobService trainingJobService,
-                                     TrainingJobRepository trainingJobRepository,
-                                     AutoAnnotationExecutor autoAnnotationExecutor,
-                                     DatasetService datasetService,
-                                     AnnotationJobRepository annotationJobRepository,
-                                     DatasetVersionService datasetVersionService,
-                                     ImportJobRepository importJobRepository) {
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            ImageRepository imageRepository,
+            PointAnnotationJobRepository pointAnnotationJobRepository,
+            GeneratedPointRepository generatedPointRepository,
+            PointGenerationService pointGenerationService,
+            PointAnnotationMapper pointAnnotationMapper,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            LabelDefinitionRepository labelDefinitionRepository,
+            AnnotationPointRepository annotationPointRepository,
+            AnnotationPointBridge annotationPointBridge,
+            TrainingJobService trainingJobService,
+            TrainingJobRepository trainingJobRepository,
+            AutoAnnotationExecutor autoAnnotationExecutor,
+            DatasetService datasetService,
+            AnnotationJobRepository annotationJobRepository,
+            DatasetVersionService datasetVersionService,
+            ImportJobRepository importJobRepository) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
         this.imageRepository = imageRepository;
@@ -108,12 +108,14 @@ public class PointAnnotationJobService {
     @Transactional
     public PointAnnotationJobResponse submitJob(StartPointAnnotationJobRequest request, String actingUsername) {
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
-                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+                .orElseThrow(
+                        () -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
         datasetService.requireAccess(version.getDataset().getId(), actingUsername);
 
         Set<Long> imageIds = datasetVersionImageRepository.findImageIdsByDatasetVersionId(version.getId());
         if (imageIds.isEmpty()) {
-            throw new InvalidRequestException("Dataset version " + version.getVersionTag() + " has no images to annotate");
+            throw new InvalidRequestException(
+                    "Dataset version " + version.getVersionTag() + " has no images to annotate");
         }
         List<Image> images = new ArrayList<>(imageRepository.findAllById(imageIds));
         images.sort(Comparator.comparing(Image::getId));
@@ -121,14 +123,17 @@ public class PointAnnotationJobService {
         int gridRows = request.getGridRows() != null ? request.getGridRows() : DEFAULT_GRID_ROWS;
         int gridCols = request.getGridCols() != null ? request.getGridCols() : DEFAULT_GRID_COLS;
         BigDecimal confidenceThreshold = request.getConfidenceThreshold() != null
-                ? request.getConfidenceThreshold() : DEFAULT_CONFIDENCE_THRESHOLD;
-        int seedImageCount = request.getSeedImageCount() != null ? request.getSeedImageCount() : DEFAULT_SEED_IMAGE_COUNT;
+                ? request.getConfidenceThreshold()
+                : DEFAULT_CONFIDENCE_THRESHOLD;
+        int seedImageCount = request.getSeedImageCount() != null ? request.getSeedImageCount()
+                : DEFAULT_SEED_IMAGE_COUNT;
         if (seedImageCount <= 0) {
             throw new InvalidRequestException("seedImageCount must be at least 1");
         }
         if (seedImageCount > images.size()) {
             throw new InvalidRequestException("seedImageCount (" + seedImageCount
-                    + ") exceeds dataset version " + version.getVersionTag() + "'s image count (" + images.size() + ")");
+                    + ") exceeds dataset version " + version.getVersionTag() + "'s image count (" + images.size()
+                    + ")");
         }
 
         PointAnnotationJob job = new PointAnnotationJob();
@@ -154,7 +159,8 @@ public class PointAnnotationJobService {
         PointAnnotationJob completedJob = pointAnnotationJobRepository.save(savedJob);
 
         annotationEventLoggerService.log(EventType.POINTS_GENERATED, version, request.getInitiatedBy(),
-                allPoints.size() + " points generated (" + gridRows + "x" + gridCols + " grid/image) across " + images.size()
+                allPoints.size() + " points generated (" + gridRows + "x" + gridCols + " grid/image) across "
+                        + images.size()
                         + " image(s), " + seedImageCount + " seed image(s)");
 
         return toResponse(completedJob, images.size());
@@ -178,16 +184,21 @@ public class PointAnnotationJobService {
     @Transactional(readOnly = true)
     public PointAnnotationJobResponse getJobById(Long id) {
         PointAnnotationJob job = findOrThrow(id);
-        return toResponse(job, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
+        return toResponse(job,
+                (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
     }
 
     @Transactional(readOnly = true)
     public Page<PointAnnotationJobResponse> getJobs(Long datasetId, Pageable pageable) {
         return pointAnnotationJobRepository.findByDatasetVersion_Dataset_IdOrderByCreatedAtDesc(datasetId, pageable)
-                .map(job -> toResponse(job, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId())));
+                .map(job -> toResponse(job,
+                        (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId())));
     }
 
-    /** Merges pending point annotation and in place annotation jobs into one sorted queue */
+    /**
+     * Merges pending point annotation and in place annotation jobs into one sorted
+     * queue
+     */
     @Transactional(readOnly = true)
     public Page<UnlabeledImportQueueEntryResponse> getUnlabeledImportQueue(Long datasetId, Pageable pageable) {
         List<UnlabeledImportQueueEntryResponse> entries = new ArrayList<>();
@@ -195,17 +206,20 @@ public class PointAnnotationJobService {
         for (PointAnnotationJob job : pointAnnotationJobRepository
                 .findByDatasetVersion_Dataset_IdOrderByCreatedAtDesc(datasetId, Pageable.unpaged())) {
             boolean delegated = "COMPLETE".equals(job.getStatus()) && job.getAnnotationJob() != null;
-            if (delegated) continue;
+            if (delegated)
+                continue;
             entries.add(toQueueEntry(job));
         }
         for (AnnotationJob job : annotationJobRepository
-                .findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(datasetId)) {
+                .findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(
+                        datasetId)) {
             entries.add(toQueueEntry(job));
         }
         // A blank import still uploading, no version exists yet to attach a job to
         for (ImportJob importJob : importJobRepository
                 .findByDataset_IdAndFormatAndCreatedDatasetVersionIdIsNullOrderBySubmittedAtDesc(datasetId, "BLANK")) {
-            if (!"PROCESSING".equals(importJob.getStatus()) && !"FAILED".equals(importJob.getStatus())) continue;
+            if (!"PROCESSING".equals(importJob.getStatus()) && !"FAILED".equals(importJob.getStatus()))
+                continue;
             entries.add(toQueueEntry(importJob));
         }
         // A completed blank import with no start chosen yet
@@ -229,7 +243,8 @@ public class PointAnnotationJobService {
         entry.setVersionNumber(datasetVersionService.getVersionNumber(job.getDatasetVersion()));
         entry.setStatus(job.getStatus());
         entry.setSeedTotalPoints(generatedPointRepository.countByJobIdAndSeedTrue(job.getId()));
-        entry.setSeedLabeledPoints(generatedPointRepository.countByJobIdAndSeedTrueAndStatus(job.getId(), "HUMAN_LABELED"));
+        entry.setSeedLabeledPoints(
+                generatedPointRepository.countByJobIdAndSeedTrueAndStatus(job.getId(), "HUMAN_LABELED"));
         entry.setModelTag(job.getModelVersion() != null ? job.getModelVersion().getModelTag() : null);
         entry.setStartedAt(job.getCreatedAt());
         entry.setResolveRoute("SEED_LABEL");
@@ -270,7 +285,9 @@ public class PointAnnotationJobService {
         entry.setJobType("ANNOTATION");
         entry.setJobId(job.getId());
         entry.setVersionTag(job.getDatasetVersion() != null ? job.getDatasetVersion().getVersionTag() : null);
-        entry.setVersionNumber(job.getDatasetVersion() != null ? datasetVersionService.getVersionNumber(job.getDatasetVersion()) : null);
+        entry.setVersionNumber(
+                job.getDatasetVersion() != null ? datasetVersionService.getVersionNumber(job.getDatasetVersion())
+                        : null);
         entry.setStatus("COMPLETED".equals(job.getStatus()) ? "REVIEW" : job.getStatus());
         entry.setModelTag(job.getModelVersion() != null ? job.getModelVersion().getModelTag() : null);
         entry.setStartedAt(job.getInitiatedAt());
@@ -282,7 +299,8 @@ public class PointAnnotationJobService {
     @Transactional(readOnly = true)
     public Page<GeneratedPointResponse> getPoints(Long jobId, boolean seed, Pageable pageable) {
         findOrThrow(jobId);
-        return generatedPointRepository.findByJobIdAndSeedOrderByIdAsc(jobId, seed, pageable).map(pointAnnotationMapper::toResponse);
+        return generatedPointRepository.findByJobIdAndSeedOrderByIdAsc(jobId, seed, pageable)
+                .map(pointAnnotationMapper::toResponse);
     }
 
     /** Labels a point and upserts a confirmed annotation point */
@@ -294,7 +312,8 @@ public class PointAnnotationJobService {
         LabelDefinition label = labelDefinitionRepository
                 .findByDatasetVersionIdAndLabelCode(version.getId(), request.getLabelCode())
                 .orElseThrow(() -> new InvalidRequestException(
-                        "Unknown label code " + request.getLabelCode() + " for dataset version " + version.getVersionTag()));
+                        "Unknown label code " + request.getLabelCode() + " for dataset version "
+                                + version.getVersionTag()));
 
         point.setFinalLabelDefinition(label);
         point.setStatus("HUMAN_LABELED");
@@ -338,10 +357,14 @@ public class PointAnnotationJobService {
         job.setStatus("TRAINING");
         PointAnnotationJob saved = pointAnnotationJobRepository.save(job);
 
-        return toResponse(saved, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
+        return toResponse(saved,
+                (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
     }
 
-    /** Delegates the job's non seed points into a new annotation job for inference and review */
+    /**
+     * Delegates the job's non seed points into a new annotation job for inference
+     * and review
+     */
     @Transactional
     public PointAnnotationJobResponse startAutoAnnotate(Long jobId) {
         PointAnnotationJob job = findOrThrow(jobId);
@@ -351,7 +374,8 @@ public class PointAnnotationJobService {
         }
         TrainingJob trainingJob = job.getTrainingJob();
         if (trainingJob == null || !"COMPLETED".equals(trainingJob.getStatus())) {
-            throw new InvalidRequestException("Training job for point annotation job " + jobId + " has not completed yet");
+            throw new InvalidRequestException(
+                    "Training job for point annotation job " + jobId + " has not completed yet");
         }
         ModelVersion model = trainingJob.getModelVersion();
         if (model == null) {
@@ -382,7 +406,8 @@ public class PointAnnotationJobService {
 
         dispatchAutoAnnotateAfterCommit(jobId);
 
-        return toResponse(saved, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
+        return toResponse(saved,
+                (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
     }
 
     /** Delegates into auto annotate once training completes */
@@ -420,7 +445,8 @@ public class PointAnnotationJobService {
 
     private PointAnnotationJobResponse toResponse(PointAnnotationJob job, int totalImages) {
         long seedTotalPoints = generatedPointRepository.countByJobIdAndSeedTrue(job.getId());
-        long seedLabeledPoints = generatedPointRepository.countByJobIdAndSeedTrueAndStatus(job.getId(), "HUMAN_LABELED");
+        long seedLabeledPoints = generatedPointRepository.countByJobIdAndSeedTrueAndStatus(job.getId(),
+                "HUMAN_LABELED");
         return pointAnnotationMapper.toResponse(job, totalImages, seedTotalPoints, seedLabeledPoints);
     }
 

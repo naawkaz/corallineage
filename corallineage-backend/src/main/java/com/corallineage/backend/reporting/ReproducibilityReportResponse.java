@@ -9,10 +9,10 @@ import java.time.Instant;
 import java.util.List;
 
 public record ReproducibilityReportResponse(String reportId, Instant generatedAt, String requestedBy,
-                                             ReportPeriod period, ReportSummary summary,
-                                             List<DatasetVersionResponse> datasetVersionHistory,
-                                             List<ModelVersionResponse> modelRegistry,
-                                             List<OntologyChangeResponse> ontologyChanges,
-                                             List<AnnotationEventResponse> eventLog,
-                                             ReportAnalytics analytics) {
+        ReportPeriod period, ReportSummary summary,
+        List<DatasetVersionResponse> datasetVersionHistory,
+        List<ModelVersionResponse> modelRegistry,
+        List<OntologyChangeResponse> ontologyChanges,
+        List<AnnotationEventResponse> eventLog,
+        ReportAnalytics analytics) {
 }

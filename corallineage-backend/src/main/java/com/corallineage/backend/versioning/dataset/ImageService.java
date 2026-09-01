@@ -43,7 +43,10 @@ public class ImageService {
         return listImages(datasetId, versionId, false, pageable);
     }
 
-    /** @param humanLabeledOnly when true, only images with at least one human labeled point */
+    /**
+     * @param humanLabeledOnly when true, only images with at least one human
+     *                         labeled point
+     */
     @Transactional(readOnly = true)
     public Page<ImageResponse> listImages(Long datasetId, Long versionId, boolean humanLabeledOnly, Pageable pageable) {
         DatasetVersion version = datasetVersionRepository.findById(versionId)

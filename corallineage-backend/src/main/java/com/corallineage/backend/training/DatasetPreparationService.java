@@ -26,8 +26,8 @@ public class DatasetPreparationService {
     private final int patchSize;
 
     public DatasetPreparationService(AnnotationPointRepository annotationPointRepository,
-                                     @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                     @Value("${app.training.patch-size:64}") int patchSize) {
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.training.patch-size:64}") int patchSize) {
         this.annotationPointRepository = annotationPointRepository;
         this.workingDirectory = workingDirectory;
         this.patchSize = patchSize;

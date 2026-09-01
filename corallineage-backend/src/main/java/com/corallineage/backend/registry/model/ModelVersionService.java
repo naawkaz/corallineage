@@ -27,9 +27,9 @@ public class ModelVersionService {
     private final AnnotationEventLoggerService annotationEventLoggerService;
 
     public ModelVersionService(ModelVersionRepository modelVersionRepository,
-                               ModelVersionMapper modelVersionMapper,
-                               MlflowIntegrationService mlflowIntegrationService,
-                               AnnotationEventLoggerService annotationEventLoggerService) {
+            ModelVersionMapper modelVersionMapper,
+            MlflowIntegrationService mlflowIntegrationService,
+            AnnotationEventLoggerService annotationEventLoggerService) {
         this.modelVersionRepository = modelVersionRepository;
         this.modelVersionMapper = modelVersionMapper;
         this.mlflowIntegrationService = mlflowIntegrationService;
@@ -38,8 +38,8 @@ public class ModelVersionService {
 
     @Transactional
     public ModelVersion registerFromTrainingResult(TrainingJob job, String mlflowRunId, String weightsPath,
-                                                    BigDecimal accuracy, String performanceMetricsJson,
-                                                    String classMappingsJson) {
+            BigDecimal accuracy, String performanceMetricsJson,
+            String classMappingsJson) {
         ModelVersion model = new ModelVersion();
         model.setModelTag("model-v" + nextModelFallbackNumber(job.getDatasetVersion().getDataset()));
         model.setTrainedOnDatasetVersion(job.getDatasetVersion());
@@ -65,7 +65,8 @@ public class ModelVersionService {
     @Transactional(readOnly = true)
     public Page<ModelVersionResponse> getAllModels(Long datasetId, Pageable pageable, String statusFilter) {
         Page<ModelVersion> models = statusFilter != null && !statusFilter.isBlank()
-                ? modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(datasetId, statusFilter, pageable)
+                ? modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(datasetId, statusFilter,
+                        pageable)
                 : modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_Id(datasetId, pageable);
         return models.map(modelVersionMapper::toResponse);
     }
@@ -106,7 +107,9 @@ public class ModelVersionService {
         return findOrThrow(id).getTrainedOnDatasetVersion().getDataset().getId();
     }
 
-    /** Reserves the next fallback model number for a dataset and verifies it is free */
+    /**
+     * Reserves the next fallback model number for a dataset and verifies it is free
+     */
     private int nextModelFallbackNumber(Dataset dataset) {
         int number = dataset.getNextModelFallbackNumber() != null ? dataset.getNextModelFallbackNumber() : 1;
         while (modelVersionRepository.existsByModelTag("model-v" + number)) {

@@ -30,7 +30,8 @@ public class ModelVersionMapper {
         DatasetVersion version = model.getTrainedOnDatasetVersion();
         if (version != null) {
             String datasetName = version.getDataset() != null ? version.getDataset().getDatasetName() : null;
-            response.setTrainedOnDatasetVersion(new DatasetVersionSummary(version.getId(), version.getVersionTag(), datasetName));
+            response.setTrainedOnDatasetVersion(
+                    new DatasetVersionSummary(version.getId(), version.getVersionTag(), datasetName));
         }
         return response;
     }

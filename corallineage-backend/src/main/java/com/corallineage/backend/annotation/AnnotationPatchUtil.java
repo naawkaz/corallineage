@@ -35,7 +35,9 @@ final class AnnotationPatchUtil {
         return source.getSubimage(x, y, width, height);
     }
 
-    /** Lays out a grid inset by one cell from every edge, returns row and col pairs */
+    /**
+     * Lays out a grid inset by one cell from every edge, returns row and col pairs
+     */
     static List<int[]> computeGridCoordinates(int width, int height, int rows, int cols) {
         int cellWidth = width / (cols + 1);
         int cellHeight = height / (rows + 1);
@@ -45,7 +47,7 @@ final class AnnotationPatchUtil {
             for (int c = 1; c <= cols; c++) {
                 int x = Math.min(width - 1, c * cellWidth);
                 int y = Math.min(height - 1, r * cellHeight);
-                coordinates.add(new int[]{y, x});
+                coordinates.add(new int[] { y, x });
             }
         }
         return coordinates;

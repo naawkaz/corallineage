@@ -32,7 +32,7 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(@Valid @RequestBody CreateProjectRequest request,
-                                                           Authentication authentication) {
+            Authentication authentication) {
         ProjectResponse response = projectService.createProject(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -44,29 +44,29 @@ public class ProjectController {
 
     @PostMapping("/{id}/members")
     public ResponseEntity<ProjectMemberResponse> addMember(@PathVariable Long id,
-                                                             @Valid @RequestBody AddMemberRequest request,
-                                                             Authentication authentication) {
+            @Valid @RequestBody AddMemberRequest request,
+            Authentication authentication) {
         ProjectMemberResponse response = projectMemberService.addMember(id, request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<Void> removeMember(@PathVariable Long id, @PathVariable Long userId,
-                                              Authentication authentication) {
+            Authentication authentication) {
         projectMemberService.removeMember(id, userId, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/members/{userId}/source-access")
     public SourceAccessResponse getSourceAccess(@PathVariable Long id, @PathVariable Long userId,
-                                                 Authentication authentication) {
+            Authentication authentication) {
         return projectMemberService.getSourceAccess(id, userId, authentication.getName());
     }
 
     @PutMapping("/{id}/members/{userId}/source-access")
     public SourceAccessResponse setSourceAccess(@PathVariable Long id, @PathVariable Long userId,
-                                                 @RequestBody SourceAccessRequest request,
-                                                 Authentication authentication) {
+            @RequestBody SourceAccessRequest request,
+            Authentication authentication) {
         return projectMemberService.setSourceAccess(id, userId, request, authentication.getName());
     }
 }

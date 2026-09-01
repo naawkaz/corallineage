@@ -4,11 +4,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "label_definitions",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"dataset_version_id", "label_code"}),
-       indexes = {
-           @Index(name = "idx_label_definitions_dataset_version", columnList = "dataset_version_id")
-       })
+@Table(name = "label_definitions", uniqueConstraints = @UniqueConstraint(columnNames = { "dataset_version_id",
+        "label_code" }), indexes = {
+                @Index(name = "idx_label_definitions_dataset_version", columnList = "dataset_version_id")
+        })
 public class LabelDefinition {
 
     @Id
@@ -36,28 +35,63 @@ public class LabelDefinition {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public DatasetVersion getDatasetVersion() { return datasetVersion; }
-    public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
+    public DatasetVersion getDatasetVersion() {
+        return datasetVersion;
+    }
 
-    public String getLabelCode() { return labelCode; }
-    public void setLabelCode(String labelCode) { this.labelCode = labelCode; }
+    public void setDatasetVersion(DatasetVersion datasetVersion) {
+        this.datasetVersion = datasetVersion;
+    }
 
-    public String getLabelName() { return labelName; }
-    public void setLabelName(String labelName) { this.labelName = labelName; }
+    public String getLabelCode() {
+        return labelCode;
+    }
 
-    public String getLabelCategory() { return labelCategory; }
-    public void setLabelCategory(String labelCategory) { this.labelCategory = labelCategory; }
+    public void setLabelCode(String labelCode) {
+        this.labelCode = labelCode;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getLabelName() {
+        return labelName;
+    }
 
-    public Instant getDeprecatedAt() { return deprecatedAt; }
-    public void setDeprecatedAt(Instant deprecatedAt) { this.deprecatedAt = deprecatedAt; }
+    public void setLabelName(String labelName) {
+        this.labelName = labelName;
+    }
+
+    public String getLabelCategory() {
+        return labelCategory;
+    }
+
+    public void setLabelCategory(String labelCategory) {
+        this.labelCategory = labelCategory;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getDeprecatedAt() {
+        return deprecatedAt;
+    }
+
+    public void setDeprecatedAt(Instant deprecatedAt) {
+        this.deprecatedAt = deprecatedAt;
+    }
 }

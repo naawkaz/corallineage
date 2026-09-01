@@ -17,12 +17,27 @@ public class InitiateAnnotationJobRequest {
     @NotBlank
     private String initiatedBy;
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public List<Long> getImageIds() { return imageIds; }
-    public void setImageIds(List<Long> imageIds) { this.imageIds = imageIds; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public List<Long> getImageIds() {
+        return imageIds;
+    }
+
+    public void setImageIds(List<Long> imageIds) {
+        this.imageIds = imageIds;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 }

@@ -19,15 +19,35 @@ public class CreateVersionRequest {
 
     private String notes;
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public TriggerReason getTriggerReason() { return triggerReason; }
-    public void setTriggerReason(TriggerReason triggerReason) { this.triggerReason = triggerReason; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public TriggerReason getTriggerReason() {
+        return triggerReason;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setTriggerReason(TriggerReason triggerReason) {
+        this.triggerReason = triggerReason;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 }

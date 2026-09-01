@@ -11,13 +11,12 @@ import java.time.Instant;
 import java.util.List;
 
 @Entity
-@Table(name = "annotation_jobs",
-       indexes = {
-           @Index(name = "idx_annotation_jobs_model_version", columnList = "model_version_id"),
-           @Index(name = "idx_annotation_jobs_status", columnList = "status"),
-           @Index(name = "idx_annotation_jobs_initiated_at", columnList = "initiated_at"),
-           @Index(name = "idx_annotation_jobs_dataset", columnList = "dataset_id")
-       })
+@Table(name = "annotation_jobs", indexes = {
+        @Index(name = "idx_annotation_jobs_model_version", columnList = "model_version_id"),
+        @Index(name = "idx_annotation_jobs_status", columnList = "status"),
+        @Index(name = "idx_annotation_jobs_initiated_at", columnList = "initiated_at"),
+        @Index(name = "idx_annotation_jobs_dataset", columnList = "dataset_id")
+})
 public class AnnotationJob {
 
     @Id
@@ -61,7 +60,8 @@ public class AnnotationJob {
     @Column(name = "job_type", length = 20)
     private String jobType;
 
-    // The version checked against for VALIDATION, or the staging version for NEW_IMAGES
+    // The version checked against for VALIDATION, or the staging version for
+    // NEW_IMAGES
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_version_id")
     private DatasetVersion datasetVersion;
@@ -70,62 +70,139 @@ public class AnnotationJob {
     @Column(name = "added_to_project_version_id")
     private Long addedToProjectVersionId;
 
-    // A prediction at or above this confidence auto confirms at inference time, nullable
+    // A prediction at or above this confidence auto confirms at inference time,
+    // nullable
     @Column(name = "confidence_threshold", precision = 5, scale = 4)
     private BigDecimal confidenceThreshold;
 
-    // True when review commits in place onto an existing version rather than branching a new one
+    // True when review commits in place onto an existing version rather than
+    // branching a new one
     @Column(name = "commit_in_place")
     private Boolean commitInPlace;
 
     @PrePersist
     protected void onCreate() {
-        if (initiatedAt == null) initiatedAt = Instant.now();
+        if (initiatedAt == null)
+            initiatedAt = Instant.now();
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public ModelVersion getModelVersion() { return modelVersion; }
-    public void setModelVersion(ModelVersion modelVersion) { this.modelVersion = modelVersion; }
+    public ModelVersion getModelVersion() {
+        return modelVersion;
+    }
 
-    public Dataset getDataset() { return dataset; }
-    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    public void setModelVersion(ModelVersion modelVersion) {
+        this.modelVersion = modelVersion;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public Dataset getDataset() {
+        return dataset;
+    }
 
-    public Instant getInitiatedAt() { return initiatedAt; }
-    public void setInitiatedAt(Instant initiatedAt) { this.initiatedAt = initiatedAt; }
+    public void setDataset(Dataset dataset) {
+        this.dataset = dataset;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
 
-    public Instant getCompletedAt() { return completedAt; }
-    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 
-    public List<Long> getImageIds() { return imageIds; }
-    public void setImageIds(List<Long> imageIds) { this.imageIds = imageIds; }
+    public Instant getInitiatedAt() {
+        return initiatedAt;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setInitiatedAt(Instant initiatedAt) {
+        this.initiatedAt = initiatedAt;
+    }
 
-    public String getReviewStatus() { return reviewStatus; }
-    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getStatus() {
+        return status;
+    }
 
-    public String getJobType() { return jobType; }
-    public void setJobType(String jobType) { this.jobType = jobType; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public DatasetVersion getDatasetVersion() { return datasetVersion; }
-    public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
 
-    public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
-    public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
+    public void setCompletedAt(Instant completedAt) {
+        this.completedAt = completedAt;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public List<Long> getImageIds() {
+        return imageIds;
+    }
 
-    public Boolean getCommitInPlace() { return commitInPlace; }
-    public void setCommitInPlace(Boolean commitInPlace) { this.commitInPlace = commitInPlace; }
+    public void setImageIds(List<Long> imageIds) {
+        this.imageIds = imageIds;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public String getJobType() {
+        return jobType;
+    }
+
+    public void setJobType(String jobType) {
+        this.jobType = jobType;
+    }
+
+    public DatasetVersion getDatasetVersion() {
+        return datasetVersion;
+    }
+
+    public void setDatasetVersion(DatasetVersion datasetVersion) {
+        this.datasetVersion = datasetVersion;
+    }
+
+    public Long getAddedToProjectVersionId() {
+        return addedToProjectVersionId;
+    }
+
+    public void setAddedToProjectVersionId(Long addedToProjectVersionId) {
+        this.addedToProjectVersionId = addedToProjectVersionId;
+    }
+
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
+
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
+
+    public Boolean getCommitInPlace() {
+        return commitInPlace;
+    }
+
+    public void setCommitInPlace(Boolean commitInPlace) {
+        this.commitInPlace = commitInPlace;
+    }
 }

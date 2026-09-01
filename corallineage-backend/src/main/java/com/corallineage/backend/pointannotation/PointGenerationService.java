@@ -20,11 +20,13 @@ public class PointGenerationService {
     }
 
     /**
-     * @param startIndex first pointIndex to assign, keeps new indices disjoint from existing points
+     * @param startIndex first pointIndex to assign, keeps new indices disjoint from
+     *                   existing points
      */
     List<GeneratedPoint> generateGrid(Image image, PointAnnotationJob job, boolean seed, int startIndex) {
         BufferedImage buffered = ImagePatchUtil.readImage(workingDirectory, image.getFilePath());
-        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getGridRows(), job.getGridCols());
+        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getGridRows(),
+                job.getGridCols());
 
         List<GeneratedPoint> points = new ArrayList<>();
         int index = startIndex;
@@ -52,7 +54,7 @@ public class PointGenerationService {
             for (int c = 1; c <= cols; c++) {
                 int x = Math.min(width - 1, c * cellWidth);
                 int y = Math.min(height - 1, r * cellHeight);
-                coordinates.add(new int[]{y, x});
+                coordinates.add(new int[] { y, x });
             }
         }
         return coordinates;

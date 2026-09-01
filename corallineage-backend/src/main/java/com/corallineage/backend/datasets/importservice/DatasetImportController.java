@@ -51,7 +51,7 @@ public class DatasetImportController {
 
     // labelCodes labelNames and labelCategories are parallel multipart form arrays
     private List<LabelDeclarationRequest> toLabelDeclarations(String[] labelCodes, String[] labelNames,
-                                                               String[] labelCategories) {
+            String[] labelCategories) {
         if (labelCodes == null || labelCodes.length == 0) {
             return List.of();
         }
@@ -69,7 +69,8 @@ public class DatasetImportController {
     }
 
     @GetMapping("/{importJobId}")
-    public ImportJobResponse getImportJob(@PathVariable Long datasetId, @PathVariable Long importJobId, Authentication authentication) {
+    public ImportJobResponse getImportJob(@PathVariable Long datasetId, @PathVariable Long importJobId,
+            Authentication authentication) {
         datasetService.requireAccess(datasetId, authentication.getName());
         return datasetImportService.getImportJob(datasetId, importJobId);
     }

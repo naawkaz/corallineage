@@ -20,7 +20,8 @@ public class ProjectMapper {
         return toSummaryResponse(project, sourceCount, callerRole, null);
     }
 
-    public ProjectResponse toSummaryResponse(Project project, long sourceCount, ProjectRole callerRole, String ownerDisplayName) {
+    public ProjectResponse toSummaryResponse(Project project, long sourceCount, ProjectRole callerRole,
+            String ownerDisplayName) {
         ProjectResponse response = toResponse(project);
         response.setSourceCount(sourceCount);
         response.setCallerRole(callerRole);

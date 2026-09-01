@@ -58,20 +58,20 @@ public class DatasetImportExecutor {
     private final String dataDir;
 
     public DatasetImportExecutor(ImportJobRepository importJobRepository,
-                                 DatasetVersionRepository datasetVersionRepository,
-                                 DatasetVersionService datasetVersionService,
-                                 LabelDefinitionRepository labelDefinitionRepository,
-                                 ImageRepository imageRepository,
-                                 DatasetVersionImageRepository datasetVersionImageRepository,
-                                 AnnotationPointRepository annotationPointRepository,
-                                 LabelCodeResolver labelCodeResolver,
-                                 AnnotationEventLoggerService annotationEventLoggerService,
-                                 MlcFormatParser mlcFormatParser,
-                                 CoralNetCsvParser coralNetCsvParser,
-                                 CocoJsonParser cocoJsonParser,
-                                 BlankFormatParser blankFormatParser,
-                                 @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                 @Value("${app.dvc.data-dir}") String dataDir) {
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionService datasetVersionService,
+            LabelDefinitionRepository labelDefinitionRepository,
+            ImageRepository imageRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            LabelCodeResolver labelCodeResolver,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            MlcFormatParser mlcFormatParser,
+            CoralNetCsvParser coralNetCsvParser,
+            CocoJsonParser cocoJsonParser,
+            BlankFormatParser blankFormatParser,
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.dvc.data-dir}") String dataDir) {
         this.importJobRepository = importJobRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionService = datasetVersionService;
@@ -92,7 +92,7 @@ public class DatasetImportExecutor {
     @Async
     @Transactional
     public void executeImportAsync(Long jobId, Long datasetId, Path uploadDir, ImportFormat format,
-                                   String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
+            String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
         ImportJob job = importJobRepository.findById(jobId)
                 .orElseThrow(() -> new NotFoundException("Import job not found: " + jobId));
         try {
@@ -107,9 +107,11 @@ public class DatasetImportExecutor {
 
             DatasetVersion previousLatest = datasetVersionRepository
                     .findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
-            // The first import defines the label vocabulary, later imports validate against it
+            // The first import defines the label vocabulary, later imports validate against
+            // it
             if (previousLatest != null) {
-                List<LabelDefinition> existingLabels = labelDefinitionRepository.findByDatasetVersionId(previousLatest.getId());
+                List<LabelDefinition> existingLabels = labelDefinitionRepository
+                        .findByDatasetVersionId(previousLatest.getId());
                 // Validate every requested code before anything is written to disk
                 labelCodeResolver.resolve(existingLabels, requestedCodes);
             }
@@ -153,7 +155,8 @@ public class DatasetImportExecutor {
             Map<String, Image> imagesByFilename = savedImages.stream()
                     .collect(Collectors.toMap(Image::getFilename, img -> img, (a, b) -> a));
 
-            // Add membership rows for the freshly imported images on top of the copied forward membership
+            // Add membership rows for the freshly imported images on top of the copied
+            // forward membership
             List<DatasetVersionImage> newMembership = new ArrayList<>();
             for (Image savedImage : savedImages) {
                 DatasetVersionImage membership = new DatasetVersionImage();
@@ -207,12 +210,16 @@ public class DatasetImportExecutor {
         }
     }
 
-    /** Creates one label per distinct code found when a dataset has no prior versions */
+    /**
+     * Creates one label per distinct code found when a dataset has no prior
+     * versions
+     */
     private List<LabelDefinition> bootstrapLabelDefinitions(DatasetVersion newVersion, Set<String> codes) {
         List<LabelDefinition> created = new ArrayList<>();
         for (String code : codes) {
             LabelDefinition label = new LabelDefinition();
-            label.setDatasetVersion(newVersion); // LabelDefinition.datasetVersion is unrelated to Image.originDatasetVersion
+            label.setDatasetVersion(newVersion); // LabelDefinition.datasetVersion is unrelated to
+                                                 // Image.originDatasetVersion
             label.setLabelCode(code);
             label.setLabelName(code);
             created.add(labelDefinitionRepository.save(label));
@@ -222,7 +229,7 @@ public class DatasetImportExecutor {
 
     /** Applies a caller declared label vocabulary for a blank import */
     private List<LabelDefinition> declareLabelDefinitions(DatasetVersion version, List<LabelDefinition> existing,
-                                                           List<LabelDeclarationRequest> declarations) {
+            List<LabelDeclarationRequest> declarations) {
         Set<String> existingCodes = existing.stream().map(LabelDefinition::getLabelCode).collect(Collectors.toSet());
         List<LabelDefinition> all = new ArrayList<>(existing);
         for (LabelDeclarationRequest declaration : declarations) {
@@ -254,14 +261,15 @@ public class DatasetImportExecutor {
 
     /** Logs the import event after the transaction commits */
     private void logImportCompletedAfterCommit(DatasetVersion version, String performedBy, ImportFormat format,
-                                               int imageCount, int pointCount) {
+            int imageCount, int pointCount) {
         String description = "Imported " + imageCount + " images / " + pointCount
                 + " annotation points via " + format;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    annotationEventLoggerService.log(EventType.DATASET_IMPORT_COMPLETED, version, performedBy, description);
+                    annotationEventLoggerService.log(EventType.DATASET_IMPORT_COMPLETED, version, performedBy,
+                            description);
                 }
             });
         } else {

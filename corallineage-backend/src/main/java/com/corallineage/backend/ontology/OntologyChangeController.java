@@ -29,8 +29,8 @@ public class OntologyChangeController {
     private final ProjectMemberService projectMemberService;
 
     public OntologyChangeController(OntologyChangeService ontologyChangeService,
-                                     DatasetService datasetService,
-                                     ProjectMemberService projectMemberService) {
+            DatasetService datasetService,
+            ProjectMemberService projectMemberService) {
         this.ontologyChangeService = ontologyChangeService;
         this.datasetService = datasetService;
         this.projectMemberService = projectMemberService;
@@ -49,7 +49,7 @@ public class OntologyChangeController {
 
     @PostMapping("/changes")
     public ResponseEntity<OntologyChangeResponse> recordChange(@Valid @RequestBody RecordOntologyChangeRequest request,
-                                                                 Authentication authentication) {
+            Authentication authentication) {
         OntologyChangeResponse response = ontologyChangeService.recordChange(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

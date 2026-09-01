@@ -4,5 +4,5 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 public record TrainResult(String mlflowRunId, String weightsPath, BigDecimal accuracy,
-                           Object performanceMetrics, Map<String, String> classMappings) {
+        Object performanceMetrics, Map<String, String> classMappings) {
 }

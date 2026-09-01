@@ -64,19 +64,19 @@ public class AnnotationJobExecutor {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AnnotationJobExecutor(AnnotationJobRepository annotationJobRepository,
-                                 AnnotationPredictionRepository annotationPredictionRepository,
-                                 ImageRepository imageRepository,
-                                 AnnotationPointRepository annotationPointRepository,
-                                 DatasetRepository datasetRepository,
-                                 DatasetVersionRepository datasetVersionRepository,
-                                 DatasetVersionImageRepository datasetVersionImageRepository,
-                                 DatasetVersionService datasetVersionService,
-                                 PythonMlServiceClient pythonMlServiceClient,
-                                 AnnotationEventLoggerService annotationEventLoggerService,
-                                 @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                 @Value("${app.dvc.data-dir}") String dataDir,
-                                 @Value("${app.training.patch-size:64}") int patchSize,
-                                 AnnotationCommitService annotationCommitService) {
+            AnnotationPredictionRepository annotationPredictionRepository,
+            ImageRepository imageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            DatasetRepository datasetRepository,
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            DatasetVersionService datasetVersionService,
+            PythonMlServiceClient pythonMlServiceClient,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.dvc.data-dir}") String dataDir,
+            @Value("${app.training.patch-size:64}") int patchSize,
+            AnnotationCommitService annotationCommitService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.imageRepository = imageRepository;
@@ -108,7 +108,8 @@ public class AnnotationJobExecutor {
             }
 
             List<AnnotateImageInput> imageInputs = images.stream()
-                    .map(image -> new AnnotateImageInput(image.getId(), workingDirectory.resolve(image.getFilePath()).toString()))
+                    .map(image -> new AnnotateImageInput(image.getId(),
+                            workingDirectory.resolve(image.getFilePath()).toString()))
                     .toList();
 
             Map<String, String> classMappings = objectMapper.readValue(
@@ -150,7 +151,10 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** Validation: classifies a patch around each human labeled point and records agreement */
+    /**
+     * Validation: classifies a patch around each human labeled point and records
+     * agreement
+     */
     @Async
     @Transactional
     public void executeValidationAsync(Long jobId) {
@@ -166,14 +170,16 @@ public class AnnotationJobExecutor {
             Files.createDirectories(patchDir);
 
             for (Image image : images) {
-                List<AnnotationPoint> humanPoints = annotationPointRepository.findByImageIdAndAnnotationSource(image.getId(), "HUMAN");
+                List<AnnotationPoint> humanPoints = annotationPointRepository
+                        .findByImageIdAndAnnotationSource(image.getId(), "HUMAN");
                 if (humanPoints.isEmpty()) {
                     continue;
                 }
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 for (AnnotationPoint point : humanPoints) {
                     pointsById.put(point.getId(), point);
-                    BufferedImage patch = AnnotationPatchUtil.cropPatch(source, point.getRowPosition(), point.getColPosition(), patchSize);
+                    BufferedImage patch = AnnotationPatchUtil.cropPatch(source, point.getRowPosition(),
+                            point.getColPosition(), patchSize);
                     Path patchFile = patchDir.resolve("point-" + point.getId() + ".jpg");
                     ImageIO.write(patch, "jpg", patchFile.toFile());
                     inputs.add(new AnnotateImageInput(point.getId(), patchFile.toString()));
@@ -205,8 +211,11 @@ public class AnnotationJobExecutor {
                             : BigDecimal.ZERO);
                     prediction.setRowPosition(point.getRowPosition());
                     prediction.setColPosition(point.getColPosition());
-                    String humanLabelCode = point.getLabelDefinition() != null ? point.getLabelDefinition().getLabelCode() : null;
-                    prediction.setAgreesWithHuman(humanLabelCode != null && humanLabelCode.equals(predicted.predictedLabelCode()));
+                    String humanLabelCode = point.getLabelDefinition() != null
+                            ? point.getLabelDefinition().getLabelCode()
+                            : null;
+                    prediction.setAgreesWithHuman(
+                            humanLabelCode != null && humanLabelCode.equals(predicted.predictedLabelCode()));
                     predictions.add(prediction);
                 }
                 annotationPredictionRepository.saveAll(predictions);
@@ -219,7 +228,8 @@ public class AnnotationJobExecutor {
             long correct = predictions.stream().filter(p -> Boolean.TRUE.equals(p.getAgreesWithHuman())).count();
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Validation job compared model " + model.getModelTag() + " against " + predictions.size()
-                            + " human-labeled point(s): " + correct + " agree, " + (predictions.size() - correct) + " disagree");
+                            + " human-labeled point(s): " + correct + " agree, " + (predictions.size() - correct)
+                            + " disagree");
         } catch (Exception ex) {
             job.setStatus("FAILED");
             job.setErrorMessage(ex.getMessage());
@@ -230,7 +240,10 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** New images: stages the uploads as a version, grids and classifies points, all left pending review */
+    /**
+     * New images: stages the uploads as a version, grids and classifies points, all
+     * left pending review
+     */
     @Async
     @Transactional
     public void executeNewImagesAsync(Long jobId, Long datasetId, Path uploadDir, int gridRows, int gridCols) {
@@ -263,8 +276,10 @@ public class AnnotationJobExecutor {
             versionRequest.setTriggerReason(TriggerReason.IMAGES_ADDED);
             versionRequest.setCreatedBy(job.getInitiatedBy());
             versionRequest.setNotes("Staging area for annotation job #" + jobId
-                    + ", holding " + filenames.size() + " newly uploaded image(s) pending review before being added to the project.");
-            DatasetVersionResponse versionResponse = datasetVersionService.createStagingSnapshot(datasetId, versionRequest);
+                    + ", holding " + filenames.size()
+                    + " newly uploaded image(s) pending review before being added to the project.");
+            DatasetVersionResponse versionResponse = datasetVersionService.createStagingSnapshot(datasetId,
+                    versionRequest);
             DatasetVersion stagingVersion = datasetVersionRepository.findById(versionResponse.getId())
                     .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
 
@@ -295,14 +310,16 @@ public class AnnotationJobExecutor {
             job.setImageIds(savedImages.stream().map(Image::getId).toList());
             annotationJobRepository.save(job);
 
-            // Persist placeholder predictions first so each patch has an id, then fill in labels below
+            // Persist placeholder predictions first so each patch has an id, then fill in
+            // labels below
             Files.createDirectories(patchDir);
             List<AnnotationPrediction> pending = new ArrayList<>();
             Map<Image, BufferedImage> sourceByImage = new HashMap<>();
             for (Image image : savedImages) {
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 sourceByImage.put(image, source);
-                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(),
+                        source.getHeight(), gridRows, gridCols);
                 int pointIndex = 0;
                 for (int[] coordinate : coordinates) {
                     AnnotationPrediction prediction = new AnnotationPrediction();
@@ -322,7 +339,8 @@ public class AnnotationJobExecutor {
             List<AnnotateImageInput> inputs = new ArrayList<>();
             for (AnnotationPrediction prediction : savedPredictions) {
                 BufferedImage source = sourceByImage.get(prediction.getImage());
-                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(), prediction.getColPosition(), patchSize);
+                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(),
+                        prediction.getColPosition(), patchSize);
                 Path patchFile = patchDir.resolve("point-" + prediction.getId() + ".jpg");
                 ImageIO.write(patch, "jpg", patchFile.toFile());
                 inputs.add(new AnnotateImageInput(prediction.getId(), patchFile.toString()));
@@ -368,7 +386,8 @@ public class AnnotationJobExecutor {
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Model " + model.getModelTag() + " applied to " + savedImages.size() + " newly uploaded image(s), "
                             + savedPredictions.size() + " point prediction(s) ready for review ("
-                            + autoAccepted + " auto-accepted at/above " + job.getConfidenceThreshold() + " confidence)");
+                            + autoAccepted + " auto-accepted at/above " + job.getConfidenceThreshold()
+                            + " confidence)");
         } catch (Exception ex) {
             job.setStatus("FAILED");
             job.setErrorMessage(ex.getMessage());
@@ -380,7 +399,10 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /** Annotates an existing version's images with a point grid, no upload or staging version */
+    /**
+     * Annotates an existing version's images with a point grid, no upload or
+     * staging version
+     */
     @Async
     @Transactional
     public void executeExistingVersionAsync(Long jobId, int gridRows, int gridCols) {
@@ -396,7 +418,8 @@ public class AnnotationJobExecutor {
             for (Image image : images) {
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 sourceByImage.put(image, source);
-                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(),
+                        source.getHeight(), gridRows, gridCols);
                 int pointIndex = 0;
                 for (int[] coordinate : coordinates) {
                     AnnotationPrediction prediction = new AnnotationPrediction();
@@ -416,7 +439,8 @@ public class AnnotationJobExecutor {
             List<AnnotateImageInput> inputs = new ArrayList<>();
             for (AnnotationPrediction prediction : savedPredictions) {
                 BufferedImage source = sourceByImage.get(prediction.getImage());
-                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(), prediction.getColPosition(), patchSize);
+                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(),
+                        prediction.getColPosition(), patchSize);
                 Path patchFile = patchDir.resolve("point-" + prediction.getId() + ".jpg");
                 ImageIO.write(patch, "jpg", patchFile.toFile());
                 inputs.add(new AnnotateImageInput(prediction.getId(), patchFile.toString()));
@@ -459,13 +483,15 @@ public class AnnotationJobExecutor {
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
             AnnotationJob savedJob = annotationJobRepository.save(job);
 
-            // Every point cleared the confidence threshold, so register the target version now
+            // Every point cleared the confidence threshold, so register the target version
+            // now
             if (fullyAutoAccepted && Boolean.TRUE.equals(savedJob.getCommitInPlace())) {
                 annotationCommitService.applyToExistingVersion(savedJob.getId(), savedJob.getInitiatedBy());
             }
 
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
-                    "Model " + model.getModelTag() + " applied to " + images.size() + " existing image(s) of dataset version "
+                    "Model " + model.getModelTag() + " applied to " + images.size()
+                            + " existing image(s) of dataset version "
                             + job.getDatasetVersion().getId() + ", " + savedPredictions.size()
                             + " point prediction(s) ready for review (" + autoAccepted + " auto-accepted at/above "
                             + job.getConfidenceThreshold() + " confidence)");

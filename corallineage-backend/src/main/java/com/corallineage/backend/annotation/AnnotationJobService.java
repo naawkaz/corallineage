@@ -62,19 +62,19 @@ public class AnnotationJobService {
     private final AnnotationCommitService annotationCommitService;
 
     public AnnotationJobService(AnnotationJobRepository annotationJobRepository,
-                                AnnotationPredictionRepository annotationPredictionRepository,
-                                ModelVersionRepository modelVersionRepository,
-                                ImageRepository imageRepository,
-                                AnnotationJobMapper annotationJobMapper,
-                                AnnotationJobExecutor annotationJobExecutor,
-                                AnnotationEventLoggerService annotationEventLoggerService,
-                                DatasetVersionRepository datasetVersionRepository,
-                                DatasetVersionImageRepository datasetVersionImageRepository,
-                                AnnotationPointRepository annotationPointRepository,
-                                LabelDefinitionRepository labelDefinitionRepository,
-                                DatasetVersionService datasetVersionService,
-                                DatasetService datasetService,
-                                AnnotationCommitService annotationCommitService) {
+            AnnotationPredictionRepository annotationPredictionRepository,
+            ModelVersionRepository modelVersionRepository,
+            ImageRepository imageRepository,
+            AnnotationJobMapper annotationJobMapper,
+            AnnotationJobExecutor annotationJobExecutor,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            LabelDefinitionRepository labelDefinitionRepository,
+            DatasetVersionService datasetVersionService,
+            DatasetService datasetService,
+            AnnotationCommitService annotationCommitService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.modelVersionRepository = modelVersionRepository;
@@ -91,7 +91,8 @@ public class AnnotationJobService {
         this.annotationCommitService = annotationCommitService;
     }
 
-    // Internal whole image submit path, external callers use submitValidationJob or submitNewImagesJob
+    // Internal whole image submit path, external callers use submitValidationJob or
+    // submitNewImagesJob
 
     @Transactional
     public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request, String actingUsername) {
@@ -137,7 +138,8 @@ public class AnnotationJobService {
         }
 
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
-                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+                .orElseThrow(
+                        () -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
         datasetService.requireAccess(version.getDataset().getId(), actingUsername);
 
         List<Image> images = imageRepository.findAllById(request.getImageIds());
@@ -177,8 +179,8 @@ public class AnnotationJobService {
 
     @Transactional
     public AnnotationJobResponse submitNewImagesJob(Long modelVersionId, Long datasetId, String initiatedBy,
-                                                     int gridRows, int gridCols,
-                                                     BigDecimal confidenceThreshold, MultipartFile[] files) {
+            int gridRows, int gridCols,
+            BigDecimal confidenceThreshold, MultipartFile[] files) {
         ModelVersion model = modelVersionRepository.findById(modelVersionId)
                 .orElseThrow(() -> new NotFoundException("Model not found: " + modelVersionId));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -194,7 +196,8 @@ public class AnnotationJobService {
 
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
-        // job.dataset is resolved later by the executor, the datasetId is passed through directly below
+        // job.dataset is resolved later by the executor, the datasetId is passed
+        // through directly below
         job.setJobType("NEW_IMAGES");
         job.setInitiatedBy(initiatedBy);
         job.setStatus("RUNNING");
@@ -217,7 +220,8 @@ public class AnnotationJobService {
     private static final int DEFAULT_EXISTING_VERSION_GRID_COLS = 4;
 
     @Transactional
-    public AnnotationJobResponse submitExistingVersionJob(SubmitExistingVersionJobRequest request, String actingUsername) {
+    public AnnotationJobResponse submitExistingVersionJob(SubmitExistingVersionJobRequest request,
+            String actingUsername) {
         ModelVersion model = modelVersionRepository.findById(request.getModelVersionId())
                 .orElseThrow(() -> new NotFoundException("Model not found: " + request.getModelVersionId()));
         if (!"ACTIVE".equals(model.getStatus())) {
@@ -226,7 +230,8 @@ public class AnnotationJobService {
         }
 
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
-                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
+                .orElseThrow(
+                        () -> new NotFoundException("Dataset version not found: " + request.getDatasetVersionId()));
         datasetService.requireAccess(version.getDataset().getId(), actingUsername);
 
         List<Image> images = imageRepository.findAllById(request.getImageIds());
@@ -243,7 +248,8 @@ public class AnnotationJobService {
         int gridRows = request.getGridRows() != null ? request.getGridRows() : DEFAULT_EXISTING_VERSION_GRID_ROWS;
         int gridCols = request.getGridCols() != null ? request.getGridCols() : DEFAULT_EXISTING_VERSION_GRID_COLS;
         BigDecimal threshold = request.getConfidenceThreshold() != null
-                ? request.getConfidenceThreshold() : DEFAULT_CONFIDENCE_THRESHOLD;
+                ? request.getConfidenceThreshold()
+                : DEFAULT_CONFIDENCE_THRESHOLD;
 
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
@@ -314,7 +320,8 @@ public class AnnotationJobService {
             throw new InvalidRequestException("Only NEW_IMAGES jobs can be added to a project");
         }
         if (!"COMPLETED".equals(job.getReviewStatus())) {
-            throw new InvalidRequestException("All points must be reviewed (accepted or overridden) before adding to a project");
+            throw new InvalidRequestException(
+                    "All points must be reviewed (accepted or overridden) before adding to a project");
         }
         if (job.getAddedToProjectVersionId() != null) {
             throw new ConflictException("Job " + jobId + " was already added to the project as dataset version "
@@ -325,7 +332,8 @@ public class AnnotationJobService {
         }
 
         Long datasetId = job.getDataset().getId();
-        DatasetVersion branchPoint = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+        DatasetVersion branchPoint = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId)
+                .orElse(null);
 
         CreateVersionRequest versionRequest = new CreateVersionRequest();
         versionRequest.setVersionTag(request.getVersionTag());
@@ -333,7 +341,8 @@ public class AnnotationJobService {
         versionRequest.setCreatedBy(request.getCreatedBy());
         versionRequest.setNotes(request.getNotes() != null ? request.getNotes()
                 : "Added from annotation job #" + jobId + " (" + job.getImageIds().size() + " reviewed image(s))");
-        DatasetVersionResponse versionResponse = datasetVersionService.createSnapshotBranchedFrom(datasetId, versionRequest, branchPoint);
+        DatasetVersionResponse versionResponse = datasetVersionService.createSnapshotBranchedFrom(datasetId,
+                versionRequest, branchPoint);
         DatasetVersion newVersion = datasetVersionRepository.findById(versionResponse.getId())
                 .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
 
@@ -425,7 +434,8 @@ public class AnnotationJobService {
     public Page<AnnotationJobResponse> getJobs(Long datasetId, Pageable pageable) {
         return annotationJobRepository.findByDataset_IdOrderByInitiatedAtDesc(datasetId, pageable)
                 .map(job -> "VALIDATION".equals(job.getJobType())
-                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()), countCorrect(job.getId()))
+                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()),
+                                countCorrect(job.getId()))
                         : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
@@ -434,7 +444,8 @@ public class AnnotationJobService {
     public Page<AnnotationJobResponse> getJobsByModel(Long modelVersionId, Pageable pageable) {
         return annotationJobRepository.findByModelVersion_IdOrderByInitiatedAtDesc(modelVersionId, pageable)
                 .map(job -> "VALIDATION".equals(job.getJobType())
-                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()), countCorrect(job.getId()))
+                        ? annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId()),
+                                countCorrect(job.getId()))
                         : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
@@ -454,16 +465,18 @@ public class AnnotationJobService {
 
     @Transactional(readOnly = true)
     public Page<AnnotationPredictionResponse> getPredictions(Long jobId, Long imageIdFilter, Boolean acceptedFilter,
-                                                               Pageable pageable) {
+            Pageable pageable) {
         findOrThrow(jobId);
         Page<AnnotationPrediction> predictions;
         if (imageIdFilter != null && acceptedFilter != null) {
             predictions = annotationPredictionRepository.findByAnnotationJobIdAndImageIdAndAccepted(
                     jobId, imageIdFilter, acceptedFilter, pageable);
         } else if (imageIdFilter != null) {
-            predictions = annotationPredictionRepository.findByAnnotationJobIdAndImageId(jobId, imageIdFilter, pageable);
+            predictions = annotationPredictionRepository.findByAnnotationJobIdAndImageId(jobId, imageIdFilter,
+                    pageable);
         } else if (acceptedFilter != null) {
-            predictions = annotationPredictionRepository.findByAnnotationJobIdAndAccepted(jobId, acceptedFilter, pageable);
+            predictions = annotationPredictionRepository.findByAnnotationJobIdAndAccepted(jobId, acceptedFilter,
+                    pageable);
         } else {
             predictions = annotationPredictionRepository.findByAnnotationJobIdOrderByIdAsc(jobId, pageable);
         }
@@ -471,7 +484,8 @@ public class AnnotationJobService {
     }
 
     @Transactional
-    public AnnotationPredictionResponse reviewPrediction(Long jobId, Long predictionId, ReviewPredictionRequest request) {
+    public AnnotationPredictionResponse reviewPrediction(Long jobId, Long predictionId,
+            ReviewPredictionRequest request) {
         AnnotationJob job = findOrThrow(jobId);
         if ("VALIDATION".equals(job.getJobType())) {
             throw new InvalidRequestException(
@@ -499,7 +513,8 @@ public class AnnotationJobService {
             annotationEventLoggerService.log(EventType.HUMAN_CORRECTION, null, job.getModelVersion(),
                     request.getReviewedBy(),
                     "Prediction overridden for image " + prediction.getImage().getId() + " point "
-                            + prediction.getPointIndex() + ": " + originalLabel + " -> " + request.getCorrectedLabelCode());
+                            + prediction.getPointIndex() + ": " + originalLabel + " -> "
+                            + request.getCorrectedLabelCode());
         }
 
         updateReviewStatus(job);
@@ -515,7 +530,8 @@ public class AnnotationJobService {
             throw new InvalidRequestException(
                     "Validation jobs cannot be reviewed; they are a direct model-versus-human-label comparison, not a labeling workflow");
         }
-        List<AnnotationPrediction> pending = annotationPredictionRepository.findByAnnotationJobIdAndAcceptedIsNull(jobId);
+        List<AnnotationPrediction> pending = annotationPredictionRepository
+                .findByAnnotationJobIdAndAcceptedIsNull(jobId);
         Instant now = Instant.now();
         for (AnnotationPrediction prediction : pending) {
             prediction.setAccepted(true);

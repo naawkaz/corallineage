@@ -16,8 +16,10 @@ public interface AnnotationJobRepository extends JpaRepository<AnnotationJob, Lo
     Page<AnnotationJob> findByModelVersion_IdOrderByInitiatedAtDesc(Long modelVersionId, Pageable pageable);
 
     /** The in place annotation job targeting this dataset version if any */
-    Optional<AnnotationJob> findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(Long datasetVersionId);
+    Optional<AnnotationJob> findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(
+            Long datasetVersionId);
 
     /** Every in place job for this dataset not yet applied */
-    List<AnnotationJob> findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(Long datasetId);
+    List<AnnotationJob> findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(
+            Long datasetId);
 }
