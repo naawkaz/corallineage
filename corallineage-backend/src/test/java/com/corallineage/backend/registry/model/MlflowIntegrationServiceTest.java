@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MlflowIntegrationServiceTest {
 
-    // Deliberately unused local port — nothing listens here, so every call deterministically
+    // Deliberately unused local port - nothing listens here, so every call deterministically
     // exercises the "MLflow unreachable" degradation path without needing a mock HTTP server.
     private final MlflowIntegrationService service = new MlflowIntegrationService("http://localhost:59999");
 

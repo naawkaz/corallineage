@@ -6,7 +6,7 @@ import java.time.Instant;
 /**
  * Explicit many-to-many membership row: "image X is a member of dataset version Y".
  * Populated by copying forward the previous version's membership (see
- * DatasetVersionService.snapshotCurrentImageMembership) plus any newly imported images —
+ * DatasetVersionService.snapshotCurrentImageMembership) plus any newly imported images -
  * never by inference over Image.originDatasetVersion, which only records where an image
  * was first imported, not which versions currently include it.
  */

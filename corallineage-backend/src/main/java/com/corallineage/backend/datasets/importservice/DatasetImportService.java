@@ -63,7 +63,7 @@ public class DatasetImportService {
 
         // The @Async executor runs on another thread/connection and must not start
         // until this transaction (and the ImportJob/Dataset rows it depends on) has
-        // committed — same visibility issue fixed for DatasetVersionService's event log.
+        // committed - same visibility issue fixed for DatasetVersionService's event log.
         dispatchAfterCommit(saved.getId(), datasetId, tempDir, format, versionTag, importedBy, labels);
 
         return importJobMapper.toResponse(saved);
@@ -91,9 +91,8 @@ public class DatasetImportService {
     }
 
     /**
-     * Reconstructs the uploaded directory (from a browser directory picker, one
-     * MultipartFile + relative path per file) into a temp directory the format
-     * parsers can walk, the same way a ZIP used to be extracted into one.
+     * Reconstructs the uploaded directory (a browser directory picker sends one MultipartFile
+     * plus relative path per file) into a temp directory the format parsers can walk.
      */
     private Path persistUpload(MultipartFile[] files, String[] relativePaths) {
         if (files.length != relativePaths.length) {

@@ -11,28 +11,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Persists every TrainingJob status transition in its own short-lived Propagation.REQUIRES_NEW
- * transaction, on a separate bean from TrainingJobExecutor (a same-bean self-invocation would
- * bypass the Spring proxy and REQUIRES_NEW would silently do nothing, the same self-invocation
- * gotcha documented on TrainingJobService.dispatchAfterCommit).
+ * Persists every TrainingJob status transition (RUNNING, COMPLETED, FAILED) in its own
+ * Propagation.REQUIRES_NEW transaction, on a separate bean from TrainingJobExecutor so the
+ * Spring proxy actually applies REQUIRES_NEW.
  *
- * This split exists to fix a real bug: the previous code ran the entire training flow (the
- * RUNNING status write, dataset preparation, the long-running Python training HTTP call, and
- * model registration) inside a single shared transaction opened by executeTrainingAsync. When
- * DatasetPreparationService.prepareImageFolderDataset (itself @Transactional, participating in
- * that same shared transaction) threw because a dataset version had no annotation points, Spring
- * correctly marked the shared transaction rollback-only. The catch block then set the job to
- * FAILED and saved it, but that save happened inside the already-doomed transaction, and
- * returning normally made the surrounding transactional proxy try to commit anyway, throwing
- * UnexpectedRollbackException from outside the try/catch. Since executeTrainingAsync is @Async,
- * Spring's default uncaught-exception handler just logged that and the job was left stuck at
- * QUEUED forever with no errorMessage ever persisted.
- *
- * Giving every status write (RUNNING, COMPLETED, FAILED) its own fresh transaction means a
- * failure in dataset preparation, the ML service call, or model registration can never poison a
- * later write's ability to commit. It also stops holding a database connection open for the
- * full duration of the training call, which was an unrelated but real problem with the old
- * single-transaction design.
+ * Each status write committing independently means a failure in dataset preparation, the ML
+ * service call, or model registration can never mark a shared transaction rollback-only and
+ * prevent the FAILED write from committing. It also avoids holding a DB connection open for the
+ * full duration of the training call.
  */
 @Service
 public class TrainingJobStatusService {

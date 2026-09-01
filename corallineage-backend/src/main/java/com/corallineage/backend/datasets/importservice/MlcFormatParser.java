@@ -11,15 +11,11 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Legacy MLC format: one .txt file per image, each line "row col label_code"
- * (or "row; col; label_code" — real-world exports such as the Moorea Labeled
- * Corals dataset use a semicolon delimiter and a leading "# Row; Col; Label"
- * comment line, both handled here). The image filename is matched two ways:
- * first the real-world convention where the .txt is the full image filename
- * with ".txt" appended (e.g. "foo.jpg" + "foo.jpg.txt"), falling back to the
- * .txt filename's own extension replaced by a known image extension (e.g.
- * "foo.txt" + "foo.jpg"). Points whose .txt has no matching image file are
- * skipped rather than aborting the import.
+ * MLC format: one .txt file per image, each line "row col label_code" or "row; col; label_code"
+ * (semicolon-delimited exports also carry a leading "# Row; Col; Label" comment line). The image
+ * filename is matched first as the full image name with ".txt" appended ("foo.jpg" + "foo.jpg.txt"),
+ * then as the .txt name with its extension swapped for an image extension ("foo.txt" + "foo.jpg").
+ * A .txt with no matching image is skipped rather than aborting the import.
  */
 @Component
 public class MlcFormatParser implements DatasetFormatParser {
@@ -68,10 +64,7 @@ public class MlcFormatParser implements DatasetFormatParser {
     }
 
     /**
-     * Tries "foo.jpg.txt" -> "foo.jpg" (the .txt appended to the full image
-     * filename) first, since that's what real MLC exports use. Falls back to
-     * "foo.txt" -> "foo.jpg"/"foo.jpeg"/"foo.png" (the .txt's own extension
-     * replaced by a guessed image extension).
+     * Tries "foo.jpg.txt" -> "foo.jpg" first, then "foo.txt" -> "foo.jpg"/"foo.jpeg"/"foo.png".
      */
     private Path findMatchingImage(Path txtFile) throws IOException {
         String txtFilename = txtFile.getFileName().toString();

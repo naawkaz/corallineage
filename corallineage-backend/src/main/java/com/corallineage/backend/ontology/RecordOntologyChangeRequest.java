@@ -12,7 +12,7 @@ public class RecordOntologyChangeRequest {
     @NotNull(message = "changeType is required")
     private ChangeType changeType;
 
-    /** The version being branched from — the change creates a new DatasetVersion on top of it. */
+    /** The version being branched from - the change creates a new DatasetVersion on top of it. */
     @NotNull(message = "basedOnDatasetVersionId is required")
     private Long basedOnDatasetVersionId;
 

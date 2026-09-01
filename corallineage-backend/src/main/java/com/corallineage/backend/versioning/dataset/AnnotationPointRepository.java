@@ -14,7 +14,7 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
 
     List<AnnotationPoint> findByImageOriginDatasetVersionId(Long datasetVersionId);
 
-    /** Looks up a specific point's real coordinates for dot placement — used by the dirty-annotation queue. */
+    /** Looks up a specific point's real coordinates for dot placement - used by the dirty-annotation queue. */
     Optional<AnnotationPoint> findByImageIdAndPointIndex(Long imageId, Integer pointIndex);
 
     /**
@@ -39,8 +39,8 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
 
     /**
      * Highest pointIndex already used on this image (-1 if none). Point-annotation grid generation
-     * starts its own indices after this, so a freshly generated grid can never collide with — and
-     * silently overwrite — an image's pre-existing points (e.g. from a CoralNet CSV/MLC import).
+     * starts its own indices after this, so a freshly generated grid can never collide with - and
+     * silently overwrite - an image's pre-existing points (e.g. from a CoralNet CSV/MLC import).
      */
     @Query("select coalesce(max(ap.pointIndex), -1) from AnnotationPoint ap where ap.image.id = :imageId")
     int findMaxPointIndexByImageId(@Param("imageId") Long imageId);
@@ -79,7 +79,7 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
 
     /**
      * Per-label annotation point counts across every image that is a current member of
-     * {@code datasetVersionId} (via {@link DatasetVersionImage}) — the "class distribution as of
+     * {@code datasetVersionId} (via {@link DatasetVersionImage}) - the "class distribution as of
      * version X" query used by Dataset Diffing. Grouped by labelCode/labelName (strings) rather than
      * the label definition's row ID, since each dataset version carries its own copy of every label
      * (see DatasetVersionService.snapshotCurrentLabelDefinitions) and points reference whichever
@@ -93,11 +93,11 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
     List<LabelCountRow> countByLabelForVersionMembership(@Param("datasetVersionId") Long datasetVersionId);
 
     /**
-     * Project-wide per-label point counts within a date range — the reproducibility report's classDistribution.
+     * Project-wide per-label point counts within a date range - the reproducibility report's classDistribution.
      * Grouped by labelCode only (unlike {@link #countByLabelForVersionMembership}, which is scoped to one
      * dataset version): across different datasets the same code can legitimately carry different labelName
      * values (e.g. a hand-authored "Crustose Coralline Algae" in one dataset vs. an import's auto-bootstrapped
-     * "CCA" in another — see DatasetImportExecutor.bootstrapLabelDefinitions), and grouping by the (code, name)
+     * "CCA" in another - see DatasetImportExecutor.bootstrapLabelDefinitions), and grouping by the (code, name)
      * pair would otherwise split one logical class into multiple report rows. max(ld.labelName) just picks a
      * deterministic representative label for display; the point counts themselves are exact either way.
      */
@@ -107,7 +107,7 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
             + "group by ld.labelCode")
     List<LabelCountRow> countByLabelBetween(@Param("from") Instant from, @Param("to") Instant to);
 
-    /** Project-wide per-source point counts within a date range — the reproducibility report's annotationSourceSplit. */
+    /** Project-wide per-source point counts within a date range - the reproducibility report's annotationSourceSplit. */
     @Query("select ap.annotationSource as annotationSource, count(ap) as pointCount "
             + "from AnnotationPoint ap "
             + "where ap.createdAt between :from and :to "

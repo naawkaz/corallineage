@@ -29,12 +29,10 @@ public class ProjectMember {
     private Instant createdAt;
 
     /**
-     * When false (the default), this member has unrestricted access to every Source in
-     * the project, including Sources added later - the project_member_source_access join
-     * table is bypassed entirely. When true, access is exactly the set of rows for this
-     * member in that table (an empty set legitimately means "no Sources"). Only ever true
-     * for COLLABORATOR members; OWNER members always bypass this regardless of the flag.
-     * See docs/decisions.md for the full rationale.
+     * When false (the default), this member has unrestricted access to every source in the
+     * project, including sources added later; the project_member_source_access join table is
+     * bypassed. When true, access is exactly this member's rows in that table (an empty set
+     * means no sources). Only ever true for COLLABORATOR members; OWNER always bypasses it.
      */
     @Column(name = "source_access_restricted", nullable = false)
     private boolean sourceAccessRestricted = false;

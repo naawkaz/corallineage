@@ -13,15 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 /**
- * Persists every AUTO_ANNOTATING-phase status transition in its own short-lived
- * Propagation.REQUIRES_NEW transaction, on a separate bean from AutoAnnotationExecutor, mirroring
- * training.TrainingJobStatusService (see that class's javadoc for the full history of the real
- * UnexpectedRollbackException bug that pattern fixes). The same shared-transaction risk applies
- * here: AutoAnnotationExecutor runs a poll loop lasting anywhere from seconds to minutes, and
- * PointAnnotationJobService's other methods (submitJob, labelPoint, trainModel,
- * startAutoAnnotate) are all plain @Transactional, so a single shared transaction spanning the
- * whole poll loop would hold a DB connection open for that entire duration and would let a late
- * failure poison an earlier successful write's ability to commit.
+ * Persists every AUTO_ANNOTATING-phase status transition in its own Propagation.REQUIRES_NEW
+ * transaction, on a separate bean from AutoAnnotationExecutor, mirroring
+ * training.TrainingJobStatusService. AutoAnnotationExecutor's poll loop can last minutes, so a
+ * single shared transaction would hold a DB connection open the whole time and let a late
+ * failure prevent an earlier write from committing.
  */
 @Service
 public class PointAnnotationJobStatusService {
@@ -101,9 +97,8 @@ public class PointAnnotationJobStatusService {
         delegatedJob.setReviewStatus(autoAccepted == 0 ? "PENDING" : (autoAccepted < total ? "IN_PROGRESS" : "COMPLETED"));
         AnnotationJob savedDelegated = annotationJobRepository.save(delegatedJob);
 
-        // Every predicted point cleared the confidence threshold - nothing left for a human to
-        // review, so register this dataset version now instead of leaving it sitting in the
-        // Unlabeled import queue waiting for a manual "Apply to Version" click.
+        // Every predicted point cleared the confidence threshold, so register this dataset version
+        // now rather than leaving it in the unlabeled import queue for a manual apply.
         boolean fullyAutoAccepted = total > 0 && autoAccepted == total;
         if (fullyAutoAccepted && Boolean.TRUE.equals(savedDelegated.getCommitInPlace())) {
             annotationCommitService.applyToExistingVersion(savedDelegated.getId(), job.getInitiatedBy());

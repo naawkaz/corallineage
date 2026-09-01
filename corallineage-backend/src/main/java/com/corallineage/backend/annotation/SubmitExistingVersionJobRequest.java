@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Warm-start blank-import submit request: annotates an existing dataset version's already-present
  * images (no upload, no new staging version) with a chosen model, structurally between Mode A
- * ("Validate") and Mode B ("New Images") — see AnnotationJobService.submitExistingVersionJob.
+ * ("Validate") and Mode B ("New Images") - see AnnotationJobService.submitExistingVersionJob.
  */
 public class SubmitExistingVersionJobRequest {
 

@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * Full passthrough layer to the real MLflow tracking server's REST API — so the React frontend
+ * Full passthrough layer to the real MLflow tracking server's REST API - so the React frontend
  * never has to call MLflow directly. Every method degrades to null (caller decides 404 vs 503)
  * rather than propagating a connectivity failure, per the checklist's explicit requirement that
  * every MLflow-touching flow degrade gracefully.
@@ -145,9 +145,8 @@ public class MlflowIntegrationService {
         List<MlflowDetailsResponse.EpochMetricPoint> epochMetrics = getEpochMetrics(runId);
 
         String experimentId = (String) info.get("experiment_id");
-        // Note: byte-serving lives at MLflow's own /get-artifact route, not under /api/2.0/mlflow/
-        // (that versioned REST API is metadata-only) — confirmed via a live call during this
-        // session's verification pass; the /api/2.0/... path 404s even though the artifact exists.
+        // Artifact bytes are served from MLflow's /get-artifact route, not the /api/2.0/mlflow/
+        // REST API (which is metadata-only and 404s for artifact paths).
         MlflowDetailsResponse.ArtifactUrls artifactUrls = new MlflowDetailsResponse.ArtifactUrls(
                 mlflowUrl + "/get-artifact?path=confusion_matrix.png&run_id=" + runId, null);
 

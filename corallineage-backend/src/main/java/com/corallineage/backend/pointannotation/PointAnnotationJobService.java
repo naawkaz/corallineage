@@ -105,10 +105,8 @@ public class PointAnnotationJobService {
     }
 
     /**
-     * Generates the point grid synchronously within the request rather than dispatching to an
-     * @Async executor (the pattern every other long-running job in this app uses) — a deliberate
-     * scope cut for this proof of concept, acceptable at the small image counts this app's fixture
-     * datasets use. Flagged as a known limitation to async-ify later if raw uploads grow large.
+     * Generates the point grid synchronously within the request rather than on an @Async executor.
+     * Acceptable at current image counts; would need async-ifying for large raw uploads.
      */
     @Transactional
     public PointAnnotationJobResponse submitJob(StartPointAnnotationJobRequest request, String actingUsername) {
@@ -310,7 +308,7 @@ public class PointAnnotationJobService {
     }
 
     /**
-     * A human directly assigns a label to a generated point (the seed-labeling step — no model
+     * A human directly assigns a label to a generated point (the seed-labeling step - no model
      * prediction involved yet). Bridges into the existing training/diff pipeline by upserting a
      * real {@link AnnotationPoint} row, so downstream consumers of that entity need no changes.
      */
@@ -335,7 +333,7 @@ public class PointAnnotationJobService {
 
     /**
      * Submits a real training job on this point-annotation job's dataset version, reusing
-     * {@link TrainingJobService} completely unchanged — {@code DatasetPreparationService} already
+     * {@link TrainingJobService} completely unchanged - {@code DatasetPreparationService} already
      * trains on whatever {@link com.corallineage.backend.versioning.dataset.AnnotationPoint} rows
      * exist, which by now include every seed point this job's labeling step materialized.
      */
@@ -378,15 +376,15 @@ public class PointAnnotationJobService {
      * Kicks off point-level inference on every non-seed point once the triggered training job has
      * completed. Rather than tracking auto-annotate/review state on this job's own GeneratedPoint
      * rows (the pre-delegation design), this creates a real {@link AnnotationJob} (commitInPlace=true,
-     * jobType NEW_IMAGES — the same shape submitExistingVersionJob's warm-start flow already
+     * jobType NEW_IMAGES - the same shape submitExistingVersionJob's warm-start flow already
      * produces) scoped to this job's dataset version and non-seed images, and marks this job
      * COMPLETE immediately: its own responsibility (grid generation through training) is done, and
      * every subsequent stage (inference, review, accept/override) lives on the delegated
-     * AnnotationJob/AnnotationPrediction pipeline that every other annotation flow already uses —
+     * AnnotationJob/AnnotationPrediction pipeline that every other annotation flow already uses -
      * one review screen and one data model instead of two. {@link AutoAnnotationExecutor} still
      * does the actual patch-prep/Python-inference/progress-polling work (unchanged), but
      * {@link PointInferenceService#applyPredictions} now writes its results as AnnotationPrediction
-     * rows against the delegated job instead of mutating GeneratedPoint fields — see that method.
+     * rows against the delegated job instead of mutating GeneratedPoint fields - see that method.
      */
     @Transactional
     public PointAnnotationJobResponse startAutoAnnotate(Long jobId) {
@@ -432,13 +430,10 @@ public class PointAnnotationJobService {
     }
 
     /**
-     * Called by {@link com.corallineage.backend.training.TrainingJobExecutor} once a TrainingJob it
-     * ran reaches COMPLETED - lets a cold-start job's training step auto-delegate straight into
-     * auto-annotate without the user having to come back and click a manual "Run Auto-Annotation"
-     * button (per the confirmed Part D UX: the user leaves this page immediately after starting
-     * training). No-ops if this training job isn't linked to a point-annotation job, or if that job
-     * already moved past TRAINING (e.g. a standalone Model Registry training job never has a
-     * matching row here at all).
+     * Called by {@link com.corallineage.backend.training.TrainingJobExecutor} once a TrainingJob
+     * reaches COMPLETED, so a cold-start job's training step delegates straight into auto-annotate.
+     * No-ops if the training job is not linked to a point-annotation job, or if that job already
+     * moved past TRAINING.
      */
     @Transactional
     public void autoAnnotateAfterTraining(Long trainingJobId) {
@@ -469,7 +464,7 @@ public class PointAnnotationJobService {
 
     /**
      * The @Async executor lives on a separate bean (AutoAnnotationExecutor) rather than a method on
-     * this class, and dispatch waits for the enclosing transaction to commit first — same reasoning
+     * this class, and dispatch waits for the enclosing transaction to commit first - same reasoning
      * as TrainingJobService.dispatchAfterCommit: a same-bean self-invocation would bypass Spring's
      * @Async proxy, and dispatching before commit risks the background thread reading this job's
      * new annotationJob FK (or the delegated AnnotationJob row itself) before this transaction's

@@ -134,15 +134,10 @@ public class PythonMlServiceClient {
     }
 
     /**
-     * Legacy synchronous wrapper kept for AnnotationJobExecutor (a separate, already-@Async
-     * annotation job system unrelated to point-annotation, with three call sites and its own
-     * test suite built around this exact blocking signature). Flask's /annotate route itself is
-     * async now (202 immediately, batch completes on a background thread), so this method starts
-     * the batch under a synthesized job id namespaced away from real point-annotation/training job
-     * ids, then polls GET /annotate/{jobId}/status until the batch reaches a terminal state.
-     * Blocking here is safe: every caller of this method already runs on its own @Async background
-     * thread, never on an HTTP request thread, so it cannot tie up Flask's (or Spring's) request
-     * handling the way the pre-fix design used to.
+     * Synchronous wrapper over the async /annotate route (202 immediately, batch completes on a
+     * background thread) for AnnotationJobExecutor. Starts the batch under a synthesized job id
+     * namespaced away from real job ids, then polls GET /annotate/{jobId}/status to a terminal
+     * state. Blocking is safe here: every caller already runs on its own @Async thread.
      */
     public AnnotateResult annotate(String architecture, String weightsPath, Map<String, String> classMappings,
                                     List<AnnotateImageInput> images) {

@@ -11,8 +11,7 @@ import java.util.List;
 
 /**
  * Generates an evenly spaced grid of points per image, inset from the edges so no point lands
- * exactly on a border pixel. Grid-only for this proof of concept — CoralNet also supports random
- * and stratified-random point placement, but those aren't needed to demonstrate the pipeline.
+ * exactly on a border pixel. Grid placement only; random and stratified-random are not supported.
  */
 @Service
 public class PointGenerationService {
@@ -25,7 +24,7 @@ public class PointGenerationService {
 
     /**
      * @param startIndex first pointIndex to assign (see {@code AnnotationPointRepository.findMaxPointIndexByImageId})
-     *                   — keeps this job's grid indices disjoint from any points already on the image
+     *                   - keeps this job's grid indices disjoint from any points already on the image
      *                   (import data, or an earlier point-annotation job), since indices bridge into the
      *                   shared, globally-unique-per-image {@code AnnotationPoint} table once labeled.
      */

@@ -145,7 +145,7 @@ public class TrainingJobService {
             return version;
         }
         // "Latest version" mode skips incomplete versions and falls back to the newest complete one,
-        // rather than blocking outright — an incomplete label-only version shouldn't stall training
+        // rather than blocking outright - an incomplete label-only version shouldn't stall training
         // against the dataset's otherwise-usable history.
         List<DatasetVersion> versions = datasetVersionRepository
                 .findAllByDatasetIdOrderByCreatedAtDesc(datasetId, Pageable.unpaged())
@@ -181,7 +181,7 @@ public class TrainingJobService {
 
     /**
      * The @Async executor lives on a separate bean (TrainingJobExecutor) rather than a method on
-     * this class — Spring's @Async proxy only intercepts calls made through the bean's proxy, and
+     * this class - Spring's @Async proxy only intercepts calls made through the bean's proxy, and
      * a same-class "this.executeTrainingAsync(...)" self-invocation would silently run synchronously.
      * Mirrors the same split used for DatasetImportService/DatasetImportExecutor.
      */

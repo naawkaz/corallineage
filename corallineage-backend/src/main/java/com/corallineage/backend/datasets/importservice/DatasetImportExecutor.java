@@ -107,7 +107,7 @@ public class DatasetImportExecutor {
 
             DatasetVersion previousLatest = datasetVersionRepository
                     .findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
-            // A dataset with no prior version has no label vocabulary to validate against yet —
+            // A dataset with no prior version has no label vocabulary to validate against yet -
             // this first import defines it, via bootstrapLabelDefinitions below, rather than
             // aborting. Every later import is still validated strictly against what exists.
             if (previousLatest != null) {
@@ -215,13 +215,13 @@ public class DatasetImportExecutor {
      * A dataset with zero prior versions has no label vocabulary yet, so the first import
      * defines it: one LabelDefinition per distinct code found in the source data, named
      * after its own code. Every subsequent import still resolves strictly against whatever
-     * vocabulary already exists — this only fires once, for the dataset's first version.
+     * vocabulary already exists - this only fires once, for the dataset's first version.
      */
     private List<LabelDefinition> bootstrapLabelDefinitions(DatasetVersion newVersion, Set<String> codes) {
         List<LabelDefinition> created = new ArrayList<>();
         for (String code : codes) {
             LabelDefinition label = new LabelDefinition();
-            label.setDatasetVersion(newVersion); // NOTE: LabelDefinition.datasetVersion is unrelated to Image.originDatasetVersion — not renamed
+            label.setDatasetVersion(newVersion); // LabelDefinition.datasetVersion is unrelated to Image.originDatasetVersion
             label.setLabelCode(code);
             label.setLabelName(code);
             created.add(labelDefinitionRepository.save(label));

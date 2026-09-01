@@ -20,21 +20,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Orchestrates a training job's background run. Deliberately holds no @Transactional boundary
- * of its own: every DB write is delegated to TrainingJobStatusService, each call opening its own
- * fresh Propagation.REQUIRES_NEW transaction. See TrainingJobStatusService's class comment for
- * the full history of why (a shared-transaction design here previously caused a real
- * UnexpectedRollbackException bug that left failed jobs stuck at QUEUED with no error surfaced).
+ * Orchestrates a training job's background run. Holds no @Transactional boundary of its own:
+ * every DB write goes through TrainingJobStatusService, each call in its own REQUIRES_NEW
+ * transaction, so a rollback in one step never poisons the others.
  *
- * Training itself now runs on the Python side in a background thread (see app.py), so
- * pythonMlServiceClient.startTraining just kicks it off and returns immediately; this method
- * polls pollTrainingStatus in its own loop until the job reaches a terminal state. While RUNNING,
- * as soon as an MLflow run id is known, it also polls MlflowIntegrationService.getEpochMetrics
- * directly (MLflow's autolog writes metrics live as each epoch finishes, so this is a genuine
- * live progress reading, not a guess) to derive currentEpoch/totalEpochs for the UI. This
- * replaces last session's custom Flask progress dict, which never actually worked live because
- * Flask's dev server ran single-threaded: the poll requests queued behind the blocking /train
- * call and were never served until training finished.
+ * Training runs on the Python side in a background thread, so startTraining returns immediately
+ * and this method polls pollTrainingStatus to a terminal state. While RUNNING, once an MLflow
+ * run id is known it also polls MlflowIntegrationService.getEpochMetrics to derive
+ * currentEpoch/totalEpochs for the UI.
  */
 @Service
 public class TrainingJobExecutor {

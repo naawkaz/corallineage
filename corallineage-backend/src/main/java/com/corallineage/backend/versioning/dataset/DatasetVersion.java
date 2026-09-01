@@ -47,7 +47,7 @@ public class DatasetVersion {
     private String notes;
 
     // True for a staging version created to hold freshly uploaded/imported images pending review
-    // (e.g. AnnotationJobExecutor's Mode B "new images" staging area) — excluded from
+    // (e.g. AnnotationJobExecutor's Mode B "new images" staging area) - excluded from
     // DatasetVersionService.getVersionHistory so it never appears in the researcher-facing Versions
     // list, but still individually reachable via getVersionById. Nullable at the JPA level: existing
     // rows predate this column (same ddl-auto=update NOT-NULL-on-a-populated-table reasoning as

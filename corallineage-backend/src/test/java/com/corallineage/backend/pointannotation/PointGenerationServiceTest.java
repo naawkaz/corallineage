@@ -105,7 +105,7 @@ class PointGenerationServiceTest {
             assertThat(p.getRowPosition()).isBetween(0, 199);
             assertThat(p.getColPosition()).isBetween(0, 199);
         });
-        // Inset from the true (0,0) corner — the grid margin should keep points off the edge.
+        // Inset from the true (0,0) corner - the grid margin should keep points off the edge.
         assertThat(points).noneMatch(p -> p.getRowPosition() == 0 && p.getColPosition() == 0);
     }
 

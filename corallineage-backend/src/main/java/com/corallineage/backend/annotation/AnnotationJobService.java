@@ -91,8 +91,7 @@ public class AnnotationJobService {
         this.annotationCommitService = annotationCommitService;
     }
 
-    // --- Legacy whole-image submit path (kept for backward compatibility; no longer exposed by
-    // the frontend, which now submits through submitValidationJob/submitNewImagesJob instead). ---
+    // Internal whole-image submit path. External callers use submitValidationJob / submitNewImagesJob.
 
     @Transactional
     public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request, String actingUsername) {

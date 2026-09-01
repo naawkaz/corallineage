@@ -68,7 +68,7 @@ public class OntologyChangeService {
 
     /**
      * Records an ontology change by creating a NEW DatasetVersion branched from
-     * {@code basedOnDatasetVersionId} — mutating a version's label set in place after models have
+     * {@code basedOnDatasetVersionId} - mutating a version's label set in place after models have
      * already trained against it would silently corrupt reproducibility, since label_definitions is
      * scoped per-version specifically to keep a version's label set a frozen historical fact. The new
      * version starts as an exact copy (labels + image membership, via DatasetVersionService's snapshot
@@ -94,7 +94,7 @@ public class OntologyChangeService {
         List<String> createdLabelCodes = applyLabelMutation(changeType, oldLabelCode, newLabels, newVersion);
 
         // newVersion was created earlier in THIS same transaction (via datasetVersionService.createSnapshot,
-        // which joins this method's transaction rather than opening its own) and is not yet committed —
+        // which joins this method's transaction rather than opening its own) and is not yet committed -
         // annotationEventLoggerService.log() runs in REQUIRES_NEW on a separate connection and would fail
         // an FK check against an uncommitted row, so this event is persisted directly on the current
         // connection/transaction instead of going through the REQUIRES_NEW logger.
@@ -146,7 +146,7 @@ public class OntologyChangeService {
 
     /**
      * Defers the log call until after this transaction commits, so the REQUIRES_NEW logger (running
-     * on a separate connection) can see rows — e.g. {@code newVersion} — that only become visible at
+     * on a separate connection) can see rows - e.g. {@code newVersion} - that only become visible at
      * commit. Mirrors DatasetVersionService.logAfterCommit / DatasetImportExecutor's equivalent helper.
      */
     private void logAfterCommit(EventType eventType, DatasetVersion version, String performedBy, String description) {

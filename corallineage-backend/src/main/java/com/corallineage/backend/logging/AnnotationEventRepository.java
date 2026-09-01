@@ -45,7 +45,7 @@ public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent
                                         Pageable pageable);
 
     // Used only when the caller supplies no *dataset-scoping* filter (datasetId/datasetVersionId/
-    // modelVersionId all absent — see AnnotationEventController); eventType/from/to still apply
+    // modelVersionId all absent - see AnnotationEventController); eventType/from/to still apply
     // normally. Rather than blocking the call, results are filtered down to rows whose derivable
     // dataset id (via dataset_version_id directly, via the triggering model's trained-on version,
     // or via the logged image's origin version) is in the requester's accessible set. A row with

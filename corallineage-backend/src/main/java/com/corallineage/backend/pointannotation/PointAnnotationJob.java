@@ -30,10 +30,8 @@ public class PointAnnotationJob {
     @JoinColumn(name = "dataset_version_id", nullable = false)
     private DatasetVersion datasetVersion;
 
-    // Nullable at the JPA level (unlike most other settings on this entity) even though every new
-    // row always sets both: Hibernate's ddl-auto=update can't add a NOT NULL column to a table
-    // that already has rows (same gotcha as the dataset FK columns, see decisions.md 2026-08-10),
-    // and this table isn't guaranteed empty on an existing dev DB.
+    // Nullable at the JPA level even though every new row sets both, so ddl-auto=update can add
+    // the columns to a table that already has rows.
     @Column(name = "grid_rows")
     private Integer gridRows;
 
@@ -46,10 +44,8 @@ public class PointAnnotationJob {
     @Column(name = "seed_image_count", nullable = false)
     private Integer seedImageCount;
 
-    // Values: GENERATING, SEED_LABELING, TRAINING, COMPLETE. Set straight to COMPLETE once
-    // startAutoAnnotate delegates into a real AnnotationJob (see the annotationJob field below) -
-    // AUTO_ANNOTATING/REVIEW/FAILED, this entity's own former terminal-review states, no longer
-    // apply here; the delegated AnnotationJob's own status tracks the rest of the lifecycle.
+    // Values: GENERATING, SEED_LABELING, TRAINING, COMPLETE. Set to COMPLETE once startAutoAnnotate
+    // delegates into an AnnotationJob, whose own status then tracks the rest of the lifecycle.
     @Column(name = "status", nullable = false, length = 50)
     private String status = "GENERATING";
 

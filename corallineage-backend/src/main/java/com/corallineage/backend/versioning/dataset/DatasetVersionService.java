@@ -78,7 +78,7 @@ public class DatasetVersionService {
      * excluded from {@link #getVersionHistory} (never shown in the researcher-facing Versions list)
      * while still individually reachable via {@link #getVersionById}. For staging areas that hold
      * images pending review before being committed for real (e.g. AnnotationJobExecutor's Mode B
-     * "new images" upload) — not exposed on the public {@link CreateVersionRequest} DTO since no
+     * "new images" upload) - not exposed on the public {@link CreateVersionRequest} DTO since no
      * caller outside this internal use case should ever be able to request it.
      */
     @Transactional
@@ -91,7 +91,7 @@ public class DatasetVersionService {
      * Like {@link #createSnapshot}, but copies labels + image membership forward from an explicit
      * {@code branchPoint} rather than always the dataset's overall latest version. Used by ontology
      * change recording, where the new version must branch from whichever version the user picked
-     * (which may not be the dataset's current latest) — using the plain createSnapshot here would
+     * (which may not be the dataset's current latest) - using the plain createSnapshot here would
      * silently branch from the wrong version instead.
      */
     @Transactional
@@ -138,7 +138,7 @@ public class DatasetVersionService {
     }
 
     /**
-     * Copies forward the previous version's image membership rows onto {@code version} — cheap
+     * Copies forward the previous version's image membership rows onto {@code version} - cheap
      * (just new join rows, no Image data duplicated). A dataset's very first version starts with
      * no membership; the importer adds rows for the freshly-imported images afterward.
      */
@@ -280,7 +280,7 @@ public class DatasetVersionService {
 
     /**
      * Populates {@code complete}/{@code unresolvedDirtyCount} with one extra query per version.
-     * Accepted N+1 given current data volumes rather than a bespoke aggregate query — see plan notes.
+     * N+1 accepted at current data volumes.
      */
     private DatasetVersionResponse attachCompleteness(DatasetVersionResponse response) {
         long unresolved = dirtyAnnotationRepository
@@ -331,10 +331,9 @@ public class DatasetVersionService {
             return;
         }
 
-        // A point-annotation job reaching "COMPLETE" no longer means fully resolved on its own
-        // once startAutoAnnotate delegates into a real AnnotationJob (see PointAnnotationJob.annotationJob) -
-        // its own stage (seed labeling through training) is done, but review may still be pending on
-        // that delegated job, so fall through to the AnnotationJob check below instead of returning here.
+        // A COMPLETE point-annotation job means its own stage (seed labeling through training) is
+        // done, but the delegated AnnotationJob's review may still be pending, so fall through to
+        // the AnnotationJob check below.
         var annotationJob = annotationJobRepository.findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
         if (annotationJob.isPresent()) {
             if (annotationJob.get().getAddedToProjectVersionId() == null) {

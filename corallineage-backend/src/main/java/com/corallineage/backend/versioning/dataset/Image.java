@@ -17,7 +17,7 @@ public class Image {
     private Long id;
 
     /**
-     * The version this image was first imported under — a permanent, one-time "origin" fact,
+     * The version this image was first imported under - a permanent, one-time "origin" fact,
      * never updated after insert. Does NOT represent which version(s) currently include this
      * image; that's tracked separately by {@link DatasetVersionImage} membership rows.
      */

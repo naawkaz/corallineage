@@ -44,7 +44,7 @@ public class AnnotationEventController {
             @RequestParam(defaultValue = "50") int size,
             Authentication authentication) {
         // Sort field is the native SQL column name (occurred_at), not the entity
-        // property name — findByFilters is a native query, so Spring Data appends
+        // property name - findByFilters is a native query, so Spring Data appends
         // the ORDER BY clause using this string verbatim rather than translating it.
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurred_at"));
 

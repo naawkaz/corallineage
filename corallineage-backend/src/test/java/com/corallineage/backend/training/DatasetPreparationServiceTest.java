@@ -105,7 +105,7 @@ class DatasetPreparationServiceTest {
         image.setFilename("img002.jpg");
         image.setFilePath("dataset/img002.jpg");
 
-        // Point right at the corner (0,0) — patch must clamp to stay inside the 100x100 image.
+        // Point right at the corner (0,0) - patch must clamp to stay inside the 100x100 image.
         List<AnnotationPoint> points = List.of(
                 point(image, 0, 0, 0, "ACROPORA"),
                 point(image, 1, 99, 99, "SAND")

@@ -28,9 +28,7 @@ public class AnnotationJob {
     @JoinColumn(name = "model_version_id", nullable = false)
     private ModelVersion modelVersion;
 
-    // Nullable at the JPA level even though it's conceptually required post-backfill:
-    // the dev DB already has rows created before this FK existed (see the one-time
-    // backfill run during this session's implementation).
+    // Nullable at the JPA level even though it is conceptually required.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_id")
     private Dataset dataset;
@@ -60,9 +58,8 @@ public class AnnotationJob {
     private String reviewStatus = "PENDING";
 
     // Values: VALIDATION (recheck model accuracy against existing human labels, no review step),
-    // NEW_IMAGES (bulk-label freshly uploaded images, Accept/Override review then Add to Project).
-    // Nullable for backward compatibility: rows created by the legacy whole-image submit path
-    // (still reachable internally, no longer exposed by the frontend) leave this null.
+    // NEW_IMAGES (bulk-label freshly uploaded images, accept/override review then add to project).
+    // Nullable: the internal whole-image submit path leaves this null.
     @Column(name = "job_type", length = 20)
     private String jobType;
 

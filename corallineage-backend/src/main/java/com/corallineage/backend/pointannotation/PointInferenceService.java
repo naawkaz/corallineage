@@ -112,7 +112,7 @@ public class PointInferenceService {
      * Applies a completed batch's predictions once AutoAnnotationExecutor's poll loop sees
      * COMPLETED. Writes real {@link AnnotationPrediction} rows against the job's delegated
      * {@link AnnotationJob} (set by PointAnnotationJobService.startAutoAnnotate) rather than
-     * mutating the GeneratedPoint rows directly — review of these predictions happens entirely
+     * mutating the GeneratedPoint rows directly - review of these predictions happens entirely
      * through the same AnnotationReview screen and accept/override/accept-all endpoints every
      * other annotation job already uses, not a second GeneratedPoint-based review path. Re-fetches
      * the points fresh by id rather than reusing entities from prepareAndStartAnnotate's now-closed

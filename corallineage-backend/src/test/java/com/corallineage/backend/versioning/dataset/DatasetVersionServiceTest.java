@@ -180,7 +180,7 @@ class DatasetVersionServiceTest {
         DatasetVersionResponse response =
                 datasetVersionService.createSnapshotBranchedFrom(1L, request(), olderBranchPoint);
 
-        // Must never consult "the dataset's actual latest version" — only the explicit branch point.
+        // Must never consult "the dataset's actual latest version" - only the explicit branch point.
         verify(datasetVersionRepository, never()).findTopByDatasetIdOrderByCreatedAtDesc(any());
         assertThat(response.getLabelDefinitions()).extracting("labelCode").containsExactly("OLD_BRANCH_LABEL");
     }

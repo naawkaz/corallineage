@@ -18,9 +18,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ArchitectureRegistry {
 
     private static final List<ArchitectureInfo> FALLBACK = List.of(
-            new ArchitectureInfo("efficientnet_b0", "EfficientNet-B0", "Lightweight, fast — good baseline for small datasets"),
+            new ArchitectureInfo("efficientnet_b0", "EfficientNet-B0", "Lightweight, fast - good baseline for small datasets"),
             new ArchitectureInfo("resnet50", "ResNet-50", "Well-established baseline, strong general performance"),
-            new ArchitectureInfo("vit_base_patch16_224", "ViT-Base/16", "Transformer-based — stronger on larger datasets")
+            new ArchitectureInfo("vit_base_patch16_224", "ViT-Base/16", "Transformer-based - stronger on larger datasets")
     );
 
     private final PythonMlServiceClient pythonMlServiceClient;
@@ -42,7 +42,7 @@ public class ArchitectureRegistry {
                 cached.set(fetched);
             }
         } catch (MlServiceException ex) {
-            // Python ML service not reachable yet — keep the previous/fallback list.
+            // Python ML service not reachable yet - keep the previous/fallback list.
         }
     }
 
