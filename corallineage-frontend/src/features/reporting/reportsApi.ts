@@ -7,8 +7,10 @@ export async function generateReport(request: GenerateReportRequest): Promise<Re
   return data
 }
 
-export function exportReportUrl(reportId: string): string {
-  return `${api.defaults.baseURL}/reports/${reportId}/export`
+// This endpoint requires a JWT so it needs to go through the authenticated api client
+export async function exportReport(reportId: string): Promise<ReproducibilityReport> {
+  const { data } = await api.get<ReproducibilityReport>(`/reports/${reportId}/export`)
+  return data
 }
 
 export async function fetchReports(page: number, size: number): Promise<Page<ReportListItem>> {

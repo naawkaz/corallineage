@@ -51,8 +51,9 @@ public class ModelVersionController {
     }
 
     @PatchMapping("/{id}/status")
-    public ModelVersionResponse updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateModelStatusRequest request,
-                                              Authentication authentication) {
+    public ModelVersionResponse updateStatus(@PathVariable Long id,
+            @Valid @RequestBody UpdateModelStatusRequest request,
+            Authentication authentication) {
         datasetService.requireAccess(modelVersionService.getDatasetIdForModel(id), authentication.getName());
         return modelVersionService.updateStatus(id, request.getStatus(), request.getChangedBy());
     }

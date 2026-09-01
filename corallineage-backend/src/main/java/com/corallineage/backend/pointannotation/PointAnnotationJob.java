@@ -8,18 +8,12 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * One raw-upload -> point-generation -> seed-labeling -> auto-annotate workflow run against a
- * dataset version. Settings (grid size, confidence threshold, seed count) are fixed at
- * creation and tied to this job/version rather than floating global config, so a later session
- * can see exactly what settings produced a given version's confirmed points.
- */
+/** One point annotation workflow run against a dataset version */
 @Entity
-@Table(name = "point_annotation_jobs",
-       indexes = {
-           @Index(name = "idx_point_annotation_jobs_dataset_version", columnList = "dataset_version_id"),
-           @Index(name = "idx_point_annotation_jobs_status", columnList = "status")
-       })
+@Table(name = "point_annotation_jobs", indexes = {
+        @Index(name = "idx_point_annotation_jobs_dataset_version", columnList = "dataset_version_id"),
+        @Index(name = "idx_point_annotation_jobs_status", columnList = "status")
+})
 public class PointAnnotationJob {
 
     @Id
@@ -30,10 +24,7 @@ public class PointAnnotationJob {
     @JoinColumn(name = "dataset_version_id", nullable = false)
     private DatasetVersion datasetVersion;
 
-    // Nullable at the JPA level (unlike most other settings on this entity) even though every new
-    // row always sets both: Hibernate's ddl-auto=update can't add a NOT NULL column to a table
-    // that already has rows (same gotcha as the dataset FK columns, see decisions.md 2026-08-10),
-    // and this table isn't guaranteed empty on an existing dev DB.
+    // Nullable at the JPA level though every new row sets both
     @Column(name = "grid_rows")
     private Integer gridRows;
 
@@ -46,10 +37,7 @@ public class PointAnnotationJob {
     @Column(name = "seed_image_count", nullable = false)
     private Integer seedImageCount;
 
-    // Values: GENERATING, SEED_LABELING, TRAINING, COMPLETE. Set straight to COMPLETE once
-    // startAutoAnnotate delegates into a real AnnotationJob (see the annotationJob field below) -
-    // AUTO_ANNOTATING/REVIEW/FAILED, this entity's own former terminal-review states, no longer
-    // apply here; the delegated AnnotationJob's own status tracks the rest of the lifecycle.
+    // Values GENERATING SEED_LABELING TRAINING COMPLETE
     @Column(name = "status", nullable = false, length = 50)
     private String status = "GENERATING";
 
@@ -61,10 +49,8 @@ public class PointAnnotationJob {
     @JoinColumn(name = "model_version_id")
     private ModelVersion modelVersion;
 
-    // Set once auto-annotate is triggered: the real AnnotationJob (commitInPlace=true) this job's
-    // post-training review delegates into, so predictions/review live on the same AnnotationJob/
-    // AnnotationPrediction pipeline every other annotation flow uses instead of a second,
-    // GeneratedPoint-based review data model. Null until startAutoAnnotate creates it.
+    // The delegated annotation job this job's review lives on, null until auto
+    // annotate starts
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "annotation_job_id")
     private AnnotationJob annotationJob;
@@ -78,75 +64,148 @@ public class PointAnnotationJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    // Live progress while AUTO_ANNOTATING, fed by AutoAnnotationExecutor polling the Python
-    // service's /annotate/{jobId}/status. All null before auto-annotate starts and while a point
-    // is being resolved to something other than RUNNING (COMPLETED/FAILED leave the last-seen
-    // values in place rather than resetting them, so the UI can still show "processed X of Y"
-    // after the job finishes).
+    // Live progress while auto annotating, null before it starts
     @Column(name = "auto_annotation_processed_count")
     private Integer autoAnnotationProcessedCount;
 
     @Column(name = "auto_annotation_total_count")
     private Integer autoAnnotationTotalCount;
 
-    // Actually a GeneratedPoint id, not a real image id: every patch is sent to the Python service
-    // as its own synthetic "image" (see PointInferenceService's class comment), so Flask's
-    // per-image progress field reports back a GeneratedPoint id here.
+    // A GeneratedPoint id, not a real image id
     @Column(name = "auto_annotation_current_point_id")
     private Long autoAnnotationCurrentPointId;
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public DatasetVersion getDatasetVersion() { return datasetVersion; }
-    public void setDatasetVersion(DatasetVersion datasetVersion) { this.datasetVersion = datasetVersion; }
+    public DatasetVersion getDatasetVersion() {
+        return datasetVersion;
+    }
 
-    public Integer getGridRows() { return gridRows; }
-    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+    public void setDatasetVersion(DatasetVersion datasetVersion) {
+        this.datasetVersion = datasetVersion;
+    }
 
-    public Integer getGridCols() { return gridCols; }
-    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
+    public Integer getGridRows() {
+        return gridRows;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public void setGridRows(Integer gridRows) {
+        this.gridRows = gridRows;
+    }
 
-    public Integer getSeedImageCount() { return seedImageCount; }
-    public void setSeedImageCount(Integer seedImageCount) { this.seedImageCount = seedImageCount; }
+    public Integer getGridCols() {
+        return gridCols;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setGridCols(Integer gridCols) {
+        this.gridCols = gridCols;
+    }
 
-    public TrainingJob getTrainingJob() { return trainingJob; }
-    public void setTrainingJob(TrainingJob trainingJob) { this.trainingJob = trainingJob; }
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
 
-    public ModelVersion getModelVersion() { return modelVersion; }
-    public void setModelVersion(ModelVersion modelVersion) { this.modelVersion = modelVersion; }
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
 
-    public AnnotationJob getAnnotationJob() { return annotationJob; }
-    public void setAnnotationJob(AnnotationJob annotationJob) { this.annotationJob = annotationJob; }
+    public Integer getSeedImageCount() {
+        return seedImageCount;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public void setSeedImageCount(Integer seedImageCount) {
+        this.seedImageCount = seedImageCount;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getStatus() {
+        return status;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public Integer getAutoAnnotationProcessedCount() { return autoAnnotationProcessedCount; }
-    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) { this.autoAnnotationProcessedCount = autoAnnotationProcessedCount; }
+    public TrainingJob getTrainingJob() {
+        return trainingJob;
+    }
 
-    public Integer getAutoAnnotationTotalCount() { return autoAnnotationTotalCount; }
-    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) { this.autoAnnotationTotalCount = autoAnnotationTotalCount; }
+    public void setTrainingJob(TrainingJob trainingJob) {
+        this.trainingJob = trainingJob;
+    }
 
-    public Long getAutoAnnotationCurrentPointId() { return autoAnnotationCurrentPointId; }
-    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) { this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId; }
+    public ModelVersion getModelVersion() {
+        return modelVersion;
+    }
+
+    public void setModelVersion(ModelVersion modelVersion) {
+        this.modelVersion = modelVersion;
+    }
+
+    public AnnotationJob getAnnotationJob() {
+        return annotationJob;
+    }
+
+    public void setAnnotationJob(AnnotationJob annotationJob) {
+        this.annotationJob = annotationJob;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public Integer getAutoAnnotationProcessedCount() {
+        return autoAnnotationProcessedCount;
+    }
+
+    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) {
+        this.autoAnnotationProcessedCount = autoAnnotationProcessedCount;
+    }
+
+    public Integer getAutoAnnotationTotalCount() {
+        return autoAnnotationTotalCount;
+    }
+
+    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) {
+        this.autoAnnotationTotalCount = autoAnnotationTotalCount;
+    }
+
+    public Long getAutoAnnotationCurrentPointId() {
+        return autoAnnotationCurrentPointId;
+    }
+
+    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) {
+        this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId;
+    }
 }

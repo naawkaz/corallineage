@@ -5,11 +5,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "images",
-       indexes = {
-           @Index(name = "idx_images_dataset_version", columnList = "origin_dataset_version_id"),
-           @Index(name = "idx_images_filename", columnList = "filename")
-       })
+@Table(name = "images", indexes = {
+        @Index(name = "idx_images_dataset_version", columnList = "origin_dataset_version_id"),
+        @Index(name = "idx_images_filename", columnList = "filename")
+})
 public class Image {
 
     @Id
@@ -17,9 +16,7 @@ public class Image {
     private Long id;
 
     /**
-     * The version this image was first imported under — a permanent, one-time "origin" fact,
-     * never updated after insert. Does NOT represent which version(s) currently include this
-     * image; that's tracked separately by {@link DatasetVersionImage} membership rows.
+     * The version this image was first imported under. Never updated after insert
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "origin_dataset_version_id", nullable = false)
@@ -45,32 +42,71 @@ public class Image {
 
     @PrePersist
     protected void onCreate() {
-        if (addedAt == null) addedAt = Instant.now();
+        if (addedAt == null)
+            addedAt = Instant.now();
     }
 
-    // --- getters and setters ---
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public DatasetVersion getOriginDatasetVersion() { return originDatasetVersion; }
-    public void setOriginDatasetVersion(DatasetVersion originDatasetVersion) { this.originDatasetVersion = originDatasetVersion; }
+    public DatasetVersion getOriginDatasetVersion() {
+        return originDatasetVersion;
+    }
 
-    public String getFilename() { return filename; }
-    public void setFilename(String filename) { this.filename = filename; }
+    public void setOriginDatasetVersion(DatasetVersion originDatasetVersion) {
+        this.originDatasetVersion = originDatasetVersion;
+    }
 
-    public String getFilePath() { return filePath; }
-    public void setFilePath(String filePath) { this.filePath = filePath; }
+    public String getFilename() {
+        return filename;
+    }
 
-    public String getDvcFileHash() { return dvcFileHash; }
-    public void setDvcFileHash(String dvcFileHash) { this.dvcFileHash = dvcFileHash; }
+    public void setFilename(String filename) {
+        this.filename = filename;
+    }
 
-    public String getSite() { return site; }
-    public void setSite(String site) { this.site = site; }
+    public String getFilePath() {
+        return filePath;
+    }
 
-    public LocalDate getSurveyDate() { return surveyDate; }
-    public void setSurveyDate(LocalDate surveyDate) { this.surveyDate = surveyDate; }
+    public void setFilePath(String filePath) {
+        this.filePath = filePath;
+    }
 
-    public Instant getAddedAt() { return addedAt; }
-    public void setAddedAt(Instant addedAt) { this.addedAt = addedAt; }
+    public String getDvcFileHash() {
+        return dvcFileHash;
+    }
+
+    public void setDvcFileHash(String dvcFileHash) {
+        this.dvcFileHash = dvcFileHash;
+    }
+
+    public String getSite() {
+        return site;
+    }
+
+    public void setSite(String site) {
+        this.site = site;
+    }
+
+    public LocalDate getSurveyDate() {
+        return surveyDate;
+    }
+
+    public void setSurveyDate(LocalDate surveyDate) {
+        this.surveyDate = surveyDate;
+    }
+
+    public Instant getAddedAt() {
+        return addedAt;
+    }
+
+    public void setAddedAt(Instant addedAt) {
+        this.addedAt = addedAt;
+    }
 }

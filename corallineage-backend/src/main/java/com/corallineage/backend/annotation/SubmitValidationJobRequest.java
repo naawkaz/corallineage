@@ -6,11 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-/**
- * Mode A ("Validate against human labels") submit request: an existing dataset version's
- * real, already-labeled images/points are checked against a model's predictions, purely
- * as an accuracy recheck, not a labeling workflow.
- */
+/** Request to check a model's predictions against human labeled points */
 public class SubmitValidationJobRequest {
 
     @NotNull
@@ -25,15 +21,35 @@ public class SubmitValidationJobRequest {
     @NotBlank
     private String initiatedBy;
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public List<Long> getImageIds() { return imageIds; }
-    public void setImageIds(List<Long> imageIds) { this.imageIds = imageIds; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
+
+    public List<Long> getImageIds() {
+        return imageIds;
+    }
+
+    public void setImageIds(List<Long> imageIds) {
+        this.imageIds = imageIds;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 }

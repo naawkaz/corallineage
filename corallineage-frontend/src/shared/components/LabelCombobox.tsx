@@ -8,30 +8,28 @@ interface LabelComboboxProps {
   placeholder?: string
   disabled?: boolean
   id?: string
+  // Ignored while the dropdown is open or after the user picks an option.
+  valueSuffix?: string
 }
 
 /**
- * Searchable typeahead over a set of LabelDefinitions - text input + filtered option list with
- * keyboard nav. No combobox library exists anywhere in this codebase, so this is plain state +
- * .filter(), styled to match .form-input sizing (see index.css .combobox-*).
+ * Searchable typeahead over a set of LabelDefinitions: text input plus a filtered option list
  */
-export default function LabelCombobox({ options, value, onChange, placeholder, disabled, id }: LabelComboboxProps) {
-  const [query, setQuery] = useState('')
+export default function LabelCombobox({ options, value, onChange, placeholder, disabled, id, valueSuffix }: LabelComboboxProps) {
+  const selectedOption = options.find((o) => o.labelCode === value) ?? null
+
+  // Keep the displayed text in sync when the selection changes externally
+  // Derived during render, and skipped while the dropdown is open
+  const resolvedQuery = selectedOption
+    ? `${selectedOption.labelName} (${selectedOption.labelCode})${valueSuffix ?? ''}`
+    : ''
+
+  // Seed query lazily from resolvedQuery
+  // options already resolve seeds syncedKey from consistent state
+  const [query, setQuery] = useState(() => resolvedQuery)
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement | null>(null)
-
-  const selectedOption = options.find((o) => o.labelCode === value) ?? null
-
-  // Keep the displayed text in sync when the selection changes from outside (e.g. version switch,
-  // or the initial mount/an async-loaded `options` list resolving a `value` that was already set
-  // before options arrived). Re-syncs whenever either `value` or the text it resolves to changes,
-  // rather than tracking `value` alone, so a same-`value` re-render after `options` finishes
-  // loading still picks up the now-resolvable label text. Done during render (React's documented
-  // "adjusting state when a prop changes" pattern) rather than in a useEffect, since this is pure
-  // state derivation, not a subscription to an external system. Skipped while the dropdown is open
-  // so it never clobbers what the user is actively typing.
-  const resolvedQuery = selectedOption ? `${selectedOption.labelName} (${selectedOption.labelCode})` : ''
   const syncKey = `${value}::${resolvedQuery}`
   const [syncedKey, setSyncedKey] = useState(syncKey)
   if (syncKey !== syncedKey && !open) {
@@ -96,7 +94,7 @@ export default function LabelCombobox({ options, value, onChange, placeholder, d
       <input
         id={id}
         className="form-input combobox-input"
-        placeholder={placeholder ?? 'Search labels…'}
+        placeholder={placeholder ?? 'Search labels...'}
         value={query}
         disabled={disabled}
         onFocus={() => setOpen(true)}

@@ -11,15 +11,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Legacy MLC format: one .txt file per image, each line "row col label_code"
- * (or "row; col; label_code" — real-world exports such as the Moorea Labeled
- * Corals dataset use a semicolon delimiter and a leading "# Row; Col; Label"
- * comment line, both handled here). The image filename is matched two ways:
- * first the real-world convention where the .txt is the full image filename
- * with ".txt" appended (e.g. "foo.jpg" + "foo.jpg.txt"), falling back to the
- * .txt filename's own extension replaced by a known image extension (e.g.
- * "foo.txt" + "foo.jpg"). Points whose .txt has no matching image file are
- * skipped rather than aborting the import.
+ * Imports MLC text files, one per image, each line holds row col and label code
  */
 @Component
 public class MlcFormatParser implements DatasetFormatParser {
@@ -48,11 +40,13 @@ public class MlcFormatParser implements DatasetFormatParser {
                 int pointIndex = 0;
                 for (String line : lines) {
                     String trimmed = line.trim();
-                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
+                    if (trimmed.isEmpty() || trimmed.startsWith("#"))
+                        continue;
                     String[] parts = splitFields(trimmed);
                     if (parts.length < 3) {
                         throw new ImportParseException(
-                                "Malformed line in " + txtFile.getFileName() + ": \"" + line + "\" (expected \"row col label_code\")");
+                                "Malformed line in " + txtFile.getFileName() + ": \"" + line
+                                        + "\" (expected \"row col label_code\")");
                     }
                     int row = parseInt(parts[0], txtFile);
                     int col = parseInt(parts[1], txtFile);
@@ -67,24 +61,21 @@ public class MlcFormatParser implements DatasetFormatParser {
         return new ParseResult(images, points);
     }
 
-    /**
-     * Tries "foo.jpg.txt" -> "foo.jpg" (the .txt appended to the full image
-     * filename) first, since that's what real MLC exports use. Falls back to
-     * "foo.txt" -> "foo.jpg"/"foo.jpeg"/"foo.png" (the .txt's own extension
-     * replaced by a guessed image extension).
-     */
+    /** Matches a text file to its image by filename convention */
     private Path findMatchingImage(Path txtFile) throws IOException {
         String txtFilename = txtFile.getFileName().toString();
         Path dir = txtFile.getParent();
 
         String appendedConventionName = txtFilename.substring(0, txtFilename.length() - ".txt".length());
         Path direct = dir.resolve(appendedConventionName);
-        if (Files.exists(direct)) return direct;
+        if (Files.exists(direct))
+            return direct;
 
         String baseName = stripExtension(appendedConventionName);
         for (String ext : IMAGE_EXTENSIONS) {
             Path candidate = dir.resolve(baseName + ext);
-            if (Files.exists(candidate)) return candidate;
+            if (Files.exists(candidate))
+                return candidate;
         }
         return null;
     }
@@ -94,7 +85,7 @@ public class MlcFormatParser implements DatasetFormatParser {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    /** Splits on semicolons, commas, and/or whitespace, trimming empty tokens. */
+    /** Splits a line on semicolons commas or whitespace */
     private String[] splitFields(String line) {
         return Stream.of(line.split("[;,\\s]+"))
                 .map(String::trim)

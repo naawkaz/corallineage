@@ -27,9 +27,9 @@ public class ModelVersionService {
     private final AnnotationEventLoggerService annotationEventLoggerService;
 
     public ModelVersionService(ModelVersionRepository modelVersionRepository,
-                               ModelVersionMapper modelVersionMapper,
-                               MlflowIntegrationService mlflowIntegrationService,
-                               AnnotationEventLoggerService annotationEventLoggerService) {
+            ModelVersionMapper modelVersionMapper,
+            MlflowIntegrationService mlflowIntegrationService,
+            AnnotationEventLoggerService annotationEventLoggerService) {
         this.modelVersionRepository = modelVersionRepository;
         this.modelVersionMapper = modelVersionMapper;
         this.mlflowIntegrationService = mlflowIntegrationService;
@@ -38,8 +38,8 @@ public class ModelVersionService {
 
     @Transactional
     public ModelVersion registerFromTrainingResult(TrainingJob job, String mlflowRunId, String weightsPath,
-                                                    BigDecimal accuracy, String performanceMetricsJson,
-                                                    String classMappingsJson) {
+            BigDecimal accuracy, String performanceMetricsJson,
+            String classMappingsJson) {
         ModelVersion model = new ModelVersion();
         model.setModelTag("model-v" + nextModelFallbackNumber(job.getDatasetVersion().getDataset()));
         model.setTrainedOnDatasetVersion(job.getDatasetVersion());
@@ -65,7 +65,8 @@ public class ModelVersionService {
     @Transactional(readOnly = true)
     public Page<ModelVersionResponse> getAllModels(Long datasetId, Pageable pageable, String statusFilter) {
         Page<ModelVersion> models = statusFilter != null && !statusFilter.isBlank()
-                ? modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(datasetId, statusFilter, pageable)
+                ? modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_IdAndStatus(datasetId, statusFilter,
+                        pageable)
                 : modelVersionRepository.findByTrainedOnDatasetVersion_Dataset_Id(datasetId, pageable);
         return models.map(modelVersionMapper::toResponse);
     }
@@ -86,7 +87,7 @@ public class ModelVersionService {
         return modelVersionMapper.toResponse(saved);
     }
 
-    /** Delegates to MlflowIntegrationService; owns the 404-vs-503 distinction the spec calls for. */
+    /** Delegates to MlflowIntegrationService */
     @Transactional(readOnly = true)
     public MlflowDetailsResponse getMlflowDetails(Long id) {
         ModelVersion model = findOrThrow(id);
@@ -100,23 +101,20 @@ public class ModelVersionService {
         return details;
     }
 
-    /** Resolves the owning dataset id for a model, for the membership check. */
+    /** Resolves the owning dataset id for a model */
     @Transactional(readOnly = true)
     public Long getDatasetIdForModel(Long id) {
         return findOrThrow(id).getTrainedOnDatasetVersion().getDataset().getId();
     }
 
     /**
-     * Reserves and returns the next fallback model number for {@code dataset}, incrementing its
-     * persisted counter in place (a managed entity within this method's transaction, so the write
-     * flushes on commit without a separate save call). Replaces the previous
-     * {@code modelVersionRepository.count() + 1} approach, which counted every model across every
-     * dataset - a model deleted from a different dataset could shift another dataset's next
-     * fallback number, and two datasets training around the same time could even race onto the
-     * same tag.
+     * Reserves the next fallback model number for a dataset and verifies it is free
      */
     private int nextModelFallbackNumber(Dataset dataset) {
         int number = dataset.getNextModelFallbackNumber() != null ? dataset.getNextModelFallbackNumber() : 1;
+        while (modelVersionRepository.existsByModelTag("model-v" + number)) {
+            number++;
+        }
         dataset.setNextModelFallbackNumber(number + 1);
         return number;
     }

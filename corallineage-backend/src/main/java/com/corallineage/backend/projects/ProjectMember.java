@@ -5,8 +5,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "project_memberships",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"project_id", "user_id"}))
+@Table(name = "project_memberships", uniqueConstraints = @UniqueConstraint(columnNames = { "project_id", "user_id" }))
 public class ProjectMember {
 
     @Id
@@ -29,38 +28,63 @@ public class ProjectMember {
     private Instant createdAt;
 
     /**
-     * When false (the default), this member has unrestricted access to every Source in
-     * the project, including Sources added later - the project_member_source_access join
-     * table is bypassed entirely. When true, access is exactly the set of rows for this
-     * member in that table (an empty set legitimately means "no Sources"). Only ever true
-     * for COLLABORATOR members; OWNER members always bypass this regardless of the flag.
-     * See docs/decisions.md for the full rationale.
+     * False by default, unrestricted access to every source, true limits access to
+     * granted sources
      */
     @Column(name = "source_access_restricted", nullable = false)
     private boolean sourceAccessRestricted = false;
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null)
+            createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Project getProject() { return project; }
-    public void setProject(Project project) { this.project = project; }
+    public Project getProject() {
+        return project;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public void setProject(Project project) {
+        this.project = project;
+    }
 
-    public ProjectRole getRole() { return role; }
-    public void setRole(ProjectRole role) { this.role = role; }
+    public User getUser() {
+        return user;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public boolean isSourceAccessRestricted() { return sourceAccessRestricted; }
-    public void setSourceAccessRestricted(boolean sourceAccessRestricted) { this.sourceAccessRestricted = sourceAccessRestricted; }
+    public ProjectRole getRole() {
+        return role;
+    }
+
+    public void setRole(ProjectRole role) {
+        this.role = role;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public boolean isSourceAccessRestricted() {
+        return sourceAccessRestricted;
+    }
+
+    public void setSourceAccessRestricted(boolean sourceAccessRestricted) {
+        this.sourceAccessRestricted = sourceAccessRestricted;
+    }
 }

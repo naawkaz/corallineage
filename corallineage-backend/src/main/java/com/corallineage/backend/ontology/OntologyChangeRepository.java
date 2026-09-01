@@ -11,7 +11,8 @@ public interface OntologyChangeRepository extends JpaRepository<OntologyChange, 
 
     Page<OntologyChange> findAllByOrderByChangedAtDesc(Pageable pageable);
 
-    Page<OntologyChange> findByAffectedDatasetVersionIdOrderByChangedAtDesc(Long affectedDatasetVersionId, Pageable pageable);
+    Page<OntologyChange> findByAffectedDatasetVersionIdOrderByChangedAtDesc(Long affectedDatasetVersionId,
+            Pageable pageable);
 
     Page<OntologyChange> findByAffectedDatasetVersion_Dataset_IdOrderByChangedAtDesc(Long datasetId, Pageable pageable);
 

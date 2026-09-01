@@ -27,66 +27,171 @@ public class PointAnnotationJobResponse {
     private Integer autoAnnotationTotalCount;
     private Long autoAnnotationCurrentPointId;
 
-    public Long getJobId() { return jobId; }
-    public void setJobId(Long jobId) { this.jobId = jobId; }
+    public Long getJobId() {
+        return jobId;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public void setJobId(Long jobId) {
+        this.jobId = jobId;
+    }
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public Integer getGridRows() { return gridRows; }
-    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
 
-    public Integer getGridCols() { return gridCols; }
-    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public Integer getSeedImageCount() { return seedImageCount; }
-    public void setSeedImageCount(Integer seedImageCount) { this.seedImageCount = seedImageCount; }
+    public Integer getGridRows() {
+        return gridRows;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setGridRows(Integer gridRows) {
+        this.gridRows = gridRows;
+    }
 
-    public int getTotalImages() { return totalImages; }
-    public void setTotalImages(int totalImages) { this.totalImages = totalImages; }
+    public Integer getGridCols() {
+        return gridCols;
+    }
 
-    public long getSeedTotalPoints() { return seedTotalPoints; }
-    public void setSeedTotalPoints(long seedTotalPoints) { this.seedTotalPoints = seedTotalPoints; }
+    public void setGridCols(Integer gridCols) {
+        this.gridCols = gridCols;
+    }
 
-    public long getSeedLabeledPoints() { return seedLabeledPoints; }
-    public void setSeedLabeledPoints(long seedLabeledPoints) { this.seedLabeledPoints = seedLabeledPoints; }
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
 
-    public Long getTrainingJobId() { return trainingJobId; }
-    public void setTrainingJobId(Long trainingJobId) { this.trainingJobId = trainingJobId; }
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
 
-    public Long getAnnotationJobId() { return annotationJobId; }
-    public void setAnnotationJobId(Long annotationJobId) { this.annotationJobId = annotationJobId; }
+    public Integer getSeedImageCount() {
+        return seedImageCount;
+    }
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public void setSeedImageCount(Integer seedImageCount) {
+        this.seedImageCount = seedImageCount;
+    }
 
-    public String getModelTag() { return modelTag; }
-    public void setModelTag(String modelTag) { this.modelTag = modelTag; }
+    public String getStatus() {
+        return status;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public int getTotalImages() {
+        return totalImages;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setTotalImages(int totalImages) {
+        this.totalImages = totalImages;
+    }
 
-    public Integer getAutoAnnotationProcessedCount() { return autoAnnotationProcessedCount; }
-    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) { this.autoAnnotationProcessedCount = autoAnnotationProcessedCount; }
+    public long getSeedTotalPoints() {
+        return seedTotalPoints;
+    }
 
-    public Integer getAutoAnnotationTotalCount() { return autoAnnotationTotalCount; }
-    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) { this.autoAnnotationTotalCount = autoAnnotationTotalCount; }
+    public void setSeedTotalPoints(long seedTotalPoints) {
+        this.seedTotalPoints = seedTotalPoints;
+    }
 
-    public Long getAutoAnnotationCurrentPointId() { return autoAnnotationCurrentPointId; }
-    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) { this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId; }
+    public long getSeedLabeledPoints() {
+        return seedLabeledPoints;
+    }
+
+    public void setSeedLabeledPoints(long seedLabeledPoints) {
+        this.seedLabeledPoints = seedLabeledPoints;
+    }
+
+    public Long getTrainingJobId() {
+        return trainingJobId;
+    }
+
+    public void setTrainingJobId(Long trainingJobId) {
+        this.trainingJobId = trainingJobId;
+    }
+
+    public Long getAnnotationJobId() {
+        return annotationJobId;
+    }
+
+    public void setAnnotationJobId(Long annotationJobId) {
+        this.annotationJobId = annotationJobId;
+    }
+
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
+
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
+
+    public String getModelTag() {
+        return modelTag;
+    }
+
+    public void setModelTag(String modelTag) {
+        this.modelTag = modelTag;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public Integer getAutoAnnotationProcessedCount() {
+        return autoAnnotationProcessedCount;
+    }
+
+    public void setAutoAnnotationProcessedCount(Integer autoAnnotationProcessedCount) {
+        this.autoAnnotationProcessedCount = autoAnnotationProcessedCount;
+    }
+
+    public Integer getAutoAnnotationTotalCount() {
+        return autoAnnotationTotalCount;
+    }
+
+    public void setAutoAnnotationTotalCount(Integer autoAnnotationTotalCount) {
+        this.autoAnnotationTotalCount = autoAnnotationTotalCount;
+    }
+
+    public Long getAutoAnnotationCurrentPointId() {
+        return autoAnnotationCurrentPointId;
+    }
+
+    public void setAutoAnnotationCurrentPointId(Long autoAnnotationCurrentPointId) {
+        this.autoAnnotationCurrentPointId = autoAnnotationCurrentPointId;
+    }
 }

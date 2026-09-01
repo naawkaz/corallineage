@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -21,6 +21,8 @@ import type { GeneratedPoint, PointAnnotationJob } from '../pointannotation/poin
 import type { Architecture, TrainingJob } from '../training/trainingTypes'
 import type { DatasetVersion, LabelDefinition } from '../datasets/versionsTypes'
 
+// user hand-labels the generated seed points image by image
+// trains first model and hands off to auto-annotation
 export default function SeedLabeling() {
   const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
@@ -60,20 +62,24 @@ export default function SeedLabeling() {
   useEffect(() => {
     Promise.all([fetchPointAnnotationJob(jobId), loadPoints()])
       .then(([jobRes]) => {
+        // Job where seed-labeling stage is already done
+        if (jobRes.status === 'COMPLETE' && jobRes.annotationJobId != null) {
+          navigate(`/sources/${sourceId}/annotation/jobs/${jobRes.annotationJobId}/review`)
+          return null
+        }
         setJob(jobRes)
         setError(null)
         return fetchVersion(sourceId, jobRes.datasetVersionId)
       })
-      .then((version) => setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
+      .then((version) => version && setLabelOptions((version.labelDefinitions ?? []).filter((l) => !l.deprecated)))
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false))
-  }, [jobId, sourceId, loadPoints])
+  }, [jobId, sourceId, navigate, loadPoints])
 
   useEffect(() => {
     fetchArchitectures()
       .then((list) => setArchitectures(list))
       .catch(() => {
-        // architecture dropdown just stays on the default; submit will still validate server-side
       })
   }, [])
 
@@ -105,9 +111,8 @@ export default function SeedLabeling() {
     return map
   }, [points])
 
-  // Re-selects the first image whenever the point set changes for a different reason than one
-  // point flipping status (e.g. initial load) - same derived-during-render pattern the Dirty
-  // Annotations Queue uses for its equivalent sync.
+  // Re-select the first image when the image set itself changes
+  // not when a single point flips status
   const imageKey = imageIds.join(',')
   const [syncedImageKey, setSyncedImageKey] = useState('')
   if (imageKey !== syncedImageKey) {
@@ -138,10 +143,6 @@ export default function SeedLabeling() {
     }
   }
 
-  // A distinct, deliberate action, reached through the full labelset panel, not the per-point
-  // picker, so adding a new vocabulary entry mid-session is a conscious choice with its own
-  // moment of friction, never something a mistyped keystroke in the fast, repetitive seed-labeling
-  // loop can do by accident.
   async function handleAddLabel() {
     if (!job || !newLabelCode.trim() || !newLabelName.trim()) return
     setAddingLabel(true)
@@ -164,21 +165,8 @@ export default function SeedLabeling() {
     }
   }
 
-  // Submitted via the shared TrainModelDialog (also used unmodified by ModelRegistry.tsx): unlike
-  // that page's own usage, this one routes through trainPointAnnotationJob so the resulting
-  // TrainingJob gets attached to this PointAnnotationJob (job.trainingJobId) instead of created as
-  // a standalone job - see PointAnnotationJobService.trainModel and the plan doc's Part D notes for
-  // why this distinction matters (TrainingJobExecutor.autoAnnotateAfterTraining reads it).
-  //
-  // Per the confirmed UX: once training is kicked off, the user leaves this page immediately
-  // rather than watching progress here - the backend auto-delegates into auto-annotate the moment
-  // training completes (TrainingJobExecutor -> PointAnnotationJobService.autoAnnotateAfterTraining,
-  // no manual "Run Auto-Annotation" click), and cross-page feedback (a spinner on the Unlabeled
-  // import queue entry, a toast once it's ready for review) is JobPollingProvider's job (Part G) -
-  // it fires the "Training complete"/"Ready for review" toasts globally, so this only needs to
-  // push its own immediate "started" acknowledgement before navigating away, since the shared
-  // provider deliberately never toasts on a job's first sight (that's what avoids re-toasting
-  // every already-in-progress job just because the user opened a new page).
+  // Routed through trainPointAnnotationJob so TrainingJob is attached to this
+  // backend reads it auto-delegate into auto-annotate once training completes
   async function handleTrainSubmit(form: {
     architecture: string
     datasetVersionId: number
@@ -201,11 +189,8 @@ export default function SeedLabeling() {
     return trainingJobResponse
   }
 
-  // Polls the underlying (real, unmodified) Training Job while this point-annotation job is
-  // TRAINING - reuses the existing Training Jobs page's own 3s-polling convention. Only matters if
-  // the user navigates directly back to this page mid-training (the normal path leaves immediately
-  // after submitting); once the job leaves TRAINING (delegated to auto-annotate), forward straight
-  // to the delegated AnnotationJob's review screen rather than showing a dead-end status here.
+  // Polls the training job every 3s while this job is TRAINING
+  // Once TRAINING done forward to the review screen
   useEffect(() => {
     if (!job || job.status !== 'TRAINING' || job.trainingJobId == null) return
     let cancelled = false
@@ -223,7 +208,6 @@ export default function SeedLabeling() {
           }
         })
         .catch(() => {
-          /* transient poll failure - try again next tick */
         })
     }, 3000)
     return () => {
@@ -236,7 +220,7 @@ export default function SeedLabeling() {
     return (
       <div className="content">
         <div className="loading-state">
-          <span className="spinner" /> Loading seed labeling…
+          <span className="spinner" /> Loading seed labeling...
         </div>
       </div>
     )
@@ -278,11 +262,6 @@ export default function SeedLabeling() {
 
       <div style={{ margin: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
         <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{statusText}</span>
-        {job.status === 'SEED_LABELING' && allLabeled && (
-          <button className="btn btn-primary" onClick={() => setTrainDialogOpen(true)}>
-            Train model &amp; run auto-annotation
-          </button>
-        )}
       </div>
       <div style={{ height: 4, background: 'var(--border)', margin: '4px 24px 0' }}>
         <div style={{ height: 4, width: `${displayPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
@@ -458,20 +437,29 @@ export default function SeedLabeling() {
               </div>
             </div>
 
-            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
-                {currentImagePoints.map((point, idx) => (
-                  <SeedPointCard
-                    key={point.id}
-                    point={point}
-                    pointNumber={idx + 1}
-                    selected={point.id === effectiveSelectedPointId}
-                    labelOptions={labelOptions}
-                    onSelect={() => setSelectedPointId(point.id)}
-                    onLabel={handleLabel}
-                  />
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                  {currentImagePoints.map((point, idx) => (
+                    <SeedPointCard
+                      key={point.id}
+                      point={point}
+                      pointNumber={idx + 1}
+                      selected={point.id === effectiveSelectedPointId}
+                      labelOptions={labelOptions}
+                      onSelect={() => setSelectedPointId(point.id)}
+                      onLabel={handleLabel}
+                    />
+                  ))}
+                </div>
               </div>
+              {job.status === 'SEED_LABELING' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                  <button className="btn btn-accept" disabled={!allLabeled} onClick={() => setTrainDialogOpen(true)}>
+                    Train model &amp; run auto-annotation
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -550,7 +538,7 @@ export default function SeedLabeling() {
                 onClick={handleAddLabel}
                 disabled={addingLabel || !newLabelCode.trim() || !newLabelName.trim()}
               >
-                {addingLabel ? 'Creating…' : 'Create Label'}
+                {addingLabel ? 'Creating...' : 'Create Label'}
               </button>
             </div>
           </div>
@@ -590,8 +578,6 @@ function SeedPointCard({
   onSelect: () => void
   onLabel: (point: GeneratedPoint, labelCode: string) => void
 }) {
-  // The dropdown alone is the confirm action (no separate "Label" button): picking an option
-  // immediately labels the point - mirrors AnnotationReview.tsx's PredictionCard.
   const canLabel = point.status !== 'HUMAN_LABELED'
 
   return (
@@ -611,7 +597,7 @@ function SeedPointCard({
           value={point.finalLabelCode ?? ''}
           onChange={canLabel ? (labelCode) => onLabel(point, labelCode) : () => {}}
           disabled={!canLabel}
-          placeholder="Search labels…"
+          placeholder="Search labels..."
         />
       </div>
     </div>

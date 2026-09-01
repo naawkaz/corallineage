@@ -9,11 +9,8 @@ from ml_service.config import IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD, RANDOM_SE
 
 
 class ImageFolderDataset(Dataset):
-    """Minimal ImageFolder-equivalent: walks datasetPath/<class>/<image> without torchvision.
-
-    Avoids depending on torchvision's dataset/transform utilities so the service
-    only needs torchvision's model zoo (already required by timm).
-    """
+    # Avoids depending on torchvision's dataset/transform utilities so the service
+    # only needs torchvision's model zoo
 
     def __init__(self, root: str):
         root_path = Path(root)
@@ -43,13 +40,10 @@ class ImageFolderDataset(Dataset):
 
 
 def split_train_val(dataset: "ImageFolderDataset"):
-    """Splits the dataset into a train subset and a held-out validation subset.
-
-    Uses a fixed-seed generator so the split is reproducible across runs of the
-    same dataset (same RANDOM_SEED already used for weight init). Guards the
-    tiny-dataset edge case (this is a research prototype, datasets can be a
-    handful of images) so both subsets always have at least one sample.
-    """
+    # Splits the dataset into a train subset and a held-out validation subset.
+    # Uses a fixed-seed generator so the split is reproducible across runs of the
+    # same dataset.
+    
     total = len(dataset)
     val_size = max(1, round(total * VALIDATION_SPLIT))
     if val_size >= total:

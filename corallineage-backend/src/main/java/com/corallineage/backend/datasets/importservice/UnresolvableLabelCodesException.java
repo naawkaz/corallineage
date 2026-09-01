@@ -8,7 +8,7 @@ public class UnresolvableLabelCodesException extends RuntimeException {
 
     public UnresolvableLabelCodesException(Set<String> unresolvedCodes) {
         super("Unresolvable label code(s): " + String.join(", ", unresolvedCodes)
-                + ". Import aborted — define these labels on the dataset before importing.");
+                + ". Import aborted - define these labels on the dataset before importing.");
         this.unresolvedCodes = unresolvedCodes;
     }
 

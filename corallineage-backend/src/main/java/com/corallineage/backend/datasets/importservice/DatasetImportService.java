@@ -28,10 +28,10 @@ public class DatasetImportService {
     private final DatasetImportExecutor datasetImportExecutor;
 
     public DatasetImportService(DatasetRepository datasetRepository,
-                                DatasetVersionRepository datasetVersionRepository,
-                                ImportJobRepository importJobRepository,
-                                ImportJobMapper importJobMapper,
-                                DatasetImportExecutor datasetImportExecutor) {
+            DatasetVersionRepository datasetVersionRepository,
+            ImportJobRepository importJobRepository,
+            ImportJobMapper importJobMapper,
+            DatasetImportExecutor datasetImportExecutor) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.importJobRepository = importJobRepository;
@@ -41,8 +41,8 @@ public class DatasetImportService {
 
     @Transactional
     public ImportJobResponse submitImport(Long datasetId, MultipartFile[] files, String[] relativePaths,
-                                          ImportFormat format, String versionTag, String importedBy, String notes,
-                                          List<LabelDeclarationRequest> labels) {
+            ImportFormat format, String versionTag, String importedBy, String notes,
+            List<LabelDeclarationRequest> labels) {
         Dataset dataset = datasetRepository.findById(datasetId)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
 
@@ -61,9 +61,7 @@ public class DatasetImportService {
         job.setStatus("PROCESSING");
         ImportJob saved = importJobRepository.save(job);
 
-        // The @Async executor runs on another thread/connection and must not start
-        // until this transaction (and the ImportJob/Dataset rows it depends on) has
-        // committed — same visibility issue fixed for DatasetVersionService's event log.
+        // The async executor must not start until this transaction commits
         dispatchAfterCommit(saved.getId(), datasetId, tempDir, format, versionTag, importedBy, labels);
 
         return importJobMapper.toResponse(saved);
@@ -77,12 +75,13 @@ public class DatasetImportService {
     }
 
     private void dispatchAfterCommit(Long jobId, Long datasetId, Path tempDir, ImportFormat format,
-                                     String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
+            String versionTag, String importedBy, List<LabelDeclarationRequest> labels) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy, labels);
+                    datasetImportExecutor.executeImportAsync(jobId, datasetId, tempDir, format, versionTag, importedBy,
+                            labels);
                 }
             });
         } else {
@@ -90,11 +89,7 @@ public class DatasetImportService {
         }
     }
 
-    /**
-     * Reconstructs the uploaded directory (from a browser directory picker, one
-     * MultipartFile + relative path per file) into a temp directory the format
-     * parsers can walk, the same way a ZIP used to be extracted into one.
-     */
+    /** Reconstructs an uploaded directory into a temp directory */
     private Path persistUpload(MultipartFile[] files, String[] relativePaths) {
         if (files.length != relativePaths.length) {
             throw new ImportParseException("Mismatched files/relativePaths counts in upload");

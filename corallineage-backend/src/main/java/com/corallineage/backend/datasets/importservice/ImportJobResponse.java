@@ -19,45 +19,115 @@ public class ImportJobResponse {
     private String createdVersionTag;
     private String errorMessage;
 
-    public String getImportJobId() { return importJobId; }
-    public void setImportJobId(String importJobId) { this.importJobId = importJobId; }
+    public String getImportJobId() {
+        return importJobId;
+    }
 
-    public Long getDatasetId() { return datasetId; }
-    public void setDatasetId(Long datasetId) { this.datasetId = datasetId; }
+    public void setImportJobId(String importJobId) {
+        this.importJobId = importJobId;
+    }
 
-    public String getFormat() { return format; }
-    public void setFormat(String format) { this.format = format; }
+    public Long getDatasetId() {
+        return datasetId;
+    }
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public void setDatasetId(Long datasetId) {
+        this.datasetId = datasetId;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getFormat() {
+        return format;
+    }
 
-    public Instant getSubmittedAt() { return submittedAt; }
-    public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
+    public void setFormat(String format) {
+        this.format = format;
+    }
 
-    public Instant getCompletedAt() { return completedAt; }
-    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public Integer getImagesImported() { return imagesImported; }
-    public void setImagesImported(Integer imagesImported) { this.imagesImported = imagesImported; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public Integer getAnnotationPointsImported() { return annotationPointsImported; }
-    public void setAnnotationPointsImported(Integer annotationPointsImported) { this.annotationPointsImported = annotationPointsImported; }
+    public String getStatus() {
+        return status;
+    }
 
-    public Integer getLabelsResolved() { return labelsResolved; }
-    public void setLabelsResolved(Integer labelsResolved) { this.labelsResolved = labelsResolved; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public Integer getLabelsUnresolved() { return labelsUnresolved; }
-    public void setLabelsUnresolved(Integer labelsUnresolved) { this.labelsUnresolved = labelsUnresolved; }
+    public Instant getSubmittedAt() {
+        return submittedAt;
+    }
 
-    public Long getCreatedDatasetVersionId() { return createdDatasetVersionId; }
-    public void setCreatedDatasetVersionId(Long createdDatasetVersionId) { this.createdDatasetVersionId = createdDatasetVersionId; }
+    public void setSubmittedAt(Instant submittedAt) {
+        this.submittedAt = submittedAt;
+    }
 
-    public String getCreatedVersionTag() { return createdVersionTag; }
-    public void setCreatedVersionTag(String createdVersionTag) { this.createdVersionTag = createdVersionTag; }
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setCompletedAt(Instant completedAt) {
+        this.completedAt = completedAt;
+    }
+
+    public Integer getImagesImported() {
+        return imagesImported;
+    }
+
+    public void setImagesImported(Integer imagesImported) {
+        this.imagesImported = imagesImported;
+    }
+
+    public Integer getAnnotationPointsImported() {
+        return annotationPointsImported;
+    }
+
+    public void setAnnotationPointsImported(Integer annotationPointsImported) {
+        this.annotationPointsImported = annotationPointsImported;
+    }
+
+    public Integer getLabelsResolved() {
+        return labelsResolved;
+    }
+
+    public void setLabelsResolved(Integer labelsResolved) {
+        this.labelsResolved = labelsResolved;
+    }
+
+    public Integer getLabelsUnresolved() {
+        return labelsUnresolved;
+    }
+
+    public void setLabelsUnresolved(Integer labelsUnresolved) {
+        this.labelsUnresolved = labelsUnresolved;
+    }
+
+    public Long getCreatedDatasetVersionId() {
+        return createdDatasetVersionId;
+    }
+
+    public void setCreatedDatasetVersionId(Long createdDatasetVersionId) {
+        this.createdDatasetVersionId = createdDatasetVersionId;
+    }
+
+    public String getCreatedVersionTag() {
+        return createdVersionTag;
+    }
+
+    public void setCreatedVersionTag(String createdVersionTag) {
+        this.createdVersionTag = createdVersionTag;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
 }

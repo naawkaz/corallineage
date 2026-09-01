@@ -11,21 +11,51 @@ public class ProjectMemberResponse {
     private Instant addedAt;
     private boolean sourceAccessRestricted;
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public Long getUserId() {
+        return userId;
+    }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
-    public String getDisplayName() { return displayName; }
-    public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getUsername() {
+        return username;
+    }
 
-    public ProjectRole getRole() { return role; }
-    public void setRole(ProjectRole role) { this.role = role; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-    public Instant getAddedAt() { return addedAt; }
-    public void setAddedAt(Instant addedAt) { this.addedAt = addedAt; }
+    public String getDisplayName() {
+        return displayName;
+    }
 
-    public boolean isSourceAccessRestricted() { return sourceAccessRestricted; }
-    public void setSourceAccessRestricted(boolean sourceAccessRestricted) { this.sourceAccessRestricted = sourceAccessRestricted; }
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public ProjectRole getRole() {
+        return role;
+    }
+
+    public void setRole(ProjectRole role) {
+        this.role = role;
+    }
+
+    public Instant getAddedAt() {
+        return addedAt;
+    }
+
+    public void setAddedAt(Instant addedAt) {
+        this.addedAt = addedAt;
+    }
+
+    public boolean isSourceAccessRestricted() {
+        return sourceAccessRestricted;
+    }
+
+    public void setSourceAccessRestricted(boolean sourceAccessRestricted) {
+        this.sourceAccessRestricted = sourceAccessRestricted;
+    }
 }

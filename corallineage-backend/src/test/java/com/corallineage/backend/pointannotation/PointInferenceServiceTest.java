@@ -33,13 +33,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * prepareAndStartAnnotate and applyPredictions are now two separate @Transactional entry points
- * (see PointInferenceService's class comment for why: AutoAnnotationExecutor's poll loop between
- * them can run for seconds to minutes and must not hold one transaction open across that span),
- * so this file covers each in isolation rather than one combined runInference call. Coverage of
- * the two wired together end-to-end lives in AutoAnnotationExecutorTest.
- */
+/** Covers prepareAndStartAnnotate and applyPredictions in isolation */
 @ExtendWith(MockitoExtension.class)
 class PointInferenceServiceTest {
 

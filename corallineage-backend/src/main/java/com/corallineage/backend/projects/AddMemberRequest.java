@@ -13,20 +13,30 @@ public class AddMemberRequest {
     @NotNull(message = "role is required")
     private ProjectRole role;
 
-    /**
-     * Source (dataset) ids this member should have access to. Optional; when omitted or
-     * when it names every current Source in the project, the member is unrestricted
-     * (sees all current and future Sources). When it names a proper subset, the member
-     * is restricted to exactly those Sources.
-     */
+    /** Source ids this member can access, omitted means unrestricted */
     private List<Long> sourceIds;
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public String getUsername() {
+        return username;
+    }
 
-    public ProjectRole getRole() { return role; }
-    public void setRole(ProjectRole role) { this.role = role; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-    public List<Long> getSourceIds() { return sourceIds; }
-    public void setSourceIds(List<Long> sourceIds) { this.sourceIds = sourceIds; }
+    public ProjectRole getRole() {
+        return role;
+    }
+
+    public void setRole(ProjectRole role) {
+        this.role = role;
+    }
+
+    public List<Long> getSourceIds() {
+        return sourceIds;
+    }
+
+    public void setSourceIds(List<Long> sourceIds) {
+        this.sourceIds = sourceIds;
+    }
 }

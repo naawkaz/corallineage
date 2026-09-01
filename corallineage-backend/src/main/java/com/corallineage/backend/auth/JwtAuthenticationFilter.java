@@ -15,12 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Reads a Bearer token from the Authorization header, validates it, and if valid,
- * populates the SecurityContext with an authenticated principal (the username).
- * Requests with no token, or an invalid/expired one, simply pass through unauthenticated;
- * Spring Security's authorization rules decide from there whether that's allowed.
- */
+/** Reads and validates a bearer token, then sets the authenticated principal */
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -35,8 +30,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
-                                     @NonNull HttpServletResponse response,
-                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
         String header = request.getHeader(HEADER);
 
         if (header != null && header.startsWith(PREFIX)) {

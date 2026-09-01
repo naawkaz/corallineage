@@ -9,7 +9,8 @@ import java.util.Optional;
 
 public interface GeneratedPointRepository extends JpaRepository<GeneratedPoint, Long> {
 
-    Page<GeneratedPoint> findByJobIdAndSeed(Long jobId, boolean seed, Pageable pageable);
+    // Explicit order keeps the seed labeling list stable as points get updated
+    Page<GeneratedPoint> findByJobIdAndSeedOrderByIdAsc(Long jobId, boolean seed, Pageable pageable);
 
     long countByJobIdAndSeedTrue(Long jobId);
 

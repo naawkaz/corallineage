@@ -62,7 +62,7 @@ export default function OntologyChangeReview() {
         setChangeError(null)
         if (found) {
           fetchVersion(sourceId, found.affectedDatasetVersionId)
-            .then((v) => setLabelOptions(v.labelDefinitions ?? []))
+            .then((v) => setLabelOptions((v.labelDefinitions ?? []).filter((l) => !l.deprecated)))
             .catch(() => setLabelOptions([]))
         }
       })
@@ -151,14 +151,14 @@ export default function OntologyChangeReview() {
         </button>
       </div>
 
-      <div className="page-title-row">
+      <div className="page-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
         <div className="page-title">
           {changeLoading || !change
             ? 'Ontology Change'
-            : `${changeTypeLabel(change.changeType)}: ${change.oldLabelCode ?? '(none)'} → ${change.newLabelCodes?.join(', ') || (change.replacementLabelCode ? `(replacement: ${change.replacementLabelCode})` : '(none)')}`}
+            : `${changeTypeLabel(change.changeType)}: ${change.oldLabelCode ?? '(none)'} -> ${change.newLabelCodes?.join(', ') || (change.replacementLabelCode ? `(replacement: ${change.replacementLabelCode})` : '(none)')}`}
         </div>
         {change && (
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             Changed by {change.changedBy} on {formatDate(change.changedAt)}
           </div>
         )}
@@ -171,17 +171,17 @@ export default function OntologyChangeReview() {
       )}
 
       {change && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: hasUnresolved ? 4 : 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             {resolvedCount} / {totalCount} resolved
           </span>
         </div>
       )}
-      {hasUnresolved && (
-        <div style={{ height: 4, background: 'var(--border)', marginBottom: 16 }}>
+      <div style={{ height: 4, background: 'var(--border)', margin: '4px 0 16px' }}>
+        {hasUnresolved && (
           <div style={{ height: 4, width: `${progressPct}%`, background: '#0d9488', transition: 'width 0.2s' }} />
-        </div>
-      )}
+        )}
+      </div>
 
       {dirtyError && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
@@ -192,7 +192,7 @@ export default function OntologyChangeReview() {
       {dirtyLoading ? (
         <div className="card">
           <div className="loading-state">
-            <span className="spinner" /> Loading dirty annotations…
+            <span className="spinner" /> Loading dirty annotations...
           </div>
         </div>
       ) : dirtyAnnotations.length === 0 ? (
@@ -208,6 +208,7 @@ export default function OntologyChangeReview() {
           <div className="card" style={{ padding: 0 }}>
             {dirtyImageIds.map((imgId) => {
               const points = dirtyByImage.get(imgId) ?? []
+              const resolved = points.filter((p) => p.resolved).length
               return (
                 <div
                   key={imgId}
@@ -224,6 +225,9 @@ export default function OntologyChangeReview() {
                   </span>
                   <span className="queue-list-item-text">
                     <span className="queue-list-item-filename">{points[0]?.filename ?? `image ${imgId}`}</span>
+                    <span className="queue-list-item-progress">
+                      {resolved}/{points.length} resolved
+                    </span>
                   </span>
                 </div>
               )
@@ -234,7 +238,17 @@ export default function OntologyChangeReview() {
           <div className="review-layout">
             {/* Center: image canvas + point overlays */}
             <div>
-              <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+                    Resolved
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
+                    Pending
+                  </span>
+                </div>
                 <label className="toggle-checkbox">
                   <input type="checkbox" checked={dotsVisible} onChange={(e) => setDotsVisible(e.target.checked)} />
                   Points
@@ -280,7 +294,7 @@ export default function OntologyChangeReview() {
                                   top: `${(p.rowPosition / canvasNaturalSize.height) * 100}%`,
                                   left: `${(p.colPosition / canvasNaturalSize.width) * 100}%`,
                                 }}
-                                title={`${p.currentLabelCode}${p.resolved ? ` → ${p.newLabelCode}` : ''}`}
+                                title={`${p.currentLabelCode}${p.resolved ? ` -> ${p.newLabelCode}` : ''}`}
                                 onClick={() => setSelectedDirtyPointId(p.id)}
                               >
                                 {p.pointIndex}
@@ -294,31 +308,67 @@ export default function OntologyChangeReview() {
                   <div className="image-placeholder">No image selected</div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 10, fontSize: 11, color: 'var(--text-secondary)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
-                  Resolved
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
-                  Pending
-                </span>
+
+              <div className="card" style={{ marginTop: 10, padding: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    padding: '8px 12px',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <span style={{ width: 120 }}>Code</span>
+                  <span style={{ flex: 1 }}>Name</span>
+                  <span style={{ width: 120 }}>Category</span>
+                </div>
+                <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                  {labelOptions.length === 0 ? (
+                    <div style={{ padding: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      No labels declared on this dataset version yet.
+                    </div>
+                  ) : (
+                    labelOptions.map((label) => (
+                      <div
+                        key={label.labelCode}
+                        style={{ display: 'flex', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid var(--border)' }}
+                      >
+                        <span style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
+                        <span style={{ flex: 1, fontSize: 12 }}>{label.labelName}</span>
+                        <span style={{ width: 120 }}>{label.labelCategory && <span className="tag">{label.labelCategory}</span>}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Right: one card per dirty point on the selected image */}
-            <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
-                {currentImagePoints.map((dirty) => (
-                  <DirtyPointCard
-                    key={dirty.id}
-                    dirty={dirty}
-                    selected={dirty.id === effectiveSelectedPointId}
-                    labelOptions={allowedResolveLabels}
-                    onSelect={() => setSelectedDirtyPointId(dirty.id)}
-                    onResolve={handleResolve}
-                  />
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div className="inset-container" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                <div className="review-panel" style={{ maxHeight: 'none', overflowY: 'visible' }}>
+                  {currentImagePoints.map((dirty) => (
+                    <DirtyPointCard
+                      key={dirty.id}
+                      dirty={dirty}
+                      selected={dirty.id === effectiveSelectedPointId}
+                      labelOptions={allowedResolveLabels}
+                      onSelect={() => setSelectedDirtyPointId(dirty.id)}
+                      onResolve={handleResolve}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  className="btn btn-accept"
+                  disabled={hasUnresolved}
+                  onClick={() => navigate(`/sources/${sourceId}/ontology`)}
+                >
+                  Confirm Changes
+                </button>
               </div>
             </div>
           </div>
@@ -341,7 +391,9 @@ function DirtyPointCard({
   onSelect: () => void
   onResolve: (dirty: DirtyAnnotation, newLabelCode: string) => void
 }) {
-  const [picked, setPicked] = useState('')
+  // picking an option immediately resolves this point.
+  const canResolve = !dirty.resolved
+  const currentValue = dirty.resolved ? dirty.newLabelCode ?? '' : ''
 
   return (
     <div id={`dirty-card-${dirty.id}`} className={`review-point-card${selected ? ' selected' : ''}`} onClick={onSelect}>
@@ -359,30 +411,20 @@ function DirtyPointCard({
         Flagged {formatDate(dirty.flaggedAt)}
       </div>
 
-      {dirty.resolved ? (
-        <div style={{ fontSize: 13 }}>
-          <span className="mono">{dirty.currentLabelCode}</span> → <span className="mono">{dirty.newLabelCode}</span>
-          {dirty.resolvedBy && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>by {dirty.resolvedBy}</div>
-          )}
-        </div>
-      ) : (
-        <div onClick={(e) => e.stopPropagation()}>
-          <LabelCombobox
-            options={labelOptions}
-            value={picked}
-            onChange={setPicked}
-            placeholder="Search allowed labels…"
-          />
-          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              className="btn btn-accept"
-              disabled={!picked}
-              onClick={() => onResolve(dirty, picked)}
-            >
-              Resolve
-            </button>
-          </div>
+      <div onClick={(e) => canResolve && e.stopPropagation()}>
+        <LabelCombobox
+          options={labelOptions}
+          value={currentValue}
+          onChange={canResolve ? (labelCode) => onResolve(dirty, labelCode) : () => {}}
+          disabled={!canResolve}
+          placeholder={canResolve ? 'Search allowed labels...' : undefined}
+        />
+      </div>
+
+      {dirty.resolved && (
+        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+          {dirty.currentLabelCode} -&gt; {dirty.newLabelCode}
+          {dirty.resolvedBy ? ` by ${dirty.resolvedBy}` : ''}
         </div>
       )}
     </div>

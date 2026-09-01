@@ -7,11 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-/**
- * Upserts a confirmed {@link GeneratedPoint} (human-labeled during seed labeling, or auto-confirmed
- * above the confidence threshold during auto-annotate) into the shared {@link AnnotationPoint} table
- * — the bridge back into the existing, unmodified training/diff pipeline.
- */
+/** Upserts a confirmed point into the shared annotation point table */
 @Component
 class AnnotationPointBridge {
 
@@ -22,7 +18,7 @@ class AnnotationPointBridge {
     }
 
     void upsert(GeneratedPoint point, LabelDefinition label, String annotationSource, String annotatedBy,
-                BigDecimal confidenceScore) {
+            BigDecimal confidenceScore) {
         AnnotationPoint annotationPoint = annotationPointRepository
                 .findByImageIdAndPointIndex(point.getImage().getId(), point.getPointIndex())
                 .orElseGet(AnnotationPoint::new);

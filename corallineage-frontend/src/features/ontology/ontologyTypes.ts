@@ -6,6 +6,8 @@ export interface OntologyChange {
   oldLabelCode: string | null
   newLabelCodes: string[] | null
   affectedDatasetVersionId: number
+  affectedDatasetVersionNumber: number | null
+  affectedDatasetVersionTag: string | null
   changedBy: string
   changedAt: string
   notes: string | null

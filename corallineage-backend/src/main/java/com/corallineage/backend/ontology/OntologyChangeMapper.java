@@ -2,15 +2,19 @@ package com.corallineage.backend.ontology;
 
 import com.corallineage.backend.versioning.dataset.AnnotationPoint;
 import com.corallineage.backend.versioning.dataset.AnnotationPointRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import org.springframework.stereotype.Component;
 
 @Component
 public class OntologyChangeMapper {
 
     private final AnnotationPointRepository annotationPointRepository;
+    private final DatasetVersionService datasetVersionService;
 
-    public OntologyChangeMapper(AnnotationPointRepository annotationPointRepository) {
+    public OntologyChangeMapper(AnnotationPointRepository annotationPointRepository,
+            DatasetVersionService datasetVersionService) {
         this.annotationPointRepository = annotationPointRepository;
+        this.datasetVersionService = datasetVersionService;
     }
 
     public OntologyChangeResponse toResponse(OntologyChange change, long dirtyAnnotationsFlagged, long resolvedCount) {
@@ -21,6 +25,12 @@ public class OntologyChangeMapper {
         response.setNewLabelCodes(change.getNewLabelCodes());
         response.setAffectedDatasetVersionId(
                 change.getAffectedDatasetVersion() != null ? change.getAffectedDatasetVersion().getId() : null);
+        response.setAffectedDatasetVersionTag(
+                change.getAffectedDatasetVersion() != null ? change.getAffectedDatasetVersion().getVersionTag() : null);
+        response.setAffectedDatasetVersionNumber(
+                change.getAffectedDatasetVersion() != null
+                        ? datasetVersionService.getVersionNumber(change.getAffectedDatasetVersion())
+                        : null);
         response.setChangedBy(change.getChangedBy());
         response.setChangedAt(change.getChangedAt());
         response.setNotes(change.getNotes());

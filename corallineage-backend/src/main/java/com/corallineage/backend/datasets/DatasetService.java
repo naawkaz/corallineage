@@ -8,8 +8,8 @@ import com.corallineage.backend.projects.Project;
 import com.corallineage.backend.projects.ProjectMemberService;
 import com.corallineage.backend.projects.ProjectRepository;
 import java.util.Set;
-import com.corallineage.backend.versioning.dataset.DatasetVersion;
-import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,21 +19,36 @@ import java.util.List;
 public class DatasetService {
 
     private final DatasetRepository datasetRepository;
-    private final DatasetVersionRepository datasetVersionRepository;
     private final DatasetMapper datasetMapper;
     private final ProjectRepository projectRepository;
     private final ProjectMemberService projectMemberService;
+    private final DatasetVersionService datasetVersionService;
 
     public DatasetService(DatasetRepository datasetRepository,
-                          DatasetVersionRepository datasetVersionRepository,
-                          DatasetMapper datasetMapper,
-                          ProjectRepository projectRepository,
-                          ProjectMemberService projectMemberService) {
+            DatasetMapper datasetMapper,
+            ProjectRepository projectRepository,
+            ProjectMemberService projectMemberService,
+            DatasetVersionService datasetVersionService) {
         this.datasetRepository = datasetRepository;
-        this.datasetVersionRepository = datasetVersionRepository;
         this.datasetMapper = datasetMapper;
         this.projectRepository = projectRepository;
         this.projectMemberService = projectMemberService;
+        this.datasetVersionService = datasetVersionService;
+    }
+
+    /** Excludes unresolved versions from the version count and latest tag */
+    private record ResolvedVersionSummary(long count, String latestVersionTag, int latestImageCount,
+            int latestAnnotationCount) {
+    }
+
+    private ResolvedVersionSummary resolvedVersionSummary(Long datasetId) {
+        // A 1 row page gives the total count and the latest version
+        var resolved = datasetVersionService.getVersionHistory(datasetId, PageRequest.of(0, 1));
+        var latest = resolved.getContent().isEmpty() ? null : resolved.getContent().get(0);
+        return new ResolvedVersionSummary(resolved.getTotalElements(),
+                latest != null ? latest.getVersionTag() : null,
+                latest != null && latest.getImageCount() != null ? latest.getImageCount() : 0,
+                latest != null && latest.getAnnotationCount() != null ? latest.getAnnotationCount() : 0);
     }
 
     @Transactional
@@ -71,29 +86,19 @@ public class DatasetService {
             throw new UnauthorizedException("You are not a member of this project");
         }
 
-        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId,
+                actingUsername);
 
         return datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(projectId).stream()
                 .filter(dataset -> accessibleSourceIds.isEmpty() || accessibleSourceIds.get().contains(dataset.getId()))
                 .map(dataset -> {
-                    long versionCount = datasetVersionRepository.countByDatasetId(dataset.getId());
-                    String latestVersionTag = datasetVersionRepository
-                            .findTopByDatasetIdOrderByCreatedAtDesc(dataset.getId())
-                            .map(DatasetVersion::getVersionTag)
-                            .orElse(null);
-                    return datasetMapper.toSummaryResponse(dataset, versionCount, latestVersionTag);
+                    ResolvedVersionSummary summary = resolvedVersionSummary(dataset.getId());
+                    return datasetMapper.toSummaryResponse(dataset, summary.count(), summary.latestVersionTag());
                 })
                 .toList();
     }
 
-    /**
-     * Canonical membership/scope check for any operation on a single Dataset (Source).
-     * Verifies the acting user belongs to the dataset's owning project, then, if that
-     * user is a restricted collaborator, verifies this specific dataset is within their
-     * explicit allowlist. Every other service that touches dataset-scoped resources
-     * should resolve the relevant dataset id and call this before returning data or
-     * performing a mutation, rather than re-implementing the check.
-     */
+    /** Checks whether the acting user can access this dataset */
     @Transactional(readOnly = true)
     public void requireAccess(Long datasetId, String actingUsername) {
         Dataset dataset = datasetRepository.findById(datasetId)
@@ -105,7 +110,8 @@ public class DatasetService {
             throw new ForbiddenException("You are not a member of the project that owns this dataset");
         }
 
-        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId, actingUsername);
+        java.util.Optional<Set<Long>> accessibleSourceIds = projectMemberService.getAccessibleSourceIds(projectId,
+                actingUsername);
         if (accessibleSourceIds.isPresent() && !accessibleSourceIds.get().contains(datasetId)) {
             throw new ForbiddenException("You do not have access to this dataset");
         }
@@ -116,14 +122,9 @@ public class DatasetService {
         Dataset dataset = datasetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Dataset not found: " + id));
 
-        long versionCount = datasetVersionRepository.countByDatasetId(id);
-        DatasetVersion latest = datasetVersionRepository
-                .findTopByDatasetIdOrderByCreatedAtDesc(id)
-                .orElse(null);
+        ResolvedVersionSummary summary = resolvedVersionSummary(id);
 
-        return datasetMapper.toDetailResponse(dataset, versionCount,
-                latest != null ? latest.getVersionTag() : null,
-                latest != null ? latest.getImageCount() : 0,
-                latest != null ? latest.getAnnotationCount() : 0);
+        return datasetMapper.toDetailResponse(dataset, summary.count(),
+                summary.latestVersionTag(), summary.latestImageCount(), summary.latestAnnotationCount());
     }
 }

@@ -15,12 +15,27 @@ public class CreateDatasetRequest {
     @Size(max = 100, message = "createdBy must be at most 100 characters")
     private String createdBy;
 
-    public String getDatasetName() { return datasetName; }
-    public void setDatasetName(String datasetName) { this.datasetName = datasetName; }
+    public String getDatasetName() {
+        return datasetName;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setDatasetName(String datasetName) {
+        this.datasetName = datasetName;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 }

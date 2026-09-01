@@ -49,7 +49,7 @@ export default function Home() {
         >
           {loading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading projects…
+              <span className="spinner" /> Loading projects...
             </div>
           ) : projects.length === 0 ? (
             <div className="empty-state">

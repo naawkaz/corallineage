@@ -9,11 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Generates an evenly spaced grid of points per image, inset from the edges so no point lands
- * exactly on a border pixel. Grid-only for this proof of concept — CoralNet also supports random
- * and stratified-random point placement, but those aren't needed to demonstrate the pipeline.
- */
+/** Generates an evenly spaced grid of points per image, inset from the edges */
 @Service
 public class PointGenerationService {
 
@@ -24,14 +20,13 @@ public class PointGenerationService {
     }
 
     /**
-     * @param startIndex first pointIndex to assign (see {@code AnnotationPointRepository.findMaxPointIndexByImageId})
-     *                   — keeps this job's grid indices disjoint from any points already on the image
-     *                   (import data, or an earlier point-annotation job), since indices bridge into the
-     *                   shared, globally-unique-per-image {@code AnnotationPoint} table once labeled.
+     * @param startIndex first pointIndex to assign, keeps new indices disjoint from
+     *                   existing points
      */
     List<GeneratedPoint> generateGrid(Image image, PointAnnotationJob job, boolean seed, int startIndex) {
         BufferedImage buffered = ImagePatchUtil.readImage(workingDirectory, image.getFilePath());
-        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getGridRows(), job.getGridCols());
+        List<int[]> coordinates = computeGridCoordinates(buffered.getWidth(), buffered.getHeight(), job.getGridRows(),
+                job.getGridCols());
 
         List<GeneratedPoint> points = new ArrayList<>();
         int index = startIndex;
@@ -49,10 +44,7 @@ public class PointGenerationService {
         return points;
     }
 
-    /**
-     * Lays out an explicit rows x cols grid, inset by one grid cell from every edge. Returns
-     * {row, col} pixel coordinate pairs, always exactly {@code rows * cols} of them.
-     */
+    /** Lays out a grid inset by one cell, returns row and col pairs */
     private List<int[]> computeGridCoordinates(int width, int height, int rows, int cols) {
         int cellWidth = width / (cols + 1);
         int cellHeight = height / (rows + 1);
@@ -62,7 +54,7 @@ public class PointGenerationService {
             for (int c = 1; c <= cols; c++) {
                 int x = Math.min(width - 1, c * cellWidth);
                 int y = Math.min(height - 1, r * cellHeight);
-                coordinates.add(new int[]{y, x});
+                coordinates.add(new int[] { y, x });
             }
         }
         return coordinates;

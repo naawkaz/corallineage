@@ -60,21 +60,23 @@ public class AnnotationJobExecutor {
     private final Path workingDirectory;
     private final String dataDir;
     private final int patchSize;
+    private final AnnotationCommitService annotationCommitService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AnnotationJobExecutor(AnnotationJobRepository annotationJobRepository,
-                                 AnnotationPredictionRepository annotationPredictionRepository,
-                                 ImageRepository imageRepository,
-                                 AnnotationPointRepository annotationPointRepository,
-                                 DatasetRepository datasetRepository,
-                                 DatasetVersionRepository datasetVersionRepository,
-                                 DatasetVersionImageRepository datasetVersionImageRepository,
-                                 DatasetVersionService datasetVersionService,
-                                 PythonMlServiceClient pythonMlServiceClient,
-                                 AnnotationEventLoggerService annotationEventLoggerService,
-                                 @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                 @Value("${app.dvc.data-dir}") String dataDir,
-                                 @Value("${app.training.patch-size:64}") int patchSize) {
+            AnnotationPredictionRepository annotationPredictionRepository,
+            ImageRepository imageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            DatasetRepository datasetRepository,
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            DatasetVersionService datasetVersionService,
+            PythonMlServiceClient pythonMlServiceClient,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.dvc.data-dir}") String dataDir,
+            @Value("${app.training.patch-size:64}") int patchSize,
+            AnnotationCommitService annotationCommitService) {
         this.annotationJobRepository = annotationJobRepository;
         this.annotationPredictionRepository = annotationPredictionRepository;
         this.imageRepository = imageRepository;
@@ -88,9 +90,10 @@ public class AnnotationJobExecutor {
         this.workingDirectory = workingDirectory;
         this.dataDir = dataDir;
         this.patchSize = patchSize;
+        this.annotationCommitService = annotationCommitService;
     }
 
-    /** Legacy whole-image path (kept for backward compatibility; see AnnotationJobService). */
+    /** Legacy whole-image path */
     @Async
     @Transactional
     public void executeAnnotationAsync(Long jobId) {
@@ -105,7 +108,8 @@ public class AnnotationJobExecutor {
             }
 
             List<AnnotateImageInput> imageInputs = images.stream()
-                    .map(image -> new AnnotateImageInput(image.getId(), workingDirectory.resolve(image.getFilePath()).toString()))
+                    .map(image -> new AnnotateImageInput(image.getId(),
+                            workingDirectory.resolve(image.getFilePath()).toString()))
                     .toList();
 
             Map<String, String> classMappings = objectMapper.readValue(
@@ -148,11 +152,8 @@ public class AnnotationJobExecutor {
     }
 
     /**
-     * Mode A ("Validate against human labels"): crops a patch around each real, existing
-     * {@code AnnotationPoint} (source HUMAN) on the job's images, classifies each patch through
-     * the model (same trick as pointannotation.PointInferenceService, every patch is its own
-     * synthetic "image" to the unmodified /annotate endpoint), and records agreement/disagreement
-     * with the human label. No review step: this job is a comparison, not a labeling workflow.
+     * Validation: classifies a patch around each human labeled point and records
+     * agreement
      */
     @Async
     @Transactional
@@ -169,14 +170,16 @@ public class AnnotationJobExecutor {
             Files.createDirectories(patchDir);
 
             for (Image image : images) {
-                List<AnnotationPoint> humanPoints = annotationPointRepository.findByImageIdAndAnnotationSource(image.getId(), "HUMAN");
+                List<AnnotationPoint> humanPoints = annotationPointRepository
+                        .findByImageIdAndAnnotationSource(image.getId(), "HUMAN");
                 if (humanPoints.isEmpty()) {
                     continue;
                 }
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 for (AnnotationPoint point : humanPoints) {
                     pointsById.put(point.getId(), point);
-                    BufferedImage patch = AnnotationPatchUtil.cropPatch(source, point.getRowPosition(), point.getColPosition(), patchSize);
+                    BufferedImage patch = AnnotationPatchUtil.cropPatch(source, point.getRowPosition(),
+                            point.getColPosition(), patchSize);
                     Path patchFile = patchDir.resolve("point-" + point.getId() + ".jpg");
                     ImageIO.write(patch, "jpg", patchFile.toFile());
                     inputs.add(new AnnotateImageInput(point.getId(), patchFile.toString()));
@@ -208,8 +211,11 @@ public class AnnotationJobExecutor {
                             : BigDecimal.ZERO);
                     prediction.setRowPosition(point.getRowPosition());
                     prediction.setColPosition(point.getColPosition());
-                    String humanLabelCode = point.getLabelDefinition() != null ? point.getLabelDefinition().getLabelCode() : null;
-                    prediction.setAgreesWithHuman(humanLabelCode != null && humanLabelCode.equals(predicted.predictedLabelCode()));
+                    String humanLabelCode = point.getLabelDefinition() != null
+                            ? point.getLabelDefinition().getLabelCode()
+                            : null;
+                    prediction.setAgreesWithHuman(
+                            humanLabelCode != null && humanLabelCode.equals(predicted.predictedLabelCode()));
                     predictions.add(prediction);
                 }
                 annotationPredictionRepository.saveAll(predictions);
@@ -222,7 +228,8 @@ public class AnnotationJobExecutor {
             long correct = predictions.stream().filter(p -> Boolean.TRUE.equals(p.getAgreesWithHuman())).count();
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Validation job compared model " + model.getModelTag() + " against " + predictions.size()
-                            + " human-labeled point(s): " + correct + " agree, " + (predictions.size() - correct) + " disagree");
+                            + " human-labeled point(s): " + correct + " agree, " + (predictions.size() - correct)
+                            + " disagree");
         } catch (Exception ex) {
             job.setStatus("FAILED");
             job.setErrorMessage(ex.getMessage());
@@ -234,15 +241,8 @@ public class AnnotationJobExecutor {
     }
 
     /**
-     * Mode B ("Annotate new images"): copies the uploaded raw files into the DVC-tracked working
-     * directory, creates a real staging {@link DatasetVersion} on the target dataset to hold them
-     * (Image.originDatasetVersion cannot be null, see that entity's javadoc), generates an evenly
-     * spaced grid of points per image (mirrors pointannotation.PointGenerationService, package-private
-     * there so duplicated here per this codebase's established small-utility-duplication convention),
-     * classifies each patch through the model, and leaves every point PENDING review (accept/override,
-     * exactly like the legacy single-point flow but now genuinely multi-point). The staging version
-     * is real (its own DVC commit, satisfies every FK) but is not what the researcher browses as "their"
-     * project data until "Add to Project" branches a second, real version from it after review.
+     * New images: stages the uploads as a version, grids and classifies points, all
+     * left pending review
      */
     @Async
     @Transactional
@@ -276,8 +276,10 @@ public class AnnotationJobExecutor {
             versionRequest.setTriggerReason(TriggerReason.IMAGES_ADDED);
             versionRequest.setCreatedBy(job.getInitiatedBy());
             versionRequest.setNotes("Staging area for annotation job #" + jobId
-                    + ", holding " + filenames.size() + " newly uploaded image(s) pending review before being added to the project.");
-            DatasetVersionResponse versionResponse = datasetVersionService.createStagingSnapshot(datasetId, versionRequest);
+                    + ", holding " + filenames.size()
+                    + " newly uploaded image(s) pending review before being added to the project.");
+            DatasetVersionResponse versionResponse = datasetVersionService.createStagingSnapshot(datasetId,
+                    versionRequest);
             DatasetVersion stagingVersion = datasetVersionRepository.findById(versionResponse.getId())
                     .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
 
@@ -308,15 +310,16 @@ public class AnnotationJobExecutor {
             job.setImageIds(savedImages.stream().map(Image::getId).toList());
             annotationJobRepository.save(job);
 
-            // Placeholder predictions first (so each patch has a real, persisted id to key the
-            // /annotate batch call by), then overwritten with real predicted labels below.
+            // Persist placeholder predictions first so each patch has an id, then fill in
+            // labels below
             Files.createDirectories(patchDir);
             List<AnnotationPrediction> pending = new ArrayList<>();
             Map<Image, BufferedImage> sourceByImage = new HashMap<>();
             for (Image image : savedImages) {
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 sourceByImage.put(image, source);
-                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(),
+                        source.getHeight(), gridRows, gridCols);
                 int pointIndex = 0;
                 for (int[] coordinate : coordinates) {
                     AnnotationPrediction prediction = new AnnotationPrediction();
@@ -336,7 +339,8 @@ public class AnnotationJobExecutor {
             List<AnnotateImageInput> inputs = new ArrayList<>();
             for (AnnotationPrediction prediction : savedPredictions) {
                 BufferedImage source = sourceByImage.get(prediction.getImage());
-                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(), prediction.getColPosition(), patchSize);
+                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(),
+                        prediction.getColPosition(), patchSize);
                 Path patchFile = patchDir.resolve("point-" + prediction.getId() + ".jpg");
                 ImageIO.write(patch, "jpg", patchFile.toFile());
                 inputs.add(new AnnotateImageInput(prediction.getId(), patchFile.toString()));
@@ -374,10 +378,7 @@ public class AnnotationJobExecutor {
             long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
             job.setStatus("COMPLETED");
             job.setCompletedAt(Instant.now());
-            // Auto-accept happens here at inference time rather than through the usual
-            // reviewPrediction endpoint, so reviewStatus needs the same derivation applied
-            // immediately (a fully-above-threshold job should reach COMPLETED with no human
-            // review at all, mirrors AnnotationJobService.updateReviewStatus).
+            // Derive review status now since auto accept happened at inference time
             job.setReviewStatus(autoAccepted == 0 ? "PENDING"
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
             annotationJobRepository.save(job);
@@ -385,7 +386,8 @@ public class AnnotationJobExecutor {
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
                     "Model " + model.getModelTag() + " applied to " + savedImages.size() + " newly uploaded image(s), "
                             + savedPredictions.size() + " point prediction(s) ready for review ("
-                            + autoAccepted + " auto-accepted at/above " + job.getConfidenceThreshold() + " confidence)");
+                            + autoAccepted + " auto-accepted at/above " + job.getConfidenceThreshold()
+                            + " confidence)");
         } catch (Exception ex) {
             job.setStatus("FAILED");
             job.setErrorMessage(ex.getMessage());
@@ -398,10 +400,8 @@ public class AnnotationJobExecutor {
     }
 
     /**
-     * Warm-start blank-import: annotates an existing dataset version's already-present images
-     * (job.getImageIds(), job.getDatasetVersion() already set by submitExistingVersionJob) with a
-     * grid of points, exactly like Mode B's inference step, but with no upload to persist and no
-     * staging version to create, since the images and their version already exist for real.
+     * Annotates an existing version's images with a point grid, no upload or
+     * staging version
      */
     @Async
     @Transactional
@@ -418,7 +418,8 @@ public class AnnotationJobExecutor {
             for (Image image : images) {
                 BufferedImage source = AnnotationPatchUtil.readImage(workingDirectory, image.getFilePath());
                 sourceByImage.put(image, source);
-                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(), source.getHeight(), gridRows, gridCols);
+                List<int[]> coordinates = AnnotationPatchUtil.computeGridCoordinates(source.getWidth(),
+                        source.getHeight(), gridRows, gridCols);
                 int pointIndex = 0;
                 for (int[] coordinate : coordinates) {
                     AnnotationPrediction prediction = new AnnotationPrediction();
@@ -438,7 +439,8 @@ public class AnnotationJobExecutor {
             List<AnnotateImageInput> inputs = new ArrayList<>();
             for (AnnotationPrediction prediction : savedPredictions) {
                 BufferedImage source = sourceByImage.get(prediction.getImage());
-                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(), prediction.getColPosition(), patchSize);
+                BufferedImage patch = AnnotationPatchUtil.cropPatch(source, prediction.getRowPosition(),
+                        prediction.getColPosition(), patchSize);
                 Path patchFile = patchDir.resolve("point-" + prediction.getId() + ".jpg");
                 ImageIO.write(patch, "jpg", patchFile.toFile());
                 inputs.add(new AnnotateImageInput(prediction.getId(), patchFile.toString()));
@@ -476,12 +478,20 @@ public class AnnotationJobExecutor {
             long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
             job.setStatus("COMPLETED");
             job.setCompletedAt(Instant.now());
+            boolean fullyAutoAccepted = !savedPredictions.isEmpty() && autoAccepted == savedPredictions.size();
             job.setReviewStatus(autoAccepted == 0 ? "PENDING"
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
-            annotationJobRepository.save(job);
+            AnnotationJob savedJob = annotationJobRepository.save(job);
+
+            // Every point cleared the confidence threshold, so register the target version
+            // now
+            if (fullyAutoAccepted && Boolean.TRUE.equals(savedJob.getCommitInPlace())) {
+                annotationCommitService.applyToExistingVersion(savedJob.getId(), savedJob.getInitiatedBy());
+            }
 
             annotationEventLoggerService.log(EventType.MODEL_APPLIED, null, model, job.getInitiatedBy(),
-                    "Model " + model.getModelTag() + " applied to " + images.size() + " existing image(s) of dataset version "
+                    "Model " + model.getModelTag() + " applied to " + images.size()
+                            + " existing image(s) of dataset version "
                             + job.getDatasetVersion().getId() + ", " + savedPredictions.size()
                             + " point prediction(s) ready for review (" + autoAccepted + " auto-accepted at/above "
                             + job.getConfidenceThreshold() + " confidence)");

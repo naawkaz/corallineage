@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowRightIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { fetchOntologyChanges, recordOntologyChange } from '../ontology/ontologyApi'
@@ -76,11 +76,11 @@ export default function OntologyChanges() {
   }, [sourceId])
 
   // The old-label combobox and the replacement-label combobox are both fed from the selected
-  // dataset version's active (non-deprecated) label definitions.
+  // dataset version's active label definitions
   useEffect(() => {
     let cancelled = false
     if (!selectedVersionId) {
-      // Deferred via .then so the reset isn't a synchronous setState call in the effect body.
+      // Deferred via .then so the reset isn't a synchronous setState call in the effect body
       Promise.resolve().then(() => {
         if (!cancelled) setBasedOnVersionLabels([])
       })
@@ -100,10 +100,9 @@ export default function OntologyChanges() {
     }
   }, [sourceId, selectedVersionId])
 
-  // Resetting the change type clears fields whose meaning differs across types, so a stale
-  // oldLabelCode / newLabels combination from a previous type never gets submitted by accident.
-  // Done during render (React's "adjusting state when a prop changes" pattern) rather than in a
-  // useEffect, since this is pure state derivation with no external system involved.
+  // Changing the change type clears fields with meaning differing across types
+  // a stale combination is never submitted by accident
+  // Derived during render
   const [syncedChangeType, setSyncedChangeType] = useState(changeType)
   if (changeType !== syncedChangeType) {
     setSyncedChangeType(changeType)
@@ -112,7 +111,6 @@ export default function OntologyChanges() {
     setNewLabelRows([emptyRow()])
   }
 
-  // RENAMED auto-fills the fixed row's category from the selected old label - still editable afterward.
   function handleOldLabelChange(code: string) {
     setOldLabelCode(code)
     if (changeType === 'LABEL_RENAMED') {
@@ -199,8 +197,7 @@ export default function OntologyChanges() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '4fr 1fr', gap: 24, alignItems: 'start' }}>
-          {/* item 48: Ontology Change History; rows link to a dedicated review page instead of
-              expanding an inline queue. */}
+          {/* Rows link to a dedicated review page rather than expanding inline*/}
           <TitledCard
             title="Ontology change history"
             bodyClassName="no-padding"
@@ -222,7 +219,7 @@ export default function OntologyChanges() {
             )}
             {changesLoading ? (
               <div className="loading-state">
-                <span className="spinner" /> Loading changes…
+                <span className="spinner" /> Loading changes...
               </div>
             ) : changes.length === 0 ? (
               <div className="empty-state">
@@ -233,11 +230,11 @@ export default function OntologyChanges() {
                 <thead>
                   <tr>
                     <th>Type</th>
-                    <th>Old → New</th>
+                    <th>Old -&gt; New</th>
+                    <th>Dataset version</th>
                     <th>Changed by</th>
                     <th>Changed at</th>
-                    <th className="num">Dirty flags</th>
-                    <th className="num">Remaining</th>
+                    <th className="num">Flags remaining</th>
                     <th>Status</th>
                     <th></th>
                   </tr>
@@ -258,12 +255,17 @@ export default function OntologyChanges() {
                         </td>
                         <td>
                           <span className="mono" style={{ fontSize: 12 }}>
-                            {c.oldLabelCode ?? '(none)'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
+                            {c.oldLabelCode ?? '(none)'} -&gt; {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
                           </span>
+                        </td>
+                        <td>
+                          {c.affectedDatasetVersionNumber != null && (
+                            <span style={{ color: 'var(--text-secondary)', marginRight: 6 }}>#{c.affectedDatasetVersionNumber}</span>
+                          )}
+                          <span className="mono">{c.affectedDatasetVersionTag ?? '-'}</span>
                         </td>
                         <td>{c.changedBy}</td>
                         <td style={{ color: 'var(--text-secondary)' }}>{formatDate(c.changedAt)}</td>
-                        <td className="num">{c.dirtyAnnotationsFlagged}</td>
                         <td className="num">{remaining}/{c.dirtyAnnotationsFlagged}</td>
                         <td>
                           <span className={`badge ${remaining > 0 ? 'badge-amber' : 'badge-green'}`}>
@@ -355,7 +357,7 @@ export default function OntologyChanges() {
                     options={basedOnVersionLabels}
                     value={oldLabelCode}
                     onChange={handleOldLabelChange}
-                    placeholder="Search existing labels…"
+                    placeholder="Search existing labels..."
                   />
                 </div>
               )}
@@ -402,7 +404,7 @@ export default function OntologyChanges() {
                     options={basedOnVersionLabels.filter((l) => l.labelCode !== oldLabelCode)}
                     value={replacementLabelCode}
                     onChange={setReplacementLabelCode}
-                    placeholder="Search existing labels…"
+                    placeholder="Search existing labels..."
                   />
                   <div className="form-hint">
                     Informational only - points on the deprecated label are still flagged dirty for review.
@@ -438,7 +440,7 @@ export default function OntologyChanges() {
                 onClick={handleRecordChange}
                 disabled={submitting || !canSubmit}
               >
-                {submitting ? 'Recording…' : 'Record Change'}
+                {submitting ? 'Recording...' : 'Record Change'}
               </button>
             </div>
           </div>

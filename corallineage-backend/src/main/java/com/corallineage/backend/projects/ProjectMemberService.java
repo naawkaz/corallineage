@@ -27,11 +27,11 @@ public class ProjectMemberService {
     private final DatasetRepository datasetRepository;
 
     public ProjectMemberService(ProjectMemberRepository projectMemberRepository,
-                                 ProjectRepository projectRepository,
-                                 UserRepository userRepository,
-                                 ProjectMemberMapper projectMemberMapper,
-                                 ProjectMemberSourceAccessRepository sourceAccessRepository,
-                                 DatasetRepository datasetRepository) {
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            ProjectMemberMapper projectMemberMapper,
+            ProjectMemberSourceAccessRepository sourceAccessRepository,
+            DatasetRepository datasetRepository) {
         this.projectMemberRepository = projectMemberRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
@@ -101,9 +101,7 @@ public class ProjectMemberService {
         touchProject(project);
     }
 
-    /**
-     * Returns the collaborator's current Source-access scope for the "Manage access" dialog.
-     */
+    /** Returns a collaborator's current source access scope */
     @Transactional(readOnly = true)
     public SourceAccessResponse getSourceAccess(Long projectId, Long userId, String actingUsername) {
         requireProject(projectId);
@@ -125,12 +123,10 @@ public class ProjectMemberService {
         return response;
     }
 
-    /**
-     * Replaces a collaborator's Source-access scope. Owners cannot be restricted; only
-     * COLLABORATOR members can be scoped.
-     */
+    /** Replaces a collaborator's source access scope */
     @Transactional
-    public SourceAccessResponse setSourceAccess(Long projectId, Long userId, SourceAccessRequest request, String actingUsername) {
+    public SourceAccessResponse setSourceAccess(Long projectId, Long userId, SourceAccessRequest request,
+            String actingUsername) {
         Project project = requireProject(projectId);
         requireOwner(projectId, actingUsername);
 
@@ -147,13 +143,7 @@ public class ProjectMemberService {
         return getSourceAccess(projectId, userId, actingUsername);
     }
 
-    /**
-     * Encodes the "insert full-access rows, or narrow to a subset" default-access decision
-     * (see ProjectMember). A null/omitted sourceIds list, or one that names every current
-     * Source in the project, leaves the member unrestricted with no join rows persisted -
-     * this also means Sources added to the project later are automatically visible to them.
-     * Any proper subset marks the member restricted and persists exactly those rows.
-     */
+    /** Leaves a member unrestricted, or persists a restricted subset of sources */
     private void applySourceAccess(Project project, ProjectMember member, List<Long> requestedSourceIds) {
         List<Dataset> allSources = datasetRepository.findAllByProjectIdOrderByCreatedAtDesc(project.getId());
         Set<Long> allSourceIds = allSources.stream().map(Dataset::getId).collect(Collectors.toSet());
@@ -191,24 +181,25 @@ public class ProjectMemberService {
 
     public boolean isMember(Long projectId, String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return false;
+        if (actingUser == null)
+            return false;
         return projectMemberRepository.existsByProjectIdAndUserId(projectId, actingUser.getId());
     }
 
     /**
-     * Returns the set of Source (dataset) ids the acting user may see within this project,
-     * or empty Optional to mean "unrestricted, sees all" (owners, and unrestricted
-     * collaborators). Returns an empty (present) Set for a restricted collaborator with
-     * zero granted Sources.
+     * Returns the source ids a user may access in a project, empty optional means
+     * unrestricted
      */
     @Transactional(readOnly = true)
     public java.util.Optional<Set<Long>> getAccessibleSourceIds(Long projectId, String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return java.util.Optional.of(Set.of());
+        if (actingUser == null)
+            return java.util.Optional.of(Set.of());
 
         ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, actingUser.getId())
                 .orElse(null);
-        if (member == null) return java.util.Optional.of(Set.of());
+        if (member == null)
+            return java.util.Optional.of(Set.of());
 
         if (member.getRole() == ProjectRole.OWNER || !member.isSourceAccessRestricted()) {
             return java.util.Optional.empty();
@@ -219,18 +210,12 @@ public class ProjectMemberService {
                 .collect(Collectors.toSet()));
     }
 
-    /**
-     * Unions accessible Source (dataset) ids across every project the user is a member of.
-     * Used by unscoped listing endpoints (the Global Event Log, the ontology dirty queue) to
-     * filter results down to what the requester can see, rather than blocking the call outright
-     * when it's called with no scoping filter. For each membership: an unrestricted member
-     * (owner, or a collaborator with sourceAccessRestricted=false) contributes every dataset id
-     * in that project; a restricted collaborator contributes only their explicit allowlist.
-     */
+    /** Unions accessible source ids across every project a user belongs to */
     @Transactional(readOnly = true)
     public Set<Long> getAllAccessibleDatasetIds(String actingUsername) {
         User actingUser = userRepository.findByUsername(actingUsername).orElse(null);
-        if (actingUser == null) return Set.of();
+        if (actingUser == null)
+            return Set.of();
 
         List<ProjectMember> memberships = projectMemberRepository.findByUserId(actingUser.getId());
         Set<Long> accessible = new java.util.HashSet<>();

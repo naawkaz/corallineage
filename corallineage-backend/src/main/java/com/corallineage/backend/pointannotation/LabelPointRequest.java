@@ -10,9 +10,19 @@ public class LabelPointRequest {
     @NotBlank
     private String annotatedBy;
 
-    public String getLabelCode() { return labelCode; }
-    public void setLabelCode(String labelCode) { this.labelCode = labelCode; }
+    public String getLabelCode() {
+        return labelCode;
+    }
 
-    public String getAnnotatedBy() { return annotatedBy; }
-    public void setAnnotatedBy(String annotatedBy) { this.annotatedBy = annotatedBy; }
+    public void setLabelCode(String labelCode) {
+        this.labelCode = labelCode;
+    }
+
+    public String getAnnotatedBy() {
+        return annotatedBy;
+    }
+
+    public void setAnnotatedBy(String annotatedBy) {
+        this.annotatedBy = annotatedBy;
+    }
 }

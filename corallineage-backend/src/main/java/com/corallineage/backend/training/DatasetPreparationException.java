@@ -1,6 +1,6 @@
 package com.corallineage.backend.training;
 
-/** Raised when a dataset version has too few annotation points/classes to prepare a training set. */
+/** Raised when a version has too few points or classes to train */
 public class DatasetPreparationException extends RuntimeException {
 
     public DatasetPreparationException(String message) {

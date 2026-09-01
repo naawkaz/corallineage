@@ -8,6 +8,6 @@ public interface ImageRepository extends JpaRepository<Image, Long> {
 
     long countByOriginDatasetVersionDatasetId(Long datasetId);
 
-    /** Images whose origin (first-imported-under) version is {@code datasetVersionId}. Origin-only, not current membership. */
+    // Origin-only
     Page<Image> findByOriginDatasetVersionId(Long datasetVersionId, Pageable pageable);
 }

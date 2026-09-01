@@ -5,11 +5,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "import_jobs",
-       indexes = {
-           @Index(name = "idx_import_jobs_dataset", columnList = "dataset_id"),
-           @Index(name = "idx_import_jobs_status", columnList = "status")
-       })
+@Table(name = "import_jobs", indexes = {
+        @Index(name = "idx_import_jobs_dataset", columnList = "dataset_id"),
+        @Index(name = "idx_import_jobs_status", columnList = "status")
+})
 public class ImportJob {
 
     @Id
@@ -32,7 +31,7 @@ public class ImportJob {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // Values: PROCESSING, COMPLETED, FAILED
+    // one of PROCESSING COMPLETED FAILED
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PROCESSING";
 
@@ -62,53 +61,127 @@ public class ImportJob {
 
     @PrePersist
     protected void onCreate() {
-        if (submittedAt == null) submittedAt = Instant.now();
+        if (submittedAt == null)
+            submittedAt = Instant.now();
     }
 
-    // --- getters and setters ---
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Dataset getDataset() { return dataset; }
-    public void setDataset(Dataset dataset) { this.dataset = dataset; }
+    public Dataset getDataset() {
+        return dataset;
+    }
 
-    public String getFormat() { return format; }
-    public void setFormat(String format) { this.format = format; }
+    public void setDataset(Dataset dataset) {
+        this.dataset = dataset;
+    }
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public String getFormat() {
+        return format;
+    }
 
-    public String getImportedBy() { return importedBy; }
-    public void setImportedBy(String importedBy) { this.importedBy = importedBy; }
+    public void setFormat(String format) {
+        this.format = format;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public Instant getSubmittedAt() { return submittedAt; }
-    public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
+    public String getImportedBy() {
+        return importedBy;
+    }
 
-    public Instant getCompletedAt() { return completedAt; }
-    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+    public void setImportedBy(String importedBy) {
+        this.importedBy = importedBy;
+    }
 
-    public Integer getImagesImported() { return imagesImported; }
-    public void setImagesImported(Integer imagesImported) { this.imagesImported = imagesImported; }
+    public String getNotes() {
+        return notes;
+    }
 
-    public Integer getAnnotationPointsImported() { return annotationPointsImported; }
-    public void setAnnotationPointsImported(Integer annotationPointsImported) { this.annotationPointsImported = annotationPointsImported; }
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 
-    public Integer getLabelsResolved() { return labelsResolved; }
-    public void setLabelsResolved(Integer labelsResolved) { this.labelsResolved = labelsResolved; }
+    public String getStatus() {
+        return status;
+    }
 
-    public Integer getLabelsUnresolved() { return labelsUnresolved; }
-    public void setLabelsUnresolved(Integer labelsUnresolved) { this.labelsUnresolved = labelsUnresolved; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public Long getCreatedDatasetVersionId() { return createdDatasetVersionId; }
-    public void setCreatedDatasetVersionId(Long createdDatasetVersionId) { this.createdDatasetVersionId = createdDatasetVersionId; }
+    public Instant getSubmittedAt() {
+        return submittedAt;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setSubmittedAt(Instant submittedAt) {
+        this.submittedAt = submittedAt;
+    }
+
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(Instant completedAt) {
+        this.completedAt = completedAt;
+    }
+
+    public Integer getImagesImported() {
+        return imagesImported;
+    }
+
+    public void setImagesImported(Integer imagesImported) {
+        this.imagesImported = imagesImported;
+    }
+
+    public Integer getAnnotationPointsImported() {
+        return annotationPointsImported;
+    }
+
+    public void setAnnotationPointsImported(Integer annotationPointsImported) {
+        this.annotationPointsImported = annotationPointsImported;
+    }
+
+    public Integer getLabelsResolved() {
+        return labelsResolved;
+    }
+
+    public void setLabelsResolved(Integer labelsResolved) {
+        this.labelsResolved = labelsResolved;
+    }
+
+    public Integer getLabelsUnresolved() {
+        return labelsUnresolved;
+    }
+
+    public void setLabelsUnresolved(Integer labelsUnresolved) {
+        this.labelsUnresolved = labelsUnresolved;
+    }
+
+    public Long getCreatedDatasetVersionId() {
+        return createdDatasetVersionId;
+    }
+
+    public void setCreatedDatasetVersionId(Long createdDatasetVersionId) {
+        this.createdDatasetVersionId = createdDatasetVersionId;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
 }

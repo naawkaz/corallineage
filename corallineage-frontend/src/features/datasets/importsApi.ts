@@ -19,9 +19,11 @@ export async function submitImport(
   form.append('versionTag', versionTag)
   form.append('importedBy', importedBy)
   if (notes.trim() !== '') form.append('notes', notes)
-  // Parallel arrays (one entry per declared label, category sent as an empty string rather than
-  // omitted so array indices line up on the backend) since this endpoint is multipart form data,
-  // not a JSON body.
+
+  // Parallel arrays
+  // one entry per declared label, category sent as an empty string rather than
+  // omitted so array indices line up on the backend)
+  // this endpoint is multipart form data not json body
   for (const label of labels ?? []) {
     form.append('labelCodes', label.labelCode)
     form.append('labelNames', label.labelName)

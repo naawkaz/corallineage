@@ -34,7 +34,7 @@ public class TrainingJobController {
 
     @PostMapping("/jobs")
     public ResponseEntity<TrainingJobResponse> initiateTrainingJob(@Valid @RequestBody InitiateTrainingRequest request,
-                                                                     Authentication authentication) {
+            Authentication authentication) {
         datasetService.requireAccess(request.getDatasetId(), authentication.getName());
         TrainingJobResponse response = trainingJobService.initiateTrainingJob(request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
@@ -60,7 +60,8 @@ public class TrainingJobController {
     }
 
     @GetMapping("/jobs/{id}/epoch-metrics")
-    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(@PathVariable Long id, Authentication authentication) {
+    public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(@PathVariable Long id,
+            Authentication authentication) {
         Long datasetId = trainingJobService.getDatasetIdForJob(id);
         datasetService.requireAccess(datasetId, authentication.getName());
         return trainingJobService.getEpochMetrics(id);

@@ -25,60 +25,155 @@ public class AnnotationJobResponse {
     private BigDecimal confidenceThreshold;
     private boolean commitInPlace;
 
-    public Long getJobId() { return jobId; }
-    public void setJobId(Long jobId) { this.jobId = jobId; }
+    public Long getJobId() {
+        return jobId;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setJobId(Long jobId) {
+        this.jobId = jobId;
+    }
 
-    public String getReviewStatus() { return reviewStatus; }
-    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public String getStatus() {
+        return status;
+    }
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public String getModelTag() { return modelTag; }
-    public void setModelTag(String modelTag) { this.modelTag = modelTag; }
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
 
-    public Integer getImageCount() { return imageCount; }
-    public void setImageCount(Integer imageCount) { this.imageCount = imageCount; }
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public Instant getInitiatedAt() { return initiatedAt; }
-    public void setInitiatedAt(Instant initiatedAt) { this.initiatedAt = initiatedAt; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public Instant getCompletedAt() { return completedAt; }
-    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+    public String getModelTag() {
+        return modelTag;
+    }
 
-    public Long getTotalPredictions() { return totalPredictions; }
-    public void setTotalPredictions(Long totalPredictions) { this.totalPredictions = totalPredictions; }
+    public void setModelTag(String modelTag) {
+        this.modelTag = modelTag;
+    }
 
-    public Long getReviewedPredictions() { return reviewedPredictions; }
-    public void setReviewedPredictions(Long reviewedPredictions) { this.reviewedPredictions = reviewedPredictions; }
+    public Integer getImageCount() {
+        return imageCount;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public void setImageCount(Integer imageCount) {
+        this.imageCount = imageCount;
+    }
 
-    public String getJobType() { return jobType; }
-    public void setJobType(String jobType) { this.jobType = jobType; }
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 
-    public Long getCorrectPredictions() { return correctPredictions; }
-    public void setCorrectPredictions(Long correctPredictions) { this.correctPredictions = correctPredictions; }
+    public Instant getInitiatedAt() {
+        return initiatedAt;
+    }
 
-    public Double getAccuracyPercent() { return accuracyPercent; }
-    public void setAccuracyPercent(Double accuracyPercent) { this.accuracyPercent = accuracyPercent; }
+    public void setInitiatedAt(Instant initiatedAt) {
+        this.initiatedAt = initiatedAt;
+    }
 
-    public Long getAddedToProjectVersionId() { return addedToProjectVersionId; }
-    public void setAddedToProjectVersionId(Long addedToProjectVersionId) { this.addedToProjectVersionId = addedToProjectVersionId; }
+    public Instant getCompletedAt() {
+        return completedAt;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public void setCompletedAt(Instant completedAt) {
+        this.completedAt = completedAt;
+    }
 
-    public boolean isCommitInPlace() { return commitInPlace; }
-    public void setCommitInPlace(boolean commitInPlace) { this.commitInPlace = commitInPlace; }
+    public Long getTotalPredictions() {
+        return totalPredictions;
+    }
+
+    public void setTotalPredictions(Long totalPredictions) {
+        this.totalPredictions = totalPredictions;
+    }
+
+    public Long getReviewedPredictions() {
+        return reviewedPredictions;
+    }
+
+    public void setReviewedPredictions(Long reviewedPredictions) {
+        this.reviewedPredictions = reviewedPredictions;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public String getJobType() {
+        return jobType;
+    }
+
+    public void setJobType(String jobType) {
+        this.jobType = jobType;
+    }
+
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
+
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
+
+    public Long getCorrectPredictions() {
+        return correctPredictions;
+    }
+
+    public void setCorrectPredictions(Long correctPredictions) {
+        this.correctPredictions = correctPredictions;
+    }
+
+    public Double getAccuracyPercent() {
+        return accuracyPercent;
+    }
+
+    public void setAccuracyPercent(Double accuracyPercent) {
+        this.accuracyPercent = accuracyPercent;
+    }
+
+    public Long getAddedToProjectVersionId() {
+        return addedToProjectVersionId;
+    }
+
+    public void setAddedToProjectVersionId(Long addedToProjectVersionId) {
+        this.addedToProjectVersionId = addedToProjectVersionId;
+    }
+
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
+
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
+
+    public boolean isCommitInPlace() {
+        return commitInPlace;
+    }
+
+    public void setCommitInPlace(boolean commitInPlace) {
+        this.commitInPlace = commitInPlace;
+    }
 }

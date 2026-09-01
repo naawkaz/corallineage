@@ -8,18 +8,21 @@ import java.util.List;
 
 public interface AnnotationPredictionRepository extends JpaRepository<AnnotationPrediction, Long> {
 
-    Page<AnnotationPrediction> findByAnnotationJobId(Long annotationJobId, Pageable pageable);
+    // Explicit order keeps the review list stable as predictions get updated
+    Page<AnnotationPrediction> findByAnnotationJobIdOrderByIdAsc(Long annotationJobId, Pageable pageable);
 
-    /** Non-paged, used by the executor (applying inference results) and Add to Project (reading every reviewed point). */
+    /** Every prediction for a job, not paged */
     List<AnnotationPrediction> findByAnnotationJobId(Long annotationJobId);
 
     long countByAnnotationJobIdAndAgreesWithHumanTrue(Long annotationJobId);
 
     Page<AnnotationPrediction> findByAnnotationJobIdAndImageId(Long annotationJobId, Long imageId, Pageable pageable);
 
-    Page<AnnotationPrediction> findByAnnotationJobIdAndAccepted(Long annotationJobId, Boolean accepted, Pageable pageable);
+    Page<AnnotationPrediction> findByAnnotationJobIdAndAccepted(Long annotationJobId, Boolean accepted,
+            Pageable pageable);
 
-    Page<AnnotationPrediction> findByAnnotationJobIdAndImageIdAndAccepted(Long annotationJobId, Long imageId, Boolean accepted, Pageable pageable);
+    Page<AnnotationPrediction> findByAnnotationJobIdAndImageIdAndAccepted(Long annotationJobId, Long imageId,
+            Boolean accepted, Pageable pageable);
 
     long countByAnnotationJobId(Long annotationJobId);
 

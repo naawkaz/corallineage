@@ -13,10 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-/**
- * CoralNet CSV format: a single CSV file with required columns
- * image_filename, row, col, label_code (any order, extra columns ignored).
- */
+/** Imports a CoralNet CSV with image filename row col and label code columns */
 @Component
 public class CoralNetCsvParser implements DatasetFormatParser {
 
@@ -43,7 +40,8 @@ public class CoralNetCsvParser implements DatasetFormatParser {
 
             for (int lineNo = 1; lineNo < lines.size(); lineNo++) {
                 String raw = lines.get(lineNo);
-                if (raw.isBlank()) continue;
+                if (raw.isBlank())
+                    continue;
                 String[] fields = splitCsvLine(raw);
 
                 String imageFilename = field(fields, columnIndex, "image_filename", csvFile, lineNo);
@@ -111,7 +109,8 @@ public class CoralNetCsvParser implements DatasetFormatParser {
     private String field(String[] fields, Map<String, Integer> columnIndex, String column, Path csvFile, int lineNo) {
         int idx = columnIndex.get(column);
         if (idx >= fields.length) {
-            throw new ImportParseException("Line " + (lineNo + 1) + " in " + csvFile.getFileName() + " is missing a value for \"" + column + "\"");
+            throw new ImportParseException("Line " + (lineNo + 1) + " in " + csvFile.getFileName()
+                    + " is missing a value for \"" + column + "\"");
         }
         return fields[idx].trim();
     }
@@ -120,11 +119,12 @@ public class CoralNetCsvParser implements DatasetFormatParser {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException ex) {
-            throw new ImportParseException("Line " + (lineNo + 1) + " in " + csvFile.getFileName() + ": malformed numeric value \"" + value + "\"");
+            throw new ImportParseException("Line " + (lineNo + 1) + " in " + csvFile.getFileName()
+                    + ": malformed numeric value \"" + value + "\"");
         }
     }
 
-    /** Minimal CSV split supporting double-quoted fields with escaped ("") quotes. */
+    /** Splits a CSV line, supports quoted fields */
     private String[] splitCsvLine(String line) {
         List<String> fields = new ArrayList<>();
         StringBuilder current = new StringBuilder();

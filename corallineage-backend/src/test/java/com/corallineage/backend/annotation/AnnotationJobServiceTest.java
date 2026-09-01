@@ -53,6 +53,7 @@ class AnnotationJobServiceTest {
     @Mock private LabelDefinitionRepository labelDefinitionRepository;
     @Mock private DatasetVersionService datasetVersionService;
     @Mock private DatasetService datasetService;
+    @Mock private AnnotationCommitService annotationCommitService;
 
     private final AnnotationJobMapper annotationJobMapper = new AnnotationJobMapper();
 
@@ -60,7 +61,8 @@ class AnnotationJobServiceTest {
         return new AnnotationJobService(annotationJobRepository, annotationPredictionRepository,
                 modelVersionRepository, imageRepository, annotationJobMapper, annotationJobExecutor,
                 annotationEventLoggerService, datasetVersionRepository, datasetVersionImageRepository,
-                annotationPointRepository, labelDefinitionRepository, datasetVersionService, datasetService);
+                annotationPointRepository, labelDefinitionRepository, datasetVersionService, datasetService,
+                annotationCommitService);
     }
 
     private ModelVersion model(Long id, String status) {

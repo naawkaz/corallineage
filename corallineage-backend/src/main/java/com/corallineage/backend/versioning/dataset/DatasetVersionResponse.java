@@ -7,6 +7,9 @@ public class DatasetVersionResponse {
 
     private Long id;
     private Long datasetId;
+    // Permanent ordinal position among non staging versions, distinct from the free
+    // text versionTag
+    private Integer versionNumber;
     private String versionTag;
     private Instant createdAt;
     private String createdBy;
@@ -18,83 +21,177 @@ public class DatasetVersionResponse {
     private List<LabelDefinitionResponse> labelDefinitions;
     private boolean complete;
     private long unresolvedDirtyCount;
-    // Only set when this version was created by an import that's still PROCESSING (or FAILED) -
-    // null once the import completed or if this version wasn't created by an import at all.
+    // Import status while an import is still processing or failed, else null
     private String importStatus;
-    // The originating ImportJob's format (e.g. "BLANK"), null if not import-created. Used by the
-    // frontend to decide whether to offer "Resolve" (start blank import) on a completed import.
+    // The originating import format, null if not import created
     private String importFormat;
-    // Set once a PointAnnotationJob already exists for this version, so the frontend knows blank
-    // import has already been started here and shouldn't offer "Resolve" again.
+    // True once a point annotation job exists for this version
     private boolean blankImportStarted;
-    // "UNRESOLVED" when this version needs attention before it's usable (a BLANK import that
-    // hasn't been resolved into real points yet, in any stage); null once resolved or not
-    // applicable. See DatasetVersionService.attachResolveStatus.
+    // UNRESOLVED when this version needs attention before it is usable, else null
     private String resolveStatus;
-    // Where clicking "Resolve" should take the user: "START" (no job yet, open the blank-import
-    // start dialog), "SEED_LABEL" (a point-annotation job exists, any non-COMPLETE status - that
-    // page itself handles every sub-stage), "ANNOTATION_REVIEW" (a warm-start existing-version
-    // job exists, predictions pending review/apply). Null when resolveStatus is null.
+    // Where Resolve should navigate, one of START SEED_LABEL ANNOTATION_REVIEW,
+    // else null
     private String resolveRoute;
-    // The job id resolveRoute's URL is built from (point-annotation job id for SEED_LABEL,
-    // annotation job id for ANNOTATION_REVIEW); null for START (no job exists yet) or when
-    // resolveStatus is null.
+    // The job id the resolve route URL is built from, else null
     private Long resolveJobId;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getDatasetId() { return datasetId; }
-    public void setDatasetId(Long datasetId) { this.datasetId = datasetId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getVersionTag() { return versionTag; }
-    public void setVersionTag(String versionTag) { this.versionTag = versionTag; }
+    public Long getDatasetId() {
+        return datasetId;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public void setDatasetId(Long datasetId) {
+        this.datasetId = datasetId;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public Integer getVersionNumber() {
+        return versionNumber;
+    }
 
-    public String getTriggerReason() { return triggerReason; }
-    public void setTriggerReason(String triggerReason) { this.triggerReason = triggerReason; }
+    public void setVersionNumber(Integer versionNumber) {
+        this.versionNumber = versionNumber;
+    }
 
-    public Integer getImageCount() { return imageCount; }
-    public void setImageCount(Integer imageCount) { this.imageCount = imageCount; }
+    public String getVersionTag() {
+        return versionTag;
+    }
 
-    public Integer getAnnotationCount() { return annotationCount; }
-    public void setAnnotationCount(Integer annotationCount) { this.annotationCount = annotationCount; }
+    public void setVersionTag(String versionTag) {
+        this.versionTag = versionTag;
+    }
 
-    public String getDvcCommitHash() { return dvcCommitHash; }
-    public void setDvcCommitHash(String dvcCommitHash) { this.dvcCommitHash = dvcCommitHash; }
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 
-    public List<LabelDefinitionResponse> getLabelDefinitions() { return labelDefinitions; }
-    public void setLabelDefinitions(List<LabelDefinitionResponse> labelDefinitions) { this.labelDefinitions = labelDefinitions; }
+    public String getCreatedBy() {
+        return createdBy;
+    }
 
-    public boolean isComplete() { return complete; }
-    public void setComplete(boolean complete) { this.complete = complete; }
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
 
-    public long getUnresolvedDirtyCount() { return unresolvedDirtyCount; }
-    public void setUnresolvedDirtyCount(long unresolvedDirtyCount) { this.unresolvedDirtyCount = unresolvedDirtyCount; }
+    public String getTriggerReason() {
+        return triggerReason;
+    }
 
-    public String getImportStatus() { return importStatus; }
-    public void setImportStatus(String importStatus) { this.importStatus = importStatus; }
+    public void setTriggerReason(String triggerReason) {
+        this.triggerReason = triggerReason;
+    }
 
-    public String getImportFormat() { return importFormat; }
-    public void setImportFormat(String importFormat) { this.importFormat = importFormat; }
+    public Integer getImageCount() {
+        return imageCount;
+    }
 
-    public boolean isBlankImportStarted() { return blankImportStarted; }
-    public void setBlankImportStarted(boolean blankImportStarted) { this.blankImportStarted = blankImportStarted; }
+    public void setImageCount(Integer imageCount) {
+        this.imageCount = imageCount;
+    }
 
-    public String getResolveStatus() { return resolveStatus; }
-    public void setResolveStatus(String resolveStatus) { this.resolveStatus = resolveStatus; }
+    public Integer getAnnotationCount() {
+        return annotationCount;
+    }
 
-    public String getResolveRoute() { return resolveRoute; }
-    public void setResolveRoute(String resolveRoute) { this.resolveRoute = resolveRoute; }
+    public void setAnnotationCount(Integer annotationCount) {
+        this.annotationCount = annotationCount;
+    }
 
-    public Long getResolveJobId() { return resolveJobId; }
-    public void setResolveJobId(Long resolveJobId) { this.resolveJobId = resolveJobId; }
+    public String getDvcCommitHash() {
+        return dvcCommitHash;
+    }
+
+    public void setDvcCommitHash(String dvcCommitHash) {
+        this.dvcCommitHash = dvcCommitHash;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
+
+    public List<LabelDefinitionResponse> getLabelDefinitions() {
+        return labelDefinitions;
+    }
+
+    public void setLabelDefinitions(List<LabelDefinitionResponse> labelDefinitions) {
+        this.labelDefinitions = labelDefinitions;
+    }
+
+    public boolean isComplete() {
+        return complete;
+    }
+
+    public void setComplete(boolean complete) {
+        this.complete = complete;
+    }
+
+    public long getUnresolvedDirtyCount() {
+        return unresolvedDirtyCount;
+    }
+
+    public void setUnresolvedDirtyCount(long unresolvedDirtyCount) {
+        this.unresolvedDirtyCount = unresolvedDirtyCount;
+    }
+
+    public String getImportStatus() {
+        return importStatus;
+    }
+
+    public void setImportStatus(String importStatus) {
+        this.importStatus = importStatus;
+    }
+
+    public String getImportFormat() {
+        return importFormat;
+    }
+
+    public void setImportFormat(String importFormat) {
+        this.importFormat = importFormat;
+    }
+
+    public boolean isBlankImportStarted() {
+        return blankImportStarted;
+    }
+
+    public void setBlankImportStarted(boolean blankImportStarted) {
+        this.blankImportStarted = blankImportStarted;
+    }
+
+    public String getResolveStatus() {
+        return resolveStatus;
+    }
+
+    public void setResolveStatus(String resolveStatus) {
+        this.resolveStatus = resolveStatus;
+    }
+
+    public String getResolveRoute() {
+        return resolveRoute;
+    }
+
+    public void setResolveRoute(String resolveRoute) {
+        this.resolveRoute = resolveRoute;
+    }
+
+    public Long getResolveJobId() {
+        return resolveJobId;
+    }
+
+    public void setResolveJobId(Long resolveJobId) {
+        this.resolveJobId = resolveJobId;
+    }
 }

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -18,6 +18,10 @@ import { useAuthContext } from '../../shared/lib/authContextCore'
 import LabelCombobox from '../../shared/components/LabelCombobox'
 import type { AnnotationJob, AnnotationPrediction } from '../annotation/annotationTypes'
 import type { LabelDefinition } from '../datasets/versionsTypes'
+
+// Review screen for a model annotation job: image queue, zoomable canvas with prediction dots,
+// and a per-point resolve panel. Handles both NEW_IMAGES jobs (accept/override each point, then
+// add to the source) and read-only VALIDATION jobs (agreement stats only).
 
 function dotClassFor(job: AnnotationJob, prediction: AnnotationPrediction, isSelected: boolean): string {
   if (isSelected) return 'dot-selected'
@@ -269,11 +273,11 @@ export default function AnnotationReview() {
               <div>
                 <div style={{ fontWeight: 600, marginBottom: 2 }}>All points reviewed</div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  Apply these final labels directly onto this dataset version, no new version is created.
+                  Add these reviewed labels to the source dataset.
                 </div>
               </div>
               <button className="btn btn-primary" disabled={applying} onClick={handleApplyToVersion}>
-                {applying ? 'Applying…' : 'Apply to Version'}
+                {applying ? 'Applying...' : 'Add to Source'}
               </button>
             </div>
             {applyError && (
@@ -479,7 +483,7 @@ export default function AnnotationReview() {
                         key={label.labelCode}
                         style={{ display: 'flex', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid var(--border)' }}
                       >
-                        <span className="mono" style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
+                        <span style={{ width: 120, fontSize: 11 }}>{label.labelCode}</span>
                         <span style={{ flex: 1, fontSize: 12 }}>{label.labelName}</span>
                         <span style={{ width: 120 }}>{label.labelCategory && <span className="tag">{label.labelCategory}</span>}</span>
                       </div>
@@ -489,55 +493,56 @@ export default function AnnotationReview() {
               </div>
             </div>
 
-            <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {!isValidation && (
-                <div style={{ display: 'flex', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
-                  <div className="toggle-checkbox" style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${filterMode === 'needs_review' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setFilterMode('needs_review')}
-                    >
-                      Needs review
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-sm ${filterMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => setFilterMode('all')}
-                    >
-                      All points
-                    </button>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+              <div className="inset-container" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                {!isValidation && (
+                  <div style={{ display: 'flex', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+                    <div className="toggle-checkbox" style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filterMode === 'needs_review' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setFilterMode('needs_review')}
+                      >
+                        Needs review
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${filterMode === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setFilterMode('all')}
+                      >
+                        All points
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-              <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
-                {currentImagePredictions.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 12 }}>
-                    {filterMode === 'needs_review' ? 'Nothing on this image needs review.' : 'No points on this image.'}
-                  </div>
-                ) : (
-                  currentImagePredictions.map((prediction) => (
-                    <PredictionCard
-                      key={prediction.predictionId}
-                      prediction={prediction}
-                      isValidation={isValidation}
-                      selected={prediction.predictionId === effectiveSelectedId}
-                      labelOptions={labelOptions}
-                      onSelect={() => setSelectedPredictionId(prediction.predictionId)}
-                      onResolve={resolvePrediction}
-                    />
-                  ))
                 )}
+                <div className="review-panel" style={{ flex: 1, minHeight: 0, maxHeight: 'none', overflowY: 'auto', padding: 12 }}>
+                  {currentImagePredictions.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 12 }}>
+                      {filterMode === 'needs_review' ? 'Nothing on this image needs review.' : 'No points on this image.'}
+                    </div>
+                  ) : (
+                    currentImagePredictions.map((prediction) => (
+                      <PredictionCard
+                        key={prediction.predictionId}
+                        prediction={prediction}
+                        isValidation={isValidation}
+                        selected={prediction.predictionId === effectiveSelectedId}
+                        labelOptions={labelOptions}
+                        onSelect={() => setSelectedPredictionId(prediction.predictionId)}
+                        onResolve={resolvePrediction}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
               {!isValidation && (
-                <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
                   <button
-                    className="btn btn-primary"
-                    style={{ width: '100%' }}
+                    className="btn btn-accept"
                     disabled={pendingCount === 0 || acceptingAll}
                     onClick={handleAcceptAll}
                   >
-                    {acceptingAll ? 'Accepting…' : 'Accept All Labels'}
+                    {acceptingAll ? 'Accepting...' : 'Accept All Labels'}
                   </button>
                 </div>
               )}
@@ -549,14 +554,8 @@ export default function AnnotationReview() {
   )
 }
 
-// Owns the "Add to Source" form's own versionTag/notes/error state. Only ever mounted while
-// addOpen is true (`{addOpen && <AddToSourceDialog .../>}` above), so each open is a fresh mount
-// with blank fields - no "reset on open" useEffect needed. This replaces one that used to sit in
-// AnnotationReview itself (`useEffect(() => { if (!addOpen) return; setVersionTag(''); ... },
-// [addOpen])`). See corallineage-frontend/CLAUDE.md for why that pattern (reset-via-effect keyed
-// on an `open` flag) shouldn't be copied into new dialogs in this codebase: it's an extra render
-// pass here, and a genuine cascading extra render pass anywhere the reset touches state that
-// another effect also depends on. Split the dialog into its own component instead.
+// Owns the "Add to Source" form state. Mounted only while addOpen is true, so each open is a
+// fresh mount with blank fields.
 function AddToSourceDialog({
   jobId,
   initiatedBy,
@@ -583,11 +582,7 @@ function AddToSourceDialog({
         notes: addNotes.trim() || undefined,
         createdBy: initiatedBy,
       })
-      // Re-fetch the canonical job state through the same loadAll() path used on mount, rather
-      // than trusting the add-to-project response body directly. This is what a manual page
-      // reload already did to reveal the correct state, so folding it into the success path here
-      // closes the gap by construction instead of depending on the POST response always matching
-      // the shape this component expects.
+      // Re-fetch canonical job state via loadAll() rather than trusting the POST response body.
       await onAdded()
       onClose()
     } catch (err) {
@@ -647,7 +642,7 @@ function AddToSourceDialog({
             Cancel
           </button>
           <button className="btn btn-primary" disabled={adding || !versionTag.trim()} onClick={handleAddToProject}>
-            {adding ? 'Creating version…' : 'Create Dataset Version'}
+            {adding ? 'Creating version...' : 'Create Dataset Version'}
           </button>
         </div>
       </div>
@@ -699,11 +694,7 @@ function PredictionCard({
           value={currentLabelCode}
           onChange={canReview ? (labelCode) => onResolve(prediction, labelCode) : () => {}}
           disabled={!canReview}
-          placeholder={
-            canReview
-              ? `Predicted: ${prediction.predictedLabelCode} (conf ${prediction.confidenceScore.toFixed(4)})`
-              : undefined
-          }
+          valueSuffix={canReview ? ` (${(prediction.confidenceScore * 100).toFixed(1)}% confidence)` : undefined}
         />
       </div>
 

@@ -2,3 +2,7 @@
 /Moorea labeled dataset
 /markdown
 /training-data
+/node_modules
+
+# local run logs
+*.out

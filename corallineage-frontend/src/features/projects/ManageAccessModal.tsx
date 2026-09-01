@@ -68,9 +68,9 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
         <div className="modal-header">
           <div>
             <div className="modal-title">Manage access</div>
-            <div className="modal-subtitle">
+            {/* <div className="modal-subtitle">
               Which sources {member.displayName} can see in this project
-            </div>
+            </div> */}
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <XMarkIcon style={{ width: 16, height: 16 }} />
@@ -84,7 +84,7 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
           )}
           {loading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading access…
+              <span className="spinner" /> Loading access...
             </div>
           ) : (
             <SourceChecklist sources={sources} checked={checked} onToggle={toggle} />
@@ -95,7 +95,7 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
             Cancel
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving || loading}>
-            {saving ? 'Saving…' : 'Save access'}
+            {saving ? 'Saving...' : 'Save access'}
           </button>
         </div>
       </div>

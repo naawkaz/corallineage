@@ -33,21 +33,17 @@ interface TrainModelDialogProps {
   initiatedBy: string
   architectures: Architecture[]
   versions: DatasetVersion[]
-  /** Preselects a specific dataset version instead of defaulting to versions[0]. */
+  /** Preselects a specific dataset version instead of defaulting to versions[0] */
   initialVersionId?: number
-  /** Overrides the submit action (defaults to the generic standalone-training-job endpoint). */
+  /** Overrides the submit action 
+   * defaults to the standalone training-job endpoint */
   onSubmit?: (form: TrainModelDialogForm) => Promise<TrainingJob>
   onClose: () => void
   onCompleted: () => void
 }
 
-// Owns all of the "Train New Model" form's own state (architecture, selected version, hyperparams,
-// the active job + its live epoch-metric poll). This dialog is only ever mounted while its parent's
-// open flag is true (e.g. `{trainDialogOpen && <TrainModelDialog .../>}`), so a fresh mount on
-// every open already gives a clean form - there's no "reset on open" useEffect to write here. See
-// corallineage-frontend/CLAUDE.md for the pattern this replaced and why: don't reset dialog-local
-// state with a useEffect keyed on an `open` flag, especially not one that also happens to be
-// another effect's dependency (activeJob here).
+// Owns "Train New Model" form state 
+// Mounted only while its parent's open flag is true
 export default function TrainModelDialog({
   sourceId,
   initiatedBy,
@@ -79,11 +75,8 @@ export default function TrainModelDialog({
     if (initialVersionId == null && versions.length > 0) setSelectedVersionId(versions[0].id)
   }, [versions, initialVersionId])
 
-  // Polls the active training job every 3s while it's QUEUED/RUNNING, purely to drive this
-  // dialog's own live epoch-progress bar and loss curve while it stays open - the completion
-  // toast is no longer fired from here. JobPollingProvider (shared/lib/JobPollingProvider.tsx)
-  // now owns that globally, so it fires exactly once regardless of whether this dialog is still
-  // open or the user already navigated away - firing it here too would just duplicate it.
+  // Polls the active job every 3s while QUEUED/RUNNING to drive epoch-progress bar
+  // and loss curve
   useEffect(() => {
     if (!activeJob || (activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING')) {
       return
@@ -96,17 +89,18 @@ export default function TrainModelDialog({
             fetchTrainingJobEpochMetrics(updated.jobId)
               .then((points) => setActiveJobEpochMetrics(points))
               .catch(() => {
-                // transient poll failure, the epoch progress bar still covers this tick
               })
           }
           if (updated.status !== 'QUEUED' && updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
             onCompleted()
+            if (updated.status === 'COMPLETED') {
+              onClose()
+            }
           }
         })
         .catch(() => {
-          // transient poll failure - try again next tick
         })
     }, 3000)
     pollingRef.current = intervalId
@@ -187,7 +181,7 @@ export default function TrainModelDialog({
               onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
             >
               <option value="" disabled>
-                Select a version…
+                Select a version...
               </option>
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -259,7 +253,7 @@ export default function TrainModelDialog({
                       }}
                     />
                   </div>
-                  {/* Fed by GET /training/jobs/{id}/epoch-metrics, which reads the job's own
+                  {/* Fed by GET /training/jobs/{id}/epoch-metrics which reads the job's own
                       mlflowRunId rather than requiring a registered ModelVersion, so the same
                       loss curve used for a completed model can grow live while still RUNNING. */}
                   <LossCurveChart epochMetrics={activeJobEpochMetrics} />
@@ -267,7 +261,7 @@ export default function TrainModelDialog({
               ) : (
                 (activeJob.status === 'QUEUED' || activeJob.status === 'RUNNING') && (
                   <div className="loading-state">
-                    <span className="spinner" /> Training in progress…
+                    <span className="spinner" /> Training in progress...
                   </div>
                 )
               )}
@@ -282,7 +276,7 @@ export default function TrainModelDialog({
         </div>
         <div className="modal-footer">
           <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting || selectedVersionId == null}>
-            {submitting ? 'Submitting…' : 'Start Training'}
+            {submitting ? 'Submitting...' : 'Start Training'}
           </button>
         </div>
       </div>

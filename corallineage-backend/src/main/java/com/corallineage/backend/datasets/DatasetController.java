@@ -34,8 +34,8 @@ public class DatasetController {
 
     @PostMapping("/api/v1/projects/{projectId}/datasets")
     public ResponseEntity<DatasetResponse> createDataset(@PathVariable Long projectId,
-                                                           @Valid @RequestBody CreateDatasetRequest request,
-                                                           Authentication authentication) {
+            @Valid @RequestBody CreateDatasetRequest request,
+            Authentication authentication) {
         DatasetResponse response = datasetService.createDataset(request, projectId, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

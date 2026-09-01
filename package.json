@@ -1,0 +1,12 @@
+{
+  "name": "corallineage",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Root-level dev launcher for corallineage-backend, corallineage-frontend, corallineage-ml-service, and docker-compose infra",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names \"infra,backend,frontend,ml\" --prefix-colors \"yellow,blue,green,magenta\" \"docker-compose up\" \"cd corallineage-backend && mvnw.cmd spring-boot:run\" \"cd corallineage-frontend && npm run dev\" \"corallineage-ml-service\\\\venv\\\\Scripts\\\\python.exe corallineage-ml-service\\\\app.py\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

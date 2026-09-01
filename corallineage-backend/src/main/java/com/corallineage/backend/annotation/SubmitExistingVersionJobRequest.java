@@ -8,9 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * Warm-start blank-import submit request: annotates an existing dataset version's already-present
- * images (no upload, no new staging version) with a chosen model, structurally between Mode A
- * ("Validate") and Mode B ("New Images") — see AnnotationJobService.submitExistingVersionJob.
+ * Request to annotate an existing dataset version's images with a chosen model
  */
 public class SubmitExistingVersionJobRequest {
 
@@ -32,24 +30,59 @@ public class SubmitExistingVersionJobRequest {
     @NotBlank
     private String initiatedBy;
 
-    public Long getModelVersionId() { return modelVersionId; }
-    public void setModelVersionId(Long modelVersionId) { this.modelVersionId = modelVersionId; }
+    public Long getModelVersionId() {
+        return modelVersionId;
+    }
 
-    public Long getDatasetVersionId() { return datasetVersionId; }
-    public void setDatasetVersionId(Long datasetVersionId) { this.datasetVersionId = datasetVersionId; }
+    public void setModelVersionId(Long modelVersionId) {
+        this.modelVersionId = modelVersionId;
+    }
 
-    public List<Long> getImageIds() { return imageIds; }
-    public void setImageIds(List<Long> imageIds) { this.imageIds = imageIds; }
+    public Long getDatasetVersionId() {
+        return datasetVersionId;
+    }
 
-    public Integer getGridRows() { return gridRows; }
-    public void setGridRows(Integer gridRows) { this.gridRows = gridRows; }
+    public void setDatasetVersionId(Long datasetVersionId) {
+        this.datasetVersionId = datasetVersionId;
+    }
 
-    public Integer getGridCols() { return gridCols; }
-    public void setGridCols(Integer gridCols) { this.gridCols = gridCols; }
+    public List<Long> getImageIds() {
+        return imageIds;
+    }
 
-    public BigDecimal getConfidenceThreshold() { return confidenceThreshold; }
-    public void setConfidenceThreshold(BigDecimal confidenceThreshold) { this.confidenceThreshold = confidenceThreshold; }
+    public void setImageIds(List<Long> imageIds) {
+        this.imageIds = imageIds;
+    }
 
-    public String getInitiatedBy() { return initiatedBy; }
-    public void setInitiatedBy(String initiatedBy) { this.initiatedBy = initiatedBy; }
+    public Integer getGridRows() {
+        return gridRows;
+    }
+
+    public void setGridRows(Integer gridRows) {
+        this.gridRows = gridRows;
+    }
+
+    public Integer getGridCols() {
+        return gridCols;
+    }
+
+    public void setGridCols(Integer gridCols) {
+        this.gridCols = gridCols;
+    }
+
+    public BigDecimal getConfidenceThreshold() {
+        return confidenceThreshold;
+    }
+
+    public void setConfidenceThreshold(BigDecimal confidenceThreshold) {
+        this.confidenceThreshold = confidenceThreshold;
+    }
+
+    public String getInitiatedBy() {
+        return initiatedBy;
+    }
+
+    public void setInitiatedBy(String initiatedBy) {
+        this.initiatedBy = initiatedBy;
+    }
 }

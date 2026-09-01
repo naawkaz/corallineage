@@ -12,9 +12,9 @@ public interface PointAnnotationJobRepository extends JpaRepository<PointAnnotat
 
     boolean existsByDatasetVersion_Id(Long datasetVersionId);
 
-    /** One point-annotation job per dataset version in practice (submitJob is one-shot per version). */
+    /** One point annotation job per dataset version */
     Optional<PointAnnotationJob> findFirstByDatasetVersion_IdOrderByCreatedAtDesc(Long datasetVersionId);
 
-    /** Looks up the point-annotation job (if any) that triggered a given TrainingJob. */
+    /** The point annotation job that triggered a training job */
     Optional<PointAnnotationJob> findByTrainingJob_Id(Long trainingJobId);
 }

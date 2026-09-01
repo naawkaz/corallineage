@@ -8,11 +8,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "model_versions",
-       indexes = {
-           @Index(name = "idx_model_versions_dataset_version", columnList = "trained_on_dataset_version_id"),
-           @Index(name = "idx_model_versions_trained_at", columnList = "trained_at")
-       })
+@Table(name = "model_versions", indexes = {
+        @Index(name = "idx_model_versions_dataset_version", columnList = "trained_on_dataset_version_id"),
+        @Index(name = "idx_model_versions_trained_at", columnList = "trained_at")
+})
 public class ModelVersion {
 
     @Id
@@ -35,7 +34,7 @@ public class ModelVersion {
     @Column(name = "architecture", nullable = false, length = 100)
     private String architecture = "efficientnet_b0";
 
-    // Stored as JSON text; Hibernate 6 native JSON mapping (Spring Boot 3+)
+    // Stored as JSON text via Hibernate native JSON mapping
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "hyperparameters")
     private String hyperparameters;
@@ -57,54 +56,122 @@ public class ModelVersion {
     @Column(name = "weights_path", columnDefinition = "TEXT")
     private String weightsPath;
 
-    // Values: ACTIVE, ARCHIVED, DEPRECATED
+    // one of ACTIVE ARCHIVED DEPRECATED
     @Column(name = "status", nullable = false, length = 50)
     private String status = "ACTIVE";
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // --- getters and setters ---
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getModelTag() { return modelTag; }
-    public void setModelTag(String modelTag) { this.modelTag = modelTag; }
+    public String getModelTag() {
+        return modelTag;
+    }
 
-    public DatasetVersion getTrainedOnDatasetVersion() { return trainedOnDatasetVersion; }
-    public void setTrainedOnDatasetVersion(DatasetVersion trainedOnDatasetVersion) { this.trainedOnDatasetVersion = trainedOnDatasetVersion; }
+    public void setModelTag(String modelTag) {
+        this.modelTag = modelTag;
+    }
 
-    public Instant getTrainedAt() { return trainedAt; }
-    public void setTrainedAt(Instant trainedAt) { this.trainedAt = trainedAt; }
+    public DatasetVersion getTrainedOnDatasetVersion() {
+        return trainedOnDatasetVersion;
+    }
 
-    public String getTrainedBy() { return trainedBy; }
-    public void setTrainedBy(String trainedBy) { this.trainedBy = trainedBy; }
+    public void setTrainedOnDatasetVersion(DatasetVersion trainedOnDatasetVersion) {
+        this.trainedOnDatasetVersion = trainedOnDatasetVersion;
+    }
 
-    public String getArchitecture() { return architecture; }
-    public void setArchitecture(String architecture) { this.architecture = architecture; }
+    public Instant getTrainedAt() {
+        return trainedAt;
+    }
 
-    public String getHyperparameters() { return hyperparameters; }
-    public void setHyperparameters(String hyperparameters) { this.hyperparameters = hyperparameters; }
+    public void setTrainedAt(Instant trainedAt) {
+        this.trainedAt = trainedAt;
+    }
 
-    public String getClassMappings() { return classMappings; }
-    public void setClassMappings(String classMappings) { this.classMappings = classMappings; }
+    public String getTrainedBy() {
+        return trainedBy;
+    }
 
-    public BigDecimal getAccuracy() { return accuracy; }
-    public void setAccuracy(BigDecimal accuracy) { this.accuracy = accuracy; }
+    public void setTrainedBy(String trainedBy) {
+        this.trainedBy = trainedBy;
+    }
 
-    public String getPerformanceMetrics() { return performanceMetrics; }
-    public void setPerformanceMetrics(String performanceMetrics) { this.performanceMetrics = performanceMetrics; }
+    public String getArchitecture() {
+        return architecture;
+    }
 
-    public String getMlflowRunId() { return mlflowRunId; }
-    public void setMlflowRunId(String mlflowRunId) { this.mlflowRunId = mlflowRunId; }
+    public void setArchitecture(String architecture) {
+        this.architecture = architecture;
+    }
 
-    public String getWeightsPath() { return weightsPath; }
-    public void setWeightsPath(String weightsPath) { this.weightsPath = weightsPath; }
+    public String getHyperparameters() {
+        return hyperparameters;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setHyperparameters(String hyperparameters) {
+        this.hyperparameters = hyperparameters;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public String getClassMappings() {
+        return classMappings;
+    }
+
+    public void setClassMappings(String classMappings) {
+        this.classMappings = classMappings;
+    }
+
+    public BigDecimal getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(BigDecimal accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public String getPerformanceMetrics() {
+        return performanceMetrics;
+    }
+
+    public void setPerformanceMetrics(String performanceMetrics) {
+        this.performanceMetrics = performanceMetrics;
+    }
+
+    public String getMlflowRunId() {
+        return mlflowRunId;
+    }
+
+    public void setMlflowRunId(String mlflowRunId) {
+        this.mlflowRunId = mlflowRunId;
+    }
+
+    public String getWeightsPath() {
+        return weightsPath;
+    }
+
+    public void setWeightsPath(String weightsPath) {
+        this.weightsPath = weightsPath;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 }

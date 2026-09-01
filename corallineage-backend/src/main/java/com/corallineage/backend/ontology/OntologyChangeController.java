@@ -29,8 +29,8 @@ public class OntologyChangeController {
     private final ProjectMemberService projectMemberService;
 
     public OntologyChangeController(OntologyChangeService ontologyChangeService,
-                                     DatasetService datasetService,
-                                     ProjectMemberService projectMemberService) {
+            DatasetService datasetService,
+            ProjectMemberService projectMemberService) {
         this.ontologyChangeService = ontologyChangeService;
         this.datasetService = datasetService;
         this.projectMemberService = projectMemberService;
@@ -49,7 +49,7 @@ public class OntologyChangeController {
 
     @PostMapping("/changes")
     public ResponseEntity<OntologyChangeResponse> recordChange(@Valid @RequestBody RecordOntologyChangeRequest request,
-                                                                 Authentication authentication) {
+            Authentication authentication) {
         OntologyChangeResponse response = ontologyChangeService.recordChange(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -67,9 +67,7 @@ public class OntologyChangeController {
             datasetService.requireAccess(scopedDatasetId, authentication.getName());
             return ontologyChangeService.getDirtyAnnotations(ontologyChangeId, imageId, pageable);
         }
-        // No scoping filter (or an imageId with no matching rows yet): filter server-side to the
-        // requester's accessible datasets rather than blocking the call or returning everyone's
-        // dirty-annotation queue.
+        // No scoping filter, so filter to the requester's accessible datasets
         Set<Long> accessibleDatasetIds = projectMemberService.getAllAccessibleDatasetIds(authentication.getName());
         return ontologyChangeService.getDirtyAnnotationsAccessibleWithNoFilter(accessibleDatasetIds, pageable);
     }

@@ -6,8 +6,6 @@ interface SourceChecklistProps {
   onToggle: (sourceId: number) => void
 }
 
-/** Checklist of a Project's Sources, used by both the add-collaborator form and the
- * manage-access dialog (item 20/21/24 share this exact shape). */
 export default function SourceChecklist({ sources, checked, onToggle }: SourceChecklistProps) {
   if (sources.length === 0) {
     return <div className="form-hint">This project has no sources yet.</div>

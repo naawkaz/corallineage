@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -24,6 +24,7 @@ import { errorMessage } from '../../shared/api/client'
 import { formatDate } from '../../shared/lib/format'
 import { useAuthContext } from '../../shared/lib/authContextCore'
 import { useToast } from '../../shared/lib/toastContextCore'
+import { useJobPolling } from '../../shared/lib/jobPollingContextCore'
 import LossCurveChart from '../training/LossCurveChart'
 import TitledCard from '../../shared/components/TitledCard'
 import Pagination from '../../shared/components/Pagination'
@@ -81,6 +82,7 @@ export default function ModelDetail() {
   const modelId = Number(id)
   const modelsListPath = `/sources/${sourceIdParam}/models`
   const { user } = useAuthContext()
+  const { refreshSignal } = useJobPolling()
 
   const [model, setModel] = useState<ModelVersion | null>(null)
   const [loading, setLoading] = useState(true)
@@ -110,7 +112,7 @@ export default function ModelDetail() {
   useEffect(() => {
     loadJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelId])
+  }, [modelId, refreshSignal])
 
   function loadModel() {
     fetchModel(modelId)
@@ -159,7 +161,7 @@ export default function ModelDetail() {
     return (
       <div className="content">
         <div className="loading-state">
-          <span className="spinner" /> Loading model…
+          <span className="spinner" /> Loading model...
         </div>
       </div>
     )
@@ -360,9 +362,9 @@ export default function ModelDetail() {
           </TitledCard>
         </div>
 
+        <div className="grid-2" style={{ gridTemplateColumns: '2fr 1fr', gap: 24, alignItems: 'start', marginTop: 24 }}>
         <TitledCard
-          title="MLflow diagnostics"
-          style={{ marginTop: 24 }}
+          title="Model diagnostics"
           actions={
             diagnostics.kind === 'ready' && (
               <a
@@ -380,7 +382,7 @@ export default function ModelDetail() {
         >
             {diagnostics.kind === 'loading' && (
               <div className="loading-state">
-                <span className="spinner" /> Loading MLflow details…
+                <span className="spinner" /> Loading MLflow details...
               </div>
             )}
             {diagnostics.kind === 'not-found' && (
@@ -431,7 +433,7 @@ export default function ModelDetail() {
             )}
         </TitledCard>
 
-        <TitledCard title="Annotation jobs" style={{ marginTop: 24 }} bodyClassName="no-padding">
+        <TitledCard title="Annotation jobs" bodyClassName="no-padding">
           {jobsError && (
             <div className="alert alert-error" style={{ margin: 16 }}>
               {jobsError}
@@ -439,7 +441,7 @@ export default function ModelDetail() {
           )}
           {jobsLoading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading jobs…
+              <span className="spinner" /> Loading jobs...
             </div>
           ) : jobs.length === 0 ? (
             <div className="empty-state">
@@ -504,6 +506,7 @@ export default function ModelDetail() {
             </table>
           )}
         </TitledCard>
+        </div>
       </div>
 
       {validateOpen && (
@@ -541,10 +544,8 @@ interface AnnotationDialogProps {
 }
 
 /**
- * "Validate model performance": rechecks this model's predictions against real human-labeled
- * points on an existing dataset version, a direct accuracy comparison, no review step. Only ever
- * mounted while validateOpen is true, so a fresh mount already gives a clean form - do not add a
- * "reset form" useEffect keyed on an open boolean (see corallineage-frontend/CLAUDE.md).
+ * "Validate model performance": rechecks this model's predictions against human-labeled points
+ * on an existing dataset version, a direct accuracy comparison with no review step.
  */
 function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, onCompleted }: AnnotationDialogProps) {
   const [versions, setVersions] = useState<DatasetVersion[]>([])
@@ -561,7 +562,6 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
 
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
-  const toastIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     fetchVersions(sourceId, 0, 50)
@@ -579,7 +579,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .then((res) => {
         setImages(res.content)
         setImagesPage(0)
-        // Filtered images (human-labeled points) are selected by default; user can deselect.
+        // Filtered images selected by default. Able to deselect
         setSelectedImageIds(res.content.map((img) => img.id))
       })
       .catch(() => {
@@ -589,6 +589,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .finally(() => setImagesLoading(false))
   }, [sourceId, selectedVersionId])
 
+  // Drives live status UI while dialog stays open
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -598,16 +599,6 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
           if (updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
-            if (toastIdRef.current) {
-              toast.update(toastIdRef.current, {
-                variant: updated.status === 'COMPLETED' ? 'success' : 'error',
-                title: updated.status === 'COMPLETED' ? 'Validation complete' : 'Validation failed',
-                detail: updated.status === 'COMPLETED'
-                  ? `${updated.totalPredictions} point(s) checked.`
-                  : updated.errorMessage ?? undefined,
-              })
-              toastIdRef.current = null
-            }
             onCompleted()
           }
         })
@@ -639,7 +630,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
         initiatedBy,
       })
       setActiveJob(created)
-      toastIdRef.current = toast.push({ variant: 'progress', title: 'Validation running…' })
+      toast.push({ variant: 'info', title: 'Validation started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
       setSubmitError(errorMessage(err))
@@ -825,8 +816,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
 /**
  * "Upload & Annotate New Images": uploads images not yet part of any dataset version, runs them
  * through this model, auto-confirms predictions above the confidence threshold, and queues the
- * rest for manual review before they're added to the dataset. Only ever mounted while uploadOpen
- * is true - see the note on ValidateModelDialog above.
+ * rest for manual review before they're added to the dataset.
  */
 function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClose, onCompleted }: AnnotationDialogProps) {
   const [gridRows, setGridRows] = useState(3)
@@ -840,8 +830,8 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
 
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
-  const toastIdRef = useRef<string | null>(null)
 
+  // Drives only live status UI while dialog stays open
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -851,16 +841,6 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
           if (updated.status !== 'RUNNING' && pollingRef.current !== null) {
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
-            if (toastIdRef.current) {
-              toast.update(toastIdRef.current, {
-                variant: updated.status === 'COMPLETED' ? 'success' : 'error',
-                title: updated.status === 'COMPLETED' ? 'Auto-annotate complete' : 'Auto-annotate failed',
-                detail: updated.status === 'COMPLETED'
-                  ? `${updated.totalPredictions} point(s) ready.`
-                  : updated.errorMessage ?? undefined,
-              })
-              toastIdRef.current = null
-            }
             onCompleted()
           }
         })
@@ -892,7 +872,7 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
       )
       setActiveJob(created)
       setUploadFiles([])
-      toastIdRef.current = toast.push({ variant: 'progress', title: 'Annotating new images…' })
+      toast.push({ variant: 'info', title: 'Annotating new images started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
       setSubmitError(errorMessage(err))

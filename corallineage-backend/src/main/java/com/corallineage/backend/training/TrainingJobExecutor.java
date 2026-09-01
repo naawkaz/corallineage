@@ -20,21 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Orchestrates a training job's background run. Deliberately holds no @Transactional boundary
- * of its own: every DB write is delegated to TrainingJobStatusService, each call opening its own
- * fresh Propagation.REQUIRES_NEW transaction. See TrainingJobStatusService's class comment for
- * the full history of why (a shared-transaction design here previously caused a real
- * UnexpectedRollbackException bug that left failed jobs stuck at QUEUED with no error surfaced).
- *
- * Training itself now runs on the Python side in a background thread (see app.py), so
- * pythonMlServiceClient.startTraining just kicks it off and returns immediately; this method
- * polls pollTrainingStatus in its own loop until the job reaches a terminal state. While RUNNING,
- * as soon as an MLflow run id is known, it also polls MlflowIntegrationService.getEpochMetrics
- * directly (MLflow's autolog writes metrics live as each epoch finishes, so this is a genuine
- * live progress reading, not a guess) to derive currentEpoch/totalEpochs for the UI. This
- * replaces last session's custom Flask progress dict, which never actually worked live because
- * Flask's dev server ran single-threaded: the poll requests queued behind the blocking /train
- * call and were never served until training finished.
+ * Runs a training job's background execution and polls MLflow for live epoch
+ * progress
  */
 @Service
 public class TrainingJobExecutor {
@@ -51,11 +38,11 @@ public class TrainingJobExecutor {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TrainingJobExecutor(TrainingJobStatusService trainingJobStatusService,
-                               DatasetPreparationService datasetPreparationService,
-                               PythonMlServiceClient pythonMlServiceClient,
-                               MlflowIntegrationService mlflowIntegrationService,
-                               AnnotationEventLoggerService annotationEventLoggerService,
-                               @Lazy PointAnnotationJobService pointAnnotationJobService) {
+            DatasetPreparationService datasetPreparationService,
+            PythonMlServiceClient pythonMlServiceClient,
+            MlflowIntegrationService mlflowIntegrationService,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            @Lazy PointAnnotationJobService pointAnnotationJobService) {
         this.trainingJobStatusService = trainingJobStatusService;
         this.datasetPreparationService = datasetPreparationService;
         this.pythonMlServiceClient = pythonMlServiceClient;
@@ -98,7 +85,7 @@ public class TrainingJobExecutor {
             }
 
             if ("FAILED".equals(status.status())) {
-                trainingJobStatusService.markFailed(jobId, describeFailure(status.error()));
+                markFailedAndRevertPointJob(jobId, describeFailure(status.error()));
                 return;
             }
 
@@ -116,17 +103,15 @@ public class TrainingJobExecutor {
             try {
                 pointAnnotationJobService.autoAnnotateAfterTraining(jobId);
             } catch (Exception ex) {
-                // Training itself already succeeded and is persisted - a failure delegating into
-                // auto-annotate must never be reported back as a training failure. Worst case, the
-                // point-annotation job is left at TRAINING with no forward progress, visible in the
-                // Unlabeled import queue for manual follow-up.
+                // Training already succeeded, a failure delegating into auto annotate is not a
+                // training failure
                 log.error("Failed to auto-delegate into auto-annotate after training job {} completed", jobId, ex);
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            trainingJobStatusService.markFailed(jobId, "Interrupted while waiting for training to complete");
+            markFailedAndRevertPointJob(jobId, "Interrupted while waiting for training to complete");
         } catch (Exception ex) {
-            trainingJobStatusService.markFailed(jobId, describeFailure(ex.getMessage(), ex));
+            markFailedAndRevertPointJob(jobId, describeFailure(ex.getMessage(), ex));
         } finally {
             if (preparedDir != null) {
                 deleteRecursivelyQuietly(preparedDir);
@@ -135,12 +120,19 @@ public class TrainingJobExecutor {
     }
 
     /**
-     * Reads the live epoch metric history straight from MLflow (autolog logs a metric point as
-     * soon as each epoch finishes, even while the run is still in progress) and, if any points
-     * exist yet, persists the latest one as the job's current epoch. MLflow's step numbers are
-     * 0-based (mlflow.log_metric(..., step=epoch) in app.py's epoch loop starts at epoch 0), so
-     * +1 here converts to the 1-based "epoch X of N" a human expects to see.
+     * Marks the job failed and reverts a linked point annotation job to seed
+     * labeling
      */
+    private void markFailedAndRevertPointJob(Long jobId, String message) {
+        trainingJobStatusService.markFailed(jobId, message);
+        try {
+            pointAnnotationJobService.revertAfterTrainingFailure(jobId);
+        } catch (Exception ex) {
+            log.error("Failed to revert point-annotation job to SEED_LABELING after training job {} failed", jobId, ex);
+        }
+    }
+
+    /** Reads live epoch metrics from MLflow and persists the current epoch */
     private void updateEpochProgressFromMlflow(Long jobId, String mlflowRunId, int totalEpochs) {
         try {
             List<MlflowDetailsResponse.EpochMetricPoint> points = mlflowIntegrationService.getEpochMetrics(mlflowRunId);
@@ -159,21 +151,12 @@ public class TrainingJobExecutor {
         return epochs instanceof Number number ? number.intValue() : 10;
     }
 
-    /**
-     * Falls back to a generic message when the Python-reported error is null/blank (a status poll
-     * caught a FAILED job before Flask finished writing a detailed error, for example), so a
-     * training job never ends up FAILED with an empty errorMessage that gives the user nothing to
-     * act on.
-     */
+    /** Falls back to a generic error message when none is reported */
     private String describeFailure(String pythonError) {
         return (pythonError == null || pythonError.isBlank()) ? "Training failed" : pythonError;
     }
 
-    /**
-     * Falls back to the exception's class name when the message is null (a bare NullPointerException,
-     * for example), so a training job never ends up FAILED with an empty errorMessage that gives the
-     * user nothing to act on.
-     */
+    /** Falls back to the exception class name when no message exists */
     private String describeFailure(String message, Exception ex) {
         return (message == null || message.isBlank()) ? ex.getClass().getSimpleName() : message;
     }

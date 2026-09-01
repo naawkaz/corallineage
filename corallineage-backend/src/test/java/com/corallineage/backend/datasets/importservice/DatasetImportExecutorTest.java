@@ -92,7 +92,7 @@ class DatasetImportExecutorTest {
         newVersion.setAnnotationCount(0);
         when(datasetVersionRepository.findById(100L)).thenReturn(Optional.of(newVersion));
 
-        // Fresh version has no labels yet — bootstrapLabelDefinitions is expected to create them.
+        // Fresh version has no labels yet - bootstrapLabelDefinitions is expected to create them.
         when(labelDefinitionRepository.findByDatasetVersionId(100L)).thenReturn(List.of());
         when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
 

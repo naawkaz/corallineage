@@ -67,7 +67,6 @@ export async function fetchAnnotationJobs(datasetId: number, page: number, size:
   return data
 }
 
-/** Scoped jobs list for a specific model's own detail page (replaces the old dataset-wide list page). */
 export async function fetchAnnotationJobsByModel(modelVersionId: number, page: number, size: number): Promise<Page<AnnotationJob>> {
   const { data } = await api.get<Page<AnnotationJob>>('/annotation/jobs/by-model', { params: { modelVersionId, page, size } })
   return data
@@ -103,7 +102,6 @@ export async function reviewPrediction(
   return data
 }
 
-/** Bulk-accepts every still-pending prediction on a job at its current predicted label. */
 export async function acceptAllPredictions(jobId: number, reviewedBy: string): Promise<AnnotationJob> {
   const { data } = await api.post<AnnotationJob>(`/annotation/jobs/${jobId}/predictions/accept-all`, { reviewedBy })
   return data

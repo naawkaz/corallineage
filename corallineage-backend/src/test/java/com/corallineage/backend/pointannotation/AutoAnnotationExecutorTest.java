@@ -23,13 +23,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Calls executeAutoAnnotationAsync directly (bypassing the real @Async proxy), same
- * synchronous-test-double pattern TrainingJobExecutorTest already uses. PointInferenceService and
- * PythonMlServiceClient are mocked here rather than exercised for real, so this file covers the
- * orchestration logic: which collaborator is called with which arguments on each path, and that a
- * RUNNING/COMPLETED/FAILED poll sequence drives the right status-service calls.
- */
+/** Calls executeAutoAnnotationAsync directly with mocked collaborators, covers the orchestration logic */
 @ExtendWith(MockitoExtension.class)
 class AutoAnnotationExecutorTest {
 

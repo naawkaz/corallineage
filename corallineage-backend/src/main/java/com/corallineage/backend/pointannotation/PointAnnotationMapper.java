@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 public class PointAnnotationMapper {
 
     public PointAnnotationJobResponse toResponse(PointAnnotationJob job, int totalImages,
-                                                  long seedTotalPoints, long seedLabeledPoints) {
+            long seedTotalPoints, long seedLabeledPoints) {
         PointAnnotationJobResponse response = new PointAnnotationJobResponse();
         response.setJobId(job.getId());
         response.setDatasetVersionId(job.getDatasetVersion().getId());

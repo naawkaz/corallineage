@@ -23,11 +23,11 @@ public class ProjectService {
     private final DatasetRepository datasetRepository;
 
     public ProjectService(ProjectRepository projectRepository,
-                           ProjectMapper projectMapper,
-                           UserRepository userRepository,
-                           ProjectMemberRepository projectMemberRepository,
-                           ProjectMemberService projectMemberService,
-                           DatasetRepository datasetRepository) {
+            ProjectMapper projectMapper,
+            UserRepository userRepository,
+            ProjectMemberRepository projectMemberRepository,
+            ProjectMemberService projectMemberService,
+            DatasetRepository datasetRepository) {
         this.projectRepository = projectRepository;
         this.projectMapper = projectMapper;
         this.userRepository = userRepository;

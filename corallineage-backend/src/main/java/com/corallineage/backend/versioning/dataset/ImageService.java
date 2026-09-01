@@ -25,11 +25,11 @@ public class ImageService {
     private final Path workingDirectory;
 
     public ImageService(DatasetVersionRepository datasetVersionRepository,
-                        ImageRepository imageRepository,
-                        DatasetVersionImageRepository datasetVersionImageRepository,
-                        AnnotationPointRepository annotationPointRepository,
-                        ImageMapper imageMapper,
-                        @Value("${app.dvc.working-directory}") Path workingDirectory) {
+            ImageRepository imageRepository,
+            DatasetVersionImageRepository datasetVersionImageRepository,
+            AnnotationPointRepository annotationPointRepository,
+            ImageMapper imageMapper,
+            @Value("${app.dvc.working-directory}") Path workingDirectory) {
         this.datasetVersionRepository = datasetVersionRepository;
         this.imageRepository = imageRepository;
         this.datasetVersionImageRepository = datasetVersionImageRepository;
@@ -44,9 +44,8 @@ public class ImageService {
     }
 
     /**
-     * @param humanLabeledOnly when true, restricts the page to images that are current members of
-     *                         the version and have at least one HUMAN-sourced AnnotationPoint - the
-     *                         annotation job Submit page's Mode A "has human-labeled points" filter.
+     * @param humanLabeledOnly when true, only images with at least one human
+     *                         labeled point
      */
     @Transactional(readOnly = true)
     public Page<ImageResponse> listImages(Long datasetId, Long versionId, boolean humanLabeledOnly, Pageable pageable) {
@@ -65,12 +64,7 @@ public class ImageService {
                 .map(membership -> imageMapper.toResponse(membership.getImage()));
     }
 
-    /**
-     * Every annotation point on every image currently a member of {@code versionId}, for the
-     * Dataset Versions image grid's optional points overlay. Callers are expected to only invoke
-     * this when the user has switched the overlay toggle on, since it returns the whole version's
-     * points in one shot rather than paging.
-     */
+    /** Every annotation point on images currently a member of a version */
     @Transactional(readOnly = true)
     public List<AnnotationPointSummaryResponse> listAnnotationPoints(Long datasetId, Long versionId) {
         DatasetVersion version = datasetVersionRepository.findById(versionId)
@@ -97,7 +91,8 @@ public class ImageService {
         } catch (IOException ex) {
             contentType = null;
         }
-        return new LoadedImage(new FileSystemResource(filePath), contentType != null ? contentType : "application/octet-stream");
+        return new LoadedImage(new FileSystemResource(filePath),
+                contentType != null ? contentType : "application/octet-stream");
     }
 
     public record LoadedImage(Resource resource, String contentType) {

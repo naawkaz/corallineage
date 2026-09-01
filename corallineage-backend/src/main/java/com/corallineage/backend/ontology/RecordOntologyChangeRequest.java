@@ -12,11 +12,11 @@ public class RecordOntologyChangeRequest {
     @NotNull(message = "changeType is required")
     private ChangeType changeType;
 
-    /** The version being branched from — the change creates a new DatasetVersion on top of it. */
+    /** The version this change branches from */
     @NotNull(message = "basedOnDatasetVersionId is required")
     private Long basedOnDatasetVersionId;
 
-    /** User-supplied tag for the new branched DatasetVersion this change creates. */
+    /** Tag for the new branched version */
     @NotBlank(message = "newVersionTag is required")
     @Size(max = 50, message = "newVersionTag must be at most 50 characters")
     private String newVersionTag;
@@ -26,7 +26,7 @@ public class RecordOntologyChangeRequest {
     @Valid
     private List<NewLabelSpec> newLabels;
 
-    /** DEPRECATED only: an existing, non-deprecated label code offered as a replacement. */
+    /** Replacement label offered when deprecating a label */
     private String replacementLabelCode;
 
     @NotBlank(message = "changedBy is required")
@@ -34,27 +34,67 @@ public class RecordOntologyChangeRequest {
 
     private String notes;
 
-    public ChangeType getChangeType() { return changeType; }
-    public void setChangeType(ChangeType changeType) { this.changeType = changeType; }
+    public ChangeType getChangeType() {
+        return changeType;
+    }
 
-    public Long getBasedOnDatasetVersionId() { return basedOnDatasetVersionId; }
-    public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) { this.basedOnDatasetVersionId = basedOnDatasetVersionId; }
+    public void setChangeType(ChangeType changeType) {
+        this.changeType = changeType;
+    }
 
-    public String getNewVersionTag() { return newVersionTag; }
-    public void setNewVersionTag(String newVersionTag) { this.newVersionTag = newVersionTag; }
+    public Long getBasedOnDatasetVersionId() {
+        return basedOnDatasetVersionId;
+    }
 
-    public String getOldLabelCode() { return oldLabelCode; }
-    public void setOldLabelCode(String oldLabelCode) { this.oldLabelCode = oldLabelCode; }
+    public void setBasedOnDatasetVersionId(Long basedOnDatasetVersionId) {
+        this.basedOnDatasetVersionId = basedOnDatasetVersionId;
+    }
 
-    public List<NewLabelSpec> getNewLabels() { return newLabels; }
-    public void setNewLabels(List<NewLabelSpec> newLabels) { this.newLabels = newLabels; }
+    public String getNewVersionTag() {
+        return newVersionTag;
+    }
 
-    public String getReplacementLabelCode() { return replacementLabelCode; }
-    public void setReplacementLabelCode(String replacementLabelCode) { this.replacementLabelCode = replacementLabelCode; }
+    public void setNewVersionTag(String newVersionTag) {
+        this.newVersionTag = newVersionTag;
+    }
 
-    public String getChangedBy() { return changedBy; }
-    public void setChangedBy(String changedBy) { this.changedBy = changedBy; }
+    public String getOldLabelCode() {
+        return oldLabelCode;
+    }
 
-    public String getNotes() { return notes; }
-    public void setNotes(String notes) { this.notes = notes; }
+    public void setOldLabelCode(String oldLabelCode) {
+        this.oldLabelCode = oldLabelCode;
+    }
+
+    public List<NewLabelSpec> getNewLabels() {
+        return newLabels;
+    }
+
+    public void setNewLabels(List<NewLabelSpec> newLabels) {
+        this.newLabels = newLabels;
+    }
+
+    public String getReplacementLabelCode() {
+        return replacementLabelCode;
+    }
+
+    public void setReplacementLabelCode(String replacementLabelCode) {
+        this.replacementLabelCode = replacementLabelCode;
+    }
+
+    public String getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+        this.changedBy = changedBy;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
+    }
 }

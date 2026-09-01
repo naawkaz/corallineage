@@ -7,13 +7,10 @@ import { DatasetContext } from './datasetContextCore'
 import type { Dataset } from '../../features/datasets/datasetsTypes'
 
 /**
- * Holds every Source (the renamed Dataset entity) belonging to the same Project as the
- * currently-open Source, resolved from the `/sources/:sourceId/*` route. Source listing
- * moved one level up under a Project when the Project grouping layer was introduced, so
- * this first resolves the current Source's parent projectId, then loads that Project's
- * full Source list, exposed the same way the old global "every dataset I can reach" list
- * was: existing `datasets.find((d) => d.id === sourceId)` lookups and the Import page's
- * "reuse labels from a sibling Source" dropdown both keep working unchanged.
+ * Holds every source in the same project as the currently-open source, resolved from the
+ * `/sources/:sourceId/*` route: first the current source's parent projectId, then that
+ * project's full source list. Backs `datasets.find(d => d.id === sourceId)` lookups and the
+ * "reuse labels from a sibling source" dropdown.
  */
 export function DatasetProvider({ children }: { children: ReactNode }) {
   const match = useMatch('/sources/:sourceId/*')

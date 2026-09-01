@@ -99,7 +99,7 @@ export default function Register() {
             style={{ width: '100%', marginTop: 4 }}
             disabled={submitting || username.trim().length < 3 || password.length < 6}
           >
-            {submitting ? 'Creating account…' : 'Create account'}
+            {submitting ? 'Creating account...' : 'Create account'}
           </button>
         </form>
 

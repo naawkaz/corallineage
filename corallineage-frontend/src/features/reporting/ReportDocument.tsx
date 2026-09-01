@@ -3,10 +3,10 @@ import { changeTypeLabel, eventTypeLabel, triggerReasonLabel } from '../../share
 import { formatCount, formatDate } from '../../shared/lib/format'
 import type { ReproducibilityReport } from './reportsTypes'
 
-// Chart images are captured client-side (Recharts rendered off-screen, snapshotted with
-// html2canvas) since react-pdf has no native chart primitive. classDistribution and
-// annotationSourceSplit are single images; epochLineByRunId is keyed per MLflow run since
-// each model gets its own loss curve.
+// Chart images are captured client-side
+// Recharts rendered off-screen snapshotted with html2canvas
+// classDistribution and annotationSourceSplit are single images
+// epochLineByRunId is keyed per MLflow run
 export interface ReportChartImages {
   classDistribution: string | null
   annotationSourceSplit: string | null
@@ -231,7 +231,6 @@ export default function ReportDocument({
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>Class Distribution</Text>
             {chartImages.classDistribution && (
-              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={chartImages.classDistribution} style={styles.chartImage} />
             )}
             <Table
@@ -255,7 +254,6 @@ export default function ReportDocument({
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>Annotation Source Split</Text>
             {chartImages.annotationSourceSplit && (
-              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={chartImages.annotationSourceSplit} style={styles.chartImage} />
             )}
             <Table
@@ -312,7 +310,6 @@ export default function ReportDocument({
                 <>
                   <Text style={styles.subsectionTitle}>Epoch Metrics</Text>
                   {chartImages.epochLineByRunId[entry.mlflowRunId] && (
-                    // eslint-disable-next-line jsx-a11y/alt-text
                     <Image src={chartImages.epochLineByRunId[entry.mlflowRunId] as string} style={styles.chartImage} />
                   )}
                   <Table
@@ -337,7 +334,6 @@ export default function ReportDocument({
               {entry.confusionMatrixUrl && (
                 <>
                   <Text style={styles.subsectionTitle}>Confusion Matrix</Text>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
                   <Image src={entry.confusionMatrixUrl} style={styles.chartImage} />
                 </>
               )}

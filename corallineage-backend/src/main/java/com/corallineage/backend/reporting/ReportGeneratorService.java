@@ -59,18 +59,18 @@ public class ReportGeneratorService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ReportGeneratorService(ReportMetadataRepository reportMetadataRepository,
-                                  DatasetVersionRepository datasetVersionRepository,
-                                  DatasetVersionMapper datasetVersionMapper,
-                                  ModelVersionRepository modelVersionRepository,
-                                  ModelVersionMapper modelVersionMapper,
-                                  OntologyChangeRepository ontologyChangeRepository,
-                                  OntologyChangeMapper ontologyChangeMapper,
-                                  DirtyAnnotationRepository dirtyAnnotationRepository,
-                                  AnnotationEventRepository annotationEventRepository,
-                                  AnnotationEventMapper annotationEventMapper,
-                                  AnnotationEventLoggerService annotationEventLoggerService,
-                                  AnnotationPointRepository annotationPointRepository,
-                                  MlflowIntegrationService mlflowIntegrationService) {
+            DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionMapper datasetVersionMapper,
+            ModelVersionRepository modelVersionRepository,
+            ModelVersionMapper modelVersionMapper,
+            OntologyChangeRepository ontologyChangeRepository,
+            OntologyChangeMapper ontologyChangeMapper,
+            DirtyAnnotationRepository dirtyAnnotationRepository,
+            AnnotationEventRepository annotationEventRepository,
+            AnnotationEventMapper annotationEventMapper,
+            AnnotationEventLoggerService annotationEventLoggerService,
+            AnnotationPointRepository annotationPointRepository,
+            MlflowIntegrationService mlflowIntegrationService) {
         this.reportMetadataRepository = reportMetadataRepository;
         this.datasetVersionRepository = datasetVersionRepository;
         this.datasetVersionMapper = datasetVersionMapper;
@@ -157,7 +157,8 @@ public class ReportGeneratorService {
         return prefix + String.format("%03d", seq);
     }
 
-    private ReproducibilityReportResponse buildReport(GenerateReportRequest request, String reportId, Instant generatedAt) {
+    private ReproducibilityReportResponse buildReport(GenerateReportRequest request, String reportId,
+            Instant generatedAt) {
         Instant from = request.getFromDate();
         Instant to = request.getToDate();
 
@@ -195,16 +196,16 @@ public class ReportGeneratorService {
     }
 
     private ReportAnalytics buildAnalytics(GenerateReportRequest request, List<ModelVersion> modelsInScope) {
-        List<AnnotationPointRepository.LabelCountRow> labelRows =
-                annotationPointRepository.countByLabelBetween(request.getFromDate(), request.getToDate());
+        List<AnnotationPointRepository.LabelCountRow> labelRows = annotationPointRepository
+                .countByLabelBetween(request.getFromDate(), request.getToDate());
         long totalPoints = labelRows.stream().mapToLong(AnnotationPointRepository.LabelCountRow::getPointCount).sum();
         List<ClassDistributionItem> classDistribution = labelRows.stream()
                 .map(r -> new ClassDistributionItem(r.getLabelCode(), r.getLabelName(), r.getPointCount(),
                         totalPoints > 0 ? (r.getPointCount() * 100.0 / totalPoints) : 0.0))
                 .toList();
 
-        List<AnnotationPointRepository.SourceCountRow> sourceRows =
-                annotationPointRepository.countBySourceBetween(request.getFromDate(), request.getToDate());
+        List<AnnotationPointRepository.SourceCountRow> sourceRows = annotationPointRepository
+                .countBySourceBetween(request.getFromDate(), request.getToDate());
         Map<String, Long> annotationSourceSplit = sourceRows.stream()
                 .collect(Collectors.toMap(AnnotationPointRepository.SourceCountRow::getAnnotationSource,
                         AnnotationPointRepository.SourceCountRow::getPointCount, (a, b) -> a, LinkedHashMap::new));
@@ -218,7 +219,7 @@ public class ReportGeneratorService {
         return new ReportAnalytics(classDistribution, annotationSourceSplit, perClassMetrics, mlflowDetails);
     }
 
-    /** Uses the most-recently-trained model in scope, since perClassMetrics has no per-model attribution in the spec's JSON shape. */
+    /** Uses the most recently trained model in scope */
     private List<PerClassMetric> extractPerClassMetrics(List<ModelVersion> modelsInScope) {
         ModelVersion latest = modelsInScope.stream()
                 .max(Comparator.comparing(ModelVersion::getTrainedAt))

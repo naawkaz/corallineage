@@ -17,13 +17,13 @@ public class AnnotationEventLoggerService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AnnotationEvent log(EventType eventType, DatasetVersion datasetVersion,
-                               String performedBy, String description) {
+            String performedBy, String description) {
         return log(eventType, datasetVersion, null, performedBy, description);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AnnotationEvent log(EventType eventType, DatasetVersion datasetVersion, ModelVersion modelVersion,
-                               String performedBy, String description) {
+            String performedBy, String description) {
         AnnotationEvent event = new AnnotationEvent();
         event.setEventType(eventType);
         event.setDatasetVersion(datasetVersion);

@@ -15,15 +15,11 @@ public interface AnnotationJobRepository extends JpaRepository<AnnotationJob, Lo
 
     Page<AnnotationJob> findByModelVersion_IdOrderByInitiatedAtDesc(Long modelVersionId, Pageable pageable);
 
-    /** The warm-start blank-import job (commitInPlace=true) targeting this dataset version, if any. */
-    Optional<AnnotationJob> findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(Long datasetVersionId);
+    /** The in place annotation job targeting this dataset version if any */
+    Optional<AnnotationJob> findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(
+            Long datasetVersionId);
 
-    /**
-     * Every commitInPlace job for this dataset not yet applied - the same condition
-     * DatasetVersionService.attachResolveStatus's branch #2 checks - for the Unlabeled import
-     * queue (see PointAnnotationJobService.getUnlabeledImportQueue). Covers both a warm-start
-     * blank-import job's own AnnotationJob and the one a cold-start job's auto-annotate delegates
-     * into once training completes.
-     */
-    List<AnnotationJob> findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(Long datasetId);
+    /** Every in place job for this dataset not yet applied */
+    List<AnnotationJob> findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(
+            Long datasetId);
 }

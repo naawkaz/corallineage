@@ -32,7 +32,7 @@ function visiblePageNumbers(page: number, totalPages: number): (number | 'ellips
   return pages
 }
 
-/** Shared pagination control: sits top-right of its section, shows ~5 page numbers with ellipsis truncation. */
+/** Shared pagination control: sits top-right of its section ~5 page numbers with ellipsis truncation. */
 export default function Pagination({ page, totalPages, onPageChange, totalElements, pageSize }: PaginationProps) {
   if (totalPages <= 0) return null
   const pages = visiblePageNumbers(page, totalPages)
@@ -41,7 +41,7 @@ export default function Pagination({ page, totalPages, onPageChange, totalElemen
     <div className="pagination-top">
       {totalElements != null && pageSize != null && (
         <span className="pagination-summary">
-          {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalElements)} of {totalElements}
+          {page * pageSize + 1}-{Math.min((page + 1) * pageSize, totalElements)} of {totalElements}
         </span>
       )}
       <button className="page-btn" disabled={page === 0} onClick={() => onPageChange(page - 1)} aria-label="Previous page">
@@ -50,7 +50,7 @@ export default function Pagination({ page, totalPages, onPageChange, totalElemen
       {pages.map((n, i) =>
         n === 'ellipsis' ? (
           <span key={`e${i}`} className="page-ellipsis">
-            …
+            ...
           </span>
         ) : (
           <button

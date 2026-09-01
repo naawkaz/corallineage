@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Queries per-label annotation point counts for a dataset as of a given version's snapshot time. */
+/** Per label annotation point counts as of a version snapshot */
 @Component
 public class ClassDistributionService {
 

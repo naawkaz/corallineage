@@ -13,12 +13,27 @@ public class ReviewPredictionRequest {
     @NotBlank
     private String reviewedBy;
 
-    public Boolean getAccepted() { return accepted; }
-    public void setAccepted(Boolean accepted) { this.accepted = accepted; }
+    public Boolean getAccepted() {
+        return accepted;
+    }
 
-    public String getCorrectedLabelCode() { return correctedLabelCode; }
-    public void setCorrectedLabelCode(String correctedLabelCode) { this.correctedLabelCode = correctedLabelCode; }
+    public void setAccepted(Boolean accepted) {
+        this.accepted = accepted;
+    }
 
-    public String getReviewedBy() { return reviewedBy; }
-    public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
+    public String getCorrectedLabelCode() {
+        return correctedLabelCode;
+    }
+
+    public void setCorrectedLabelCode(String correctedLabelCode) {
+        this.correctedLabelCode = correctedLabelCode;
+    }
+
+    public String getReviewedBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewedBy(String reviewedBy) {
+        this.reviewedBy = reviewedBy;
+    }
 }

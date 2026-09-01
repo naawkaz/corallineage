@@ -20,42 +20,107 @@ public class ModelVersionResponse {
     private String status;
     private DatasetVersionSummary trainedOnDatasetVersion;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getModelTag() { return modelTag; }
-    public void setModelTag(String modelTag) { this.modelTag = modelTag; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Instant getTrainedAt() { return trainedAt; }
-    public void setTrainedAt(Instant trainedAt) { this.trainedAt = trainedAt; }
+    public String getModelTag() {
+        return modelTag;
+    }
 
-    public String getTrainedBy() { return trainedBy; }
-    public void setTrainedBy(String trainedBy) { this.trainedBy = trainedBy; }
+    public void setModelTag(String modelTag) {
+        this.modelTag = modelTag;
+    }
 
-    public String getArchitecture() { return architecture; }
-    public void setArchitecture(String architecture) { this.architecture = architecture; }
+    public Instant getTrainedAt() {
+        return trainedAt;
+    }
 
-    public Map<String, Object> getHyperparameters() { return hyperparameters; }
-    public void setHyperparameters(Map<String, Object> hyperparameters) { this.hyperparameters = hyperparameters; }
+    public void setTrainedAt(Instant trainedAt) {
+        this.trainedAt = trainedAt;
+    }
 
-    public Map<String, Object> getClassMappings() { return classMappings; }
-    public void setClassMappings(Map<String, Object> classMappings) { this.classMappings = classMappings; }
+    public String getTrainedBy() {
+        return trainedBy;
+    }
 
-    public BigDecimal getAccuracy() { return accuracy; }
-    public void setAccuracy(BigDecimal accuracy) { this.accuracy = accuracy; }
+    public void setTrainedBy(String trainedBy) {
+        this.trainedBy = trainedBy;
+    }
 
-    public Map<String, Object> getPerformanceMetrics() { return performanceMetrics; }
-    public void setPerformanceMetrics(Map<String, Object> performanceMetrics) { this.performanceMetrics = performanceMetrics; }
+    public String getArchitecture() {
+        return architecture;
+    }
 
-    public String getMlflowRunId() { return mlflowRunId; }
-    public void setMlflowRunId(String mlflowRunId) { this.mlflowRunId = mlflowRunId; }
+    public void setArchitecture(String architecture) {
+        this.architecture = architecture;
+    }
 
-    public String getWeightsPath() { return weightsPath; }
-    public void setWeightsPath(String weightsPath) { this.weightsPath = weightsPath; }
+    public Map<String, Object> getHyperparameters() {
+        return hyperparameters;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setHyperparameters(Map<String, Object> hyperparameters) {
+        this.hyperparameters = hyperparameters;
+    }
 
-    public DatasetVersionSummary getTrainedOnDatasetVersion() { return trainedOnDatasetVersion; }
-    public void setTrainedOnDatasetVersion(DatasetVersionSummary trainedOnDatasetVersion) { this.trainedOnDatasetVersion = trainedOnDatasetVersion; }
+    public Map<String, Object> getClassMappings() {
+        return classMappings;
+    }
+
+    public void setClassMappings(Map<String, Object> classMappings) {
+        this.classMappings = classMappings;
+    }
+
+    public BigDecimal getAccuracy() {
+        return accuracy;
+    }
+
+    public void setAccuracy(BigDecimal accuracy) {
+        this.accuracy = accuracy;
+    }
+
+    public Map<String, Object> getPerformanceMetrics() {
+        return performanceMetrics;
+    }
+
+    public void setPerformanceMetrics(Map<String, Object> performanceMetrics) {
+        this.performanceMetrics = performanceMetrics;
+    }
+
+    public String getMlflowRunId() {
+        return mlflowRunId;
+    }
+
+    public void setMlflowRunId(String mlflowRunId) {
+        this.mlflowRunId = mlflowRunId;
+    }
+
+    public String getWeightsPath() {
+        return weightsPath;
+    }
+
+    public void setWeightsPath(String weightsPath) {
+        this.weightsPath = weightsPath;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public DatasetVersionSummary getTrainedOnDatasetVersion() {
+        return trainedOnDatasetVersion;
+    }
+
+    public void setTrainedOnDatasetVersion(DatasetVersionSummary trainedOnDatasetVersion) {
+        this.trainedOnDatasetVersion = trainedOnDatasetVersion;
+    }
 }

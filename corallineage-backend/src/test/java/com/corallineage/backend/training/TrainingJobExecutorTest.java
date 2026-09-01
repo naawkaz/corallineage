@@ -27,20 +27,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Calls executeTrainingAsync directly (bypassing the real @Async proxy, same synchronous-test-double
- * pattern already used for DatasetImportExecutorTest). All job-status persistence has moved to
- * TrainingJobStatusService (mocked here), which is what actually fixes the UnexpectedRollbackException
- * bug this file's status-mocking cannot itself reproduce: that bug depended on Spring's real transactional
- * proxy behavior across nested beans (see TrainingJobExecutorIntegrationTest for a real-transaction
- * reproduction of the original failure and confirmation of the fix). This file still covers the
- * orchestration logic: which collaborator is called with which arguments on each path.
- *
- * Training is now async on the Python side too (a background thread there, not a blocking HTTP call),
- * so pythonMlServiceClient.pollTrainingStatus is mocked to return RUNNING once and then a terminal
- * status, exercising the real poll loop (with its 2-second sleep) rather than stubbing it away, since
- * that loop is short-lived enough in these tests to run for real.
- */
+/** Calls executeTrainingAsync directly with mocked collaborators, covers the orchestration logic */
 @ExtendWith(MockitoExtension.class)
 class TrainingJobExecutorTest {
 
@@ -131,8 +118,7 @@ class TrainingJobExecutorTest {
 
         newExecutor().executeTrainingAsync(11L);
 
-        // Called on every poll tick where the run id is known, including the terminal COMPLETED
-        // tick, not just once, since MLflow's metric history is polled independently of job status.
+        // Called on every poll tick where the run id is known, not just once
         verify(trainingJobStatusService, org.mockito.Mockito.atLeastOnce()).updateProgress(11L, 3, 10);
     }
 

@@ -17,12 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Bridges the gap between the point-annotated import data model (row/col + label per point,
- * CoralNet-style) and the ImageFolder format PyTorch/timm training expects (one subdirectory
- * per class). For every AnnotationPoint on a dataset version, crops a small patch centered on
- * its row/col and writes it to preparedDir/<labelCode>/<image>_p<pointIndex>.jpg.
- */
+/** Converts point annotations into an image folder training set */
 @Service
 public class DatasetPreparationService {
 
@@ -31,8 +26,8 @@ public class DatasetPreparationService {
     private final int patchSize;
 
     public DatasetPreparationService(AnnotationPointRepository annotationPointRepository,
-                                     @Value("${app.dvc.working-directory}") Path workingDirectory,
-                                     @Value("${app.training.patch-size:64}") int patchSize) {
+            @Value("${app.dvc.working-directory}") Path workingDirectory,
+            @Value("${app.training.patch-size:64}") int patchSize) {
         this.annotationPointRepository = annotationPointRepository;
         this.workingDirectory = workingDirectory;
         this.patchSize = patchSize;

@@ -10,22 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Real-transaction reproduction of the QA-found bug: a training job against a dataset version
- * with no annotation points (e.g. dataset version 25 / training job 6 from the 2026-08-16 QA
- * session, a staging version whose Annotate New Images review never produced any real
- * AnnotationPoint rows) left the job stuck at QUEUED forever with no error surfaced, because the
- * old TrainingJobExecutor wrapped the whole flow in one shared @Transactional method:
- * DatasetPreparationService.prepareImageFolderDataset (its own participating @Transactional call)
- * threw, Spring marked that shared transaction rollback-only, the catch block tried to persist
- * FAILED and return normally, and the surrounding commit then threw UnexpectedRollbackException
- * from outside the try/catch, silently swallowed by @Async's default handler.
- *
- * This needs a real Spring context and a real transaction manager (not Mockito) because the bug
- * is entirely about how Spring's transactional proxies compose across nested beans in the same
- * physical transaction. It runs against the real dev Postgres database, the same one used by the
- * project's existing contextLoads test, and cleans up every row it creates.
- */
+/** Real-transaction test that a training job on a version with no points fails cleanly, needs the dev Postgres database */
 @SpringBootTest
 class TrainingJobExecutorIntegrationTest {
 

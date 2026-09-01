@@ -23,14 +23,16 @@ public class PointAnnotationJobController {
     private final PointAnnotationJobService pointAnnotationJobService;
     private final DatasetService datasetService;
 
-    public PointAnnotationJobController(PointAnnotationJobService pointAnnotationJobService, DatasetService datasetService) {
+    public PointAnnotationJobController(PointAnnotationJobService pointAnnotationJobService,
+            DatasetService datasetService) {
         this.pointAnnotationJobService = pointAnnotationJobService;
         this.datasetService = datasetService;
     }
 
     @PostMapping("/jobs")
-    public ResponseEntity<PointAnnotationJobResponse> startJob(@Valid @RequestBody StartPointAnnotationJobRequest request,
-                                                                 Authentication authentication) {
+    public ResponseEntity<PointAnnotationJobResponse> startJob(
+            @Valid @RequestBody StartPointAnnotationJobRequest request,
+            Authentication authentication) {
         PointAnnotationJobResponse response = pointAnnotationJobService.submitJob(request, authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -74,15 +76,15 @@ public class PointAnnotationJobController {
 
     @PatchMapping("/points/{pointId}/label")
     public GeneratedPointResponse labelPoint(@PathVariable Long pointId, @Valid @RequestBody LabelPointRequest request,
-                                              Authentication authentication) {
+            Authentication authentication) {
         datasetService.requireAccess(pointAnnotationJobService.getDatasetIdForPoint(pointId), authentication.getName());
         return pointAnnotationJobService.labelPoint(pointId, request);
     }
 
     @PostMapping("/jobs/{id}/train")
     public PointAnnotationJobResponse train(@PathVariable Long id,
-                                             @RequestBody(required = false) TrainPointAnnotationJobRequest request,
-                                             Authentication authentication) {
+            @RequestBody(required = false) TrainPointAnnotationJobRequest request,
+            Authentication authentication) {
         datasetService.requireAccess(pointAnnotationJobService.getDatasetIdForJob(id), authentication.getName());
         return pointAnnotationJobService.trainModel(id, request);
     }
