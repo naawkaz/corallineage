@@ -13,11 +13,8 @@ from ml_service.dataset import ImageFolderDataset, split_train_val
 from ml_service.diagnostics import log_confusion_matrix
 from ml_service.models import load_model
 
-# In-memory job status channel for polling GET /train/<job_id>/status while a training run is
-# in flight (and after it finishes, since /train now returns immediately and the run continues
-# in a background thread). Keyed by the caller-supplied jobId (backend's TrainingJob id, as a
-# string). Entries are never cleaned up: this is a long-lived dev process and job ids are unique
-# per training job, so unbounded growth is not a real concern at this codebase's scale.
+# In-memory job status channel for polling GET /train/<job_id>/status while a training run is running
+# Keyed by jobId
 _training_jobs: dict[str, dict] = {}
 
 
@@ -34,9 +31,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict, jo
     train_subset, val_subset = split_train_val(dataset)
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False)
-    # Full-dataset loader, unchanged from before the validation split: the final
-    # per-class confusion matrix and reported accuracy still summarize the whole
-    # dataset rather than shrinking to only the validation slice.
+
     full_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     model = load_model(architecture, num_classes=len(dataset.classes))
@@ -55,7 +50,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict, jo
     with mlflow.start_run() as run:
         # Make the run id available to pollers as early as possible, before the epoch loop
         # even starts, so GET /train/<job_id>/status can report mlflowRunId right away and
-        # the caller can start polling MLflow's own metric history for live epoch progress.
+        # the caller can start polling MLflow's own metric history for live epoch progress
         _training_jobs[job_id] = {
             "status": "RUNNING",
             "mlflowRunId": run.info.run_id,
@@ -84,7 +79,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict, jo
 
             train_loss = train_loss_total / train_total if train_total else 0.0
 
-            # Real held-out validation pass, standard eval-mode/no-grad loop.
+            # Validation pass
             model.eval()
             val_loss_total = 0.0
             val_correct = 0
@@ -105,10 +100,7 @@ def run_training(architecture: str, dataset_path: str, hyperparameters: dict, jo
             mlflow.log_metric("val_loss", val_loss, step=epoch)
             mlflow.log_metric("val_accuracy", val_accuracy, step=epoch)
 
-        # Final pass to build per-class metrics over the full dataset (train and
-        # validation combined), same scope as before the validation split was
-        # added, so the reported overall accuracy and confusion matrix keep the
-        # same meaning for existing callers.
+        # Final pass to build per-class metrics over the full dataset
         model.eval()
         y_true, y_pred = [], []
         with torch.no_grad():

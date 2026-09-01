@@ -5,7 +5,7 @@ from pathlib import Path
 
 # MLflow prints an emoji run-summary banner to stdout; on Windows the console's
 # default codepage can't encode it, which crashes the request rather than just
-# the print. Force UTF-8 stdout/stderr regardless of how this process is launched.
+# the print. Force UTF-8 stdout/stderr regardless of how this process is launched
 if sys.stdout.encoding is None or sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -17,13 +17,7 @@ from ml_service.config import ARCHITECTURES, ARCHITECTURE_IDS, MOCK_TRAINING
 
 app = Flask(__name__)
 
-# One worker each for training and inference: each background job is CPU/RAM-heavy
-# PyTorch work with no true parallelism benefit from running two of the same kind at
-# once on a single machine, and an unbounded thread-per-request (the previous design)
-# let two overlapping submissions (an accidental double-click, or a training run
-# landing while an auto-annotation job is still in flight) genuinely fight over the
-# same cores with no queueing. A separate pool per job type still lets training and
-# inference run concurrently with each other, just never with themselves.
+# One worker each for training and inference
 _training_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="training")
 _annotate_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="annotate")
 
@@ -97,8 +91,8 @@ def train():
     if not MOCK_TRAINING and not job_id:
         return jsonify({"error": "jobId is required"}), 400
 
-    # Mock mode may not be given a jobId by every existing caller; synthesize one so the
-    # background thread and status dict still have a key to work with.
+    # Mock mode may not be given a jobId by every existing caller
+    # synthesize one so the background thread and status dict still have a key to work with
     if not job_id:
         job_id = f"mock-job-{uuid.uuid4().hex[:12]}"
 
@@ -114,5 +108,5 @@ def train_status(job_id):
 if __name__ == "__main__":
     # Force the server to run on port 5001 as specified by Phase 0. threaded=True lets
     # short-lived status-poll requests and job-kickoff requests be served concurrently
-    # with an in-flight background job thread, instead of queuing behind it.
+    # with an in-flight background job thread
     app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)

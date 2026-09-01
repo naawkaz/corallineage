@@ -5,9 +5,6 @@ from PIL import Image
 from ml_service.config import IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD, MOCK_TRAINING
 from ml_service.models import load_model
 
-# Same idea as training's job dict: keyed by the caller-supplied jobId (backend's
-# point-annotation job id, as a string). Tracks per-image progress while a batch of
-# annotate predictions runs in the background, plus the final result once complete.
 _annotate_jobs: dict[str, dict] = {}
 
 
