@@ -8,7 +8,7 @@ ARCHITECTURES = [
     {
         "id": "efficientnet_b0",
         "displayName": "EfficientNet-B0",
-        "description": "Lightweight, fast — good baseline for small datasets",
+        "description": "Lightweight, fast - good baseline for small datasets",
     },
     {
         "id": "resnet50",
@@ -18,7 +18,7 @@ ARCHITECTURES = [
     {
         "id": "vit_base_patch16_224",
         "displayName": "ViT-Base/16",
-        "description": "Transformer-based — stronger on larger datasets",
+        "description": "Transformer-based - stronger on larger datasets",
     },
 ]
 ARCHITECTURE_IDS = {a["id"] for a in ARCHITECTURES}
