@@ -1,11 +1,6 @@
 package com.corallineage.backend.datasets.importservice;
 
-/**
- * One label declared upfront on the "Blank / Unlabeled Dataset" import path: code and name are
- * both required (mirrors LabelDefinition's own NOT NULL columns), category is optional. Built by
- * DatasetImportController from parallel multipart form fields, either typed manually or copied
- * from another project's version via the frontend's "Reuse labels from" flow.
- */
+/** One label declared upfront for a blank import, category is optional */
 public class LabelDeclarationRequest {
 
     private String labelCode;

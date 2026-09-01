@@ -34,7 +34,7 @@ public class TrainingJob {
     @Column(name = "initiated_at", nullable = false, updatable = false)
     private Instant initiatedAt;
 
-    // Values: QUEUED, RUNNING, COMPLETED, FAILED
+    // Values QUEUED RUNNING COMPLETED FAILED
     @Column(name = "status", nullable = false, length = 50)
     private String status = "QUEUED";
 
@@ -45,10 +45,7 @@ public class TrainingJob {
     @Column(name = "completed_at")
     private Instant completedAt;
 
-    // One-to-one in practice: markCompleted always registers a fresh ModelVersion for the job and
-    // nothing ever re-points a job at an existing one. unique = true makes the DB enforce that a
-    // given model version is produced by at most one training job. Nullable while the job is
-    // QUEUED/RUNNING/FAILED; SQL treats each NULL as distinct so those rows are unaffected.
+    // One to one, a model version is produced by at most one training job, enforced by the DB
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "model_version_id", unique = true)
     private ModelVersion modelVersion;
@@ -62,9 +59,7 @@ public class TrainingJob {
     @Column(name = "total_epochs")
     private Integer totalEpochs;
 
-    // Set as soon as the Python side's MLflow run starts, well before the job reaches COMPLETED,
-    // so the frontend's live loss-curve chart can start polling MlflowIntegrationService.getEpochMetrics
-    // while training is still RUNNING instead of waiting for the final registerFromTrainingResult write.
+    // Set as soon as the MLflow run starts, well before the job completes
     @Column(name = "mlflow_run_id", length = 100)
     private String mlflowRunId;
 
@@ -73,7 +68,6 @@ public class TrainingJob {
         if (initiatedAt == null) initiatedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

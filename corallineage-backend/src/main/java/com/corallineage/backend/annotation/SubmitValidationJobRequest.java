@@ -6,11 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-/**
- * Mode A ("Validate against human labels") submit request: an existing dataset version's
- * real, already-labeled images/points are checked against a model's predictions, purely
- * as an accuracy recheck, not a labeling workflow.
- */
+/** Request to check a model's predictions against human labeled points */
 public class SubmitValidationJobRequest {
 
     @NotNull

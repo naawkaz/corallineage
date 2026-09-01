@@ -8,13 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Image read/crop/grid helpers for point-level annotation jobs. A deliberate small duplicate of
- * {@code pointannotation.ImagePatchUtil} and {@code pointannotation.PointGenerationService}'s grid
- * math (package-private there, so it cannot be imported directly) rather than a cross-module
- * extraction, matching this codebase's established convention (see that class's own javadoc,
- * itself a documented duplicate of {@code training.DatasetPreparationService}).
- */
+/** Image crop and grid helpers for point level annotation jobs */
 final class AnnotationPatchUtil {
 
     private AnnotationPatchUtil() {
@@ -41,11 +35,7 @@ final class AnnotationPatchUtil {
         return source.getSubimage(x, y, width, height);
     }
 
-    /**
-     * Lays out an explicit rows x cols grid, inset by one grid cell from every edge. Returns
-     * {row, col} pixel coordinate pairs, always exactly {@code rows * cols} of them. Mirrors
-     * PointGenerationService.computeGridCoordinates.
-     */
+    /** Lays out a grid inset by one cell from every edge, returns row and col pairs */
     static List<int[]> computeGridCoordinates(int width, int height, int rows, int cols) {
         int cellWidth = width / (cols + 1);
         int cellHeight = height / (rows + 1);

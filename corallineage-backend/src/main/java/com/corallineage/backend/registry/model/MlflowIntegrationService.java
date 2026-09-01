@@ -15,20 +15,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Full passthrough layer to the real MLflow tracking server's REST API - so the React frontend
- * never has to call MLflow directly. Every method degrades to null (caller decides 404 vs 503)
- * rather than propagating a connectivity failure, per the checklist's explicit requirement that
- * every MLflow-touching flow degrade gracefully.
- */
+/** Passthrough layer to the MLflow REST API, degrades to null when unreachable */
 @Service
 public class MlflowIntegrationService {
 
     private static final Logger log = LoggerFactory.getLogger(MlflowIntegrationService.class);
-    // train_loss/val_loss/val_accuracy are logged by the real held-out validation split added to
-    // the training loop; loss/accuracy are the older pre-validation-split keys, kept here so runs
-    // trained before that change still resolve a metric history (single-line fallback in
-    // getEpochMetrics / the frontend chart) instead of an empty series.
+    // loss and accuracy are older pre validation split keys, kept as a fallback for older runs
     private static final List<String> TRACKED_METRIC_KEYS =
             List.of("train_loss", "val_loss", "val_accuracy", "loss", "accuracy");
 
@@ -40,7 +32,7 @@ public class MlflowIntegrationService {
         this.restClient = RestClient.builder().baseUrl(mlflowUrl).build();
     }
 
-    /** Returns the raw MLflow run payload (info + data.params + data.metrics), or null if unreachable. */
+    /** Returns the raw MLflow run payload or null if unreachable */
     @SuppressWarnings("unchecked")
     public Map<String, Object> getRunDetails(String mlflowRunId) {
         try {
@@ -54,7 +46,7 @@ public class MlflowIntegrationService {
         }
     }
 
-    /** Merges the per-step history of every tracked metric into one ordered epoch series, or null if unreachable. */
+    /** Merges metric history into one epoch series or null if unreachable */
     public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(String mlflowRunId) {
         try {
             Map<String, Map<Integer, Double>> historyByKey = new LinkedHashMap<>();
@@ -64,12 +56,8 @@ public class MlflowIntegrationService {
                 try {
                     history = fetchMetricHistory(mlflowRunId, key);
                 } catch (RestClientResponseException ex) {
-                    // MLflow was reached but returned an HTTP error for this specific key, e.g. a
-                    // key this run never logged (train_loss/val_loss/val_accuracy on a model
-                    // trained before the validation split was added). Skip only this key rather
-                    // than failing the whole call. A connectivity failure (ResourceAccessException,
-                    // a RestClientException but not this subtype) is intentionally NOT caught here
-                    // so it still propagates to the outer catch and the whole method returns null.
+                    // MLflow returned an HTTP error for this key, skip it rather than failing the whole call
+                    // a connectivity failure is left uncaught so it propagates and the method returns null
                     log.debug("Metric key {} not available for run {}: {}", key, mlflowRunId, ex.getMessage());
                     history = Map.of();
                 }
@@ -114,7 +102,7 @@ public class MlflowIntegrationService {
         return bySteps;
     }
 
-    /** Assembles the full mlflow-details response for an already-resolved model. Returns null if MLflow is unreachable. */
+    /** Assembles the mlflow details response for a model or null if unreachable */
     @SuppressWarnings("unchecked")
     public MlflowDetailsResponse buildMlflowDetails(ModelVersion model) {
         String runId = model.getMlflowRunId();

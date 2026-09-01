@@ -49,7 +49,6 @@ public class DirtyAnnotation {
         if (flaggedAt == null) flaggedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

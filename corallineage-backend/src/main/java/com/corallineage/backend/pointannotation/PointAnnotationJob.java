@@ -8,12 +8,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * One raw-upload -> point-generation -> seed-labeling -> auto-annotate workflow run against a
- * dataset version. Settings (grid size, confidence threshold, seed count) are fixed at
- * creation and tied to this job/version rather than floating global config, so a later session
- * can see exactly what settings produced a given version's confirmed points.
- */
+/** One point annotation workflow run against a dataset version */
 @Entity
 @Table(name = "point_annotation_jobs",
        indexes = {
@@ -30,8 +25,7 @@ public class PointAnnotationJob {
     @JoinColumn(name = "dataset_version_id", nullable = false)
     private DatasetVersion datasetVersion;
 
-    // Nullable at the JPA level even though every new row sets both, so ddl-auto=update can add
-    // the columns to a table that already has rows.
+    // Nullable at the JPA level though every new row sets both
     @Column(name = "grid_rows")
     private Integer gridRows;
 
@@ -44,8 +38,7 @@ public class PointAnnotationJob {
     @Column(name = "seed_image_count", nullable = false)
     private Integer seedImageCount;
 
-    // Values: GENERATING, SEED_LABELING, TRAINING, COMPLETE. Set to COMPLETE once startAutoAnnotate
-    // delegates into an AnnotationJob, whose own status then tracks the rest of the lifecycle.
+    // Values GENERATING SEED_LABELING TRAINING COMPLETE
     @Column(name = "status", nullable = false, length = 50)
     private String status = "GENERATING";
 
@@ -57,10 +50,7 @@ public class PointAnnotationJob {
     @JoinColumn(name = "model_version_id")
     private ModelVersion modelVersion;
 
-    // Set once auto-annotate is triggered: the real AnnotationJob (commitInPlace=true) this job's
-    // post-training review delegates into, so predictions/review live on the same AnnotationJob/
-    // AnnotationPrediction pipeline every other annotation flow uses instead of a second,
-    // GeneratedPoint-based review data model. Null until startAutoAnnotate creates it.
+    // The delegated annotation job this job's review lives on, null until auto annotate starts
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "annotation_job_id")
     private AnnotationJob annotationJob;
@@ -74,20 +64,14 @@ public class PointAnnotationJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    // Live progress while AUTO_ANNOTATING, fed by AutoAnnotationExecutor polling the Python
-    // service's /annotate/{jobId}/status. All null before auto-annotate starts and while a point
-    // is being resolved to something other than RUNNING (COMPLETED/FAILED leave the last-seen
-    // values in place rather than resetting them, so the UI can still show "processed X of Y"
-    // after the job finishes).
+    // Live progress while auto annotating, null before it starts
     @Column(name = "auto_annotation_processed_count")
     private Integer autoAnnotationProcessedCount;
 
     @Column(name = "auto_annotation_total_count")
     private Integer autoAnnotationTotalCount;
 
-    // Actually a GeneratedPoint id, not a real image id: every patch is sent to the Python service
-    // as its own synthetic "image" (see PointInferenceService's class comment), so Flask's
-    // per-image progress field reports back a GeneratedPoint id here.
+    // A GeneratedPoint id, not a real image id
     @Column(name = "auto_annotation_current_point_id")
     private Long autoAnnotationCurrentPointId;
 
@@ -96,7 +80,6 @@ public class PointAnnotationJob {
         if (createdAt == null) createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

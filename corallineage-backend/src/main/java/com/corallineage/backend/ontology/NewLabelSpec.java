@@ -2,7 +2,7 @@ package com.corallineage.backend.ontology;
 
 import jakarta.validation.constraints.NotBlank;
 
-/** One new LabelDefinition to create as part of an ontology change (ADDED/RENAMED/SPLIT). */
+/** One label to create for an ontology change */
 public class NewLabelSpec {
 
     @NotBlank(message = "code is required")

@@ -93,7 +93,7 @@ public class AnnotationJobExecutor {
         this.annotationCommitService = annotationCommitService;
     }
 
-    /** Legacy whole-image path (kept for backward compatibility; see AnnotationJobService). */
+    /** Legacy whole image annotation path */
     @Async
     @Transactional
     public void executeAnnotationAsync(Long jobId) {
@@ -150,13 +150,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /**
-     * Mode A ("Validate against human labels"): crops a patch around each real, existing
-     * {@code AnnotationPoint} (source HUMAN) on the job's images, classifies each patch through
-     * the model (same trick as pointannotation.PointInferenceService, every patch is its own
-     * synthetic "image" to the unmodified /annotate endpoint), and records agreement/disagreement
-     * with the human label. No review step: this job is a comparison, not a labeling workflow.
-     */
+    /** Checks each human labeled point's patch against the model and records agreement */
     @Async
     @Transactional
     public void executeValidationAsync(Long jobId) {
@@ -236,17 +230,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /**
-     * Mode B ("Annotate new images"): copies the uploaded raw files into the DVC-tracked working
-     * directory, creates a real staging {@link DatasetVersion} on the target dataset to hold them
-     * (Image.originDatasetVersion cannot be null, see that entity's javadoc), generates an evenly
-     * spaced grid of points per image (mirrors pointannotation.PointGenerationService, package-private
-     * there so duplicated here per this codebase's established small-utility-duplication convention),
-     * classifies each patch through the model, and leaves every point PENDING review (accept/override,
-     * exactly like the legacy single-point flow but now genuinely multi-point). The staging version
-     * is real (its own DVC commit, satisfies every FK) but is not what the researcher browses as "their"
-     * project data until "Add to Project" branches a second, real version from it after review.
-     */
+    /** Stages uploaded images as a new version, generates a point grid, and classifies each point pending review */
     @Async
     @Transactional
     public void executeNewImagesAsync(Long jobId, Long datasetId, Path uploadDir, int gridRows, int gridCols) {
@@ -311,8 +295,7 @@ public class AnnotationJobExecutor {
             job.setImageIds(savedImages.stream().map(Image::getId).toList());
             annotationJobRepository.save(job);
 
-            // Placeholder predictions first (so each patch has a real, persisted id to key the
-            // /annotate batch call by), then overwritten with real predicted labels below.
+            // Persist placeholder predictions first so each patch has an id, then fill in labels below
             Files.createDirectories(patchDir);
             List<AnnotationPrediction> pending = new ArrayList<>();
             Map<Image, BufferedImage> sourceByImage = new HashMap<>();
@@ -377,10 +360,7 @@ public class AnnotationJobExecutor {
             long autoAccepted = savedPredictions.stream().filter(p -> Boolean.TRUE.equals(p.getAccepted())).count();
             job.setStatus("COMPLETED");
             job.setCompletedAt(Instant.now());
-            // Auto-accept happens here at inference time rather than through the usual
-            // reviewPrediction endpoint, so reviewStatus needs the same derivation applied
-            // immediately (a fully-above-threshold job should reach COMPLETED with no human
-            // review at all, mirrors AnnotationJobService.updateReviewStatus).
+            // Derive review status now since auto accept happened at inference time
             job.setReviewStatus(autoAccepted == 0 ? "PENDING"
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
             annotationJobRepository.save(job);
@@ -400,12 +380,7 @@ public class AnnotationJobExecutor {
         }
     }
 
-    /**
-     * Warm-start blank-import: annotates an existing dataset version's already-present images
-     * (job.getImageIds(), job.getDatasetVersion() already set by submitExistingVersionJob) with a
-     * grid of points, exactly like Mode B's inference step, but with no upload to persist and no
-     * staging version to create, since the images and their version already exist for real.
-     */
+    /** Annotates an existing version's images with a point grid, no staging version needed */
     @Async
     @Transactional
     public void executeExistingVersionAsync(Long jobId, int gridRows, int gridCols) {
@@ -484,10 +459,7 @@ public class AnnotationJobExecutor {
                     : (autoAccepted < savedPredictions.size() ? "IN_PROGRESS" : "COMPLETED"));
             AnnotationJob savedJob = annotationJobRepository.save(job);
 
-            // Every predicted point landed at/above the confidence threshold - there is nothing
-            // left for a human to review, so this commitInPlace job's target dataset version
-            // registers immediately instead of sitting in the Unlabeled import queue waiting for
-            // a manual "Apply to Version" click that would just confirm what already happened.
+            // Every point cleared the confidence threshold, so register the target version now
             if (fullyAutoAccepted && Boolean.TRUE.equals(savedJob.getCommitInPlace())) {
                 annotationCommitService.applyToExistingVersion(savedJob.getId(), savedJob.getInitiatedBy());
             }

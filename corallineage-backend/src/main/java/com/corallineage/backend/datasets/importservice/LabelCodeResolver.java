@@ -10,11 +10,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-/**
- * Resolves raw label code strings from an import source to the {@link LabelDefinition}
- * rows active for a dataset version. Aborts (rather than skipping) if any requested
- * code has no match, per checklist v2 Feature 5.
- */
+/** Resolves label code strings to label definitions, aborts if any code is missing */
 @Component
 public class LabelCodeResolver {
 

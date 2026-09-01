@@ -8,12 +8,10 @@ import java.util.List;
 
 public interface AnnotationPredictionRepository extends JpaRepository<AnnotationPrediction, Long> {
 
-    // Explicit order - see GeneratedPointRepository's identical note: an unsorted query has no
-    // guaranteed row order, so AnnotationReview.tsx's prediction list could visibly reorder itself
-    // as predictions get reviewed (each review is an UPDATE) without this.
+    // Explicit order keeps the review list stable as predictions get updated
     Page<AnnotationPrediction> findByAnnotationJobIdOrderByIdAsc(Long annotationJobId, Pageable pageable);
 
-    /** Non-paged, used by the executor (applying inference results) and Add to Project (reading every reviewed point). */
+    /** Every prediction for a job, not paged */
     List<AnnotationPrediction> findByAnnotationJobId(Long annotationJobId);
 
     long countByAnnotationJobIdAndAgreesWithHumanTrue(Long annotationJobId);

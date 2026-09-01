@@ -43,9 +43,7 @@ public class AnnotationEventController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             Authentication authentication) {
-        // Sort field is the native SQL column name (occurred_at), not the entity
-        // property name - findByFilters is a native query, so Spring Data appends
-        // the ORDER BY clause using this string verbatim rather than translating it.
+        // Native SQL column name since findByFilters is a native query
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurred_at"));
 
         Long scopedDatasetId = annotationEventService.resolveScopedDatasetId(datasetVersionId, modelVersionId, datasetId);
@@ -54,9 +52,7 @@ public class AnnotationEventController {
             return annotationEventService.queryEvents(eventType, datasetVersionId, modelVersionId, datasetId, from, to, pageable);
         }
 
-        // No dataset-scoping filter: filter server-side to the requester's accessible datasets
-        // rather than blocking the call (this is the Global Event Log's "no filter" default view).
-        // eventType/from/to still apply normally.
+        // No dataset scoping filter, so filter to the requester's accessible datasets
         Set<Long> accessibleDatasetIds = projectMemberService.getAllAccessibleDatasetIds(authentication.getName());
         return annotationEventService.queryEventsAccessibleWithNoDatasetFilter(eventType, from, to, accessibleDatasetIds, pageable);
     }

@@ -16,11 +16,7 @@ public class Image {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * The version this image was first imported under - a permanent, one-time "origin" fact,
-     * never updated after insert. Does NOT represent which version(s) currently include this
-     * image; that's tracked separately by {@link DatasetVersionImage} membership rows.
-     */
+    /** The version this image was first imported under, never updated after insert */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "origin_dataset_version_id", nullable = false)
     private DatasetVersion originDatasetVersion;
@@ -48,7 +44,6 @@ public class Image {
         if (addedAt == null) addedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

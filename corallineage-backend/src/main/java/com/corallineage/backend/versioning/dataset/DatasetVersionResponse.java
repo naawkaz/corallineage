@@ -7,9 +7,7 @@ public class DatasetVersionResponse {
 
     private Long id;
     private Long datasetId;
-    // 1-based, permanent ordinal position among every non-staging version ever created for this
-    // dataset (oldest = 1) - distinct from versionTag, which is a free-text label the user picks.
-    // See DatasetVersionService.getVersionHistory for how/when it's assigned.
+    // Permanent ordinal position among non staging versions, distinct from the free text versionTag
     private Integer versionNumber;
     private String versionTag;
     private Instant createdAt;
@@ -28,20 +26,13 @@ public class DatasetVersionResponse {
     // The originating ImportJob's format (e.g. "BLANK"), null if not import-created. Used by the
     // frontend to decide whether to offer "Resolve" (start blank import) on a completed import.
     private String importFormat;
-    // Set once a PointAnnotationJob already exists for this version, so the frontend knows blank
-    // import has already been started here and shouldn't offer "Resolve" again.
+    // True once a point annotation job exists for this version
     private boolean blankImportStarted;
-    // "UNRESOLVED" when this version needs attention before it's usable (a BLANK import that
-    // hasn't been resolved into real points yet, in any stage); null once resolved or not
-    // applicable. See DatasetVersionService.attachResolveStatus.
+    // UNRESOLVED when this version needs attention before it is usable, else null
     private String resolveStatus;
-    // Where clicking "Resolve" should take the user: "START" (no job yet, open the blank-import
-    // start dialog), "SEED_LABEL" (a point-annotation job exists, any non-COMPLETE status - that
-    // page itself handles every sub-stage), "ANNOTATION_REVIEW" (a warm-start existing-version
-    // job exists, predictions pending review/apply). Null when resolveStatus is null.
+    // Where Resolve should navigate, one of START SEED_LABEL ANNOTATION_REVIEW, null when resolveStatus is null
     private String resolveRoute;
-    // The job id resolveRoute's URL is built from (point-annotation job id for SEED_LABEL,
-    // annotation job id for ANNOTATION_REVIEW); null for START (no job exists yet) or when
+    // The job id the resolve route URL is built from, null for START or when
     // resolveStatus is null.
     private Long resolveJobId;
 

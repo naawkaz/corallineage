@@ -28,7 +28,7 @@ public class AnnotationJob {
     @JoinColumn(name = "model_version_id", nullable = false)
     private ModelVersion modelVersion;
 
-    // Nullable at the JPA level even though it is conceptually required.
+    // Nullable at the JPA level though conceptually required
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_id")
     private Dataset dataset;
@@ -39,7 +39,7 @@ public class AnnotationJob {
     @Column(name = "initiated_at", nullable = false, updatable = false)
     private Instant initiatedAt;
 
-    // Values: RUNNING, COMPLETED, FAILED
+    // Values RUNNING COMPLETED FAILED
     @Column(name = "status", nullable = false, length = 50)
     private String status = "RUNNING";
 
@@ -53,40 +53,28 @@ public class AnnotationJob {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    // Values: PENDING, IN_PROGRESS, COMPLETED
+    // Values PENDING IN_PROGRESS COMPLETED
     @Column(name = "review_status", nullable = false, length = 50)
     private String reviewStatus = "PENDING";
 
-    // Values: VALIDATION (recheck model accuracy against existing human labels, no review step),
-    // NEW_IMAGES (bulk-label freshly uploaded images, accept/override review then add to project).
-    // Nullable: the internal whole-image submit path leaves this null.
+    // Values VALIDATION or NEW_IMAGES, nullable for the internal whole image path
     @Column(name = "job_type", length = 20)
     private String jobType;
 
-    // VALIDATION: the dataset version the selected images/points were checked against.
-    // NEW_IMAGES: the staging dataset version created to hold the freshly uploaded images until
-    // reviewed and added to the project (see AnnotationJobExecutor.executeNewImagesAsync).
+    // The dataset version checked against for VALIDATION, or the staging version for NEW_IMAGES
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dataset_version_id")
     private DatasetVersion datasetVersion;
 
-    // Set once a NEW_IMAGES job's reviewed points have been committed into a real project
-    // dataset version via "Add to Project", null until then, and permanently sentinel-guards
-    // against adding the same job's images twice.
+    // The dataset version this job's reviewed points were committed into, null until then
     @Column(name = "added_to_project_version_id")
     private Long addedToProjectVersionId;
 
-    // NEW_IMAGES only: a prediction at or above this confidence auto-confirms (accepted=true) at
-    // inference time, same pattern as pointannotation.PointAnnotationJob.confidenceThreshold.
-    // Nullable at the JPA level (existing rows predate this column; same ddl-auto=update
-    // NOT-NULL-on-a-populated-table gotcha as gridRows/gridCols elsewhere in this codebase).
+    // A prediction at or above this confidence auto confirms at inference time, nullable at the JPA level
     @Column(name = "confidence_threshold", precision = 5, scale = 4)
     private BigDecimal confidenceThreshold;
 
-    // True for a job created via submitExistingVersionJob (warm-start blank-import): its
-    // datasetVersion is a real, already-existing version, so review commits in place via
-    // applyToExistingVersion rather than branching a new version via addToProject. False/null
-    // for a genuine Mode B (freshly uploaded images, staging version) NEW_IMAGES job.
+    // True when review commits in place onto an existing version rather than branching a new one
     @Column(name = "commit_in_place")
     private Boolean commitInPlace;
 
@@ -95,7 +83,6 @@ public class AnnotationJob {
         if (initiatedAt == null) initiatedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

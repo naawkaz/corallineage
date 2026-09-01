@@ -35,7 +35,7 @@ public class AnnotationPrediction {
     @Column(name = "confidence_score", nullable = false, precision = 5, scale = 4)
     private BigDecimal confidenceScore;
 
-    // NULL = not yet reviewed; TRUE = accepted; FALSE = overridden
+    // null not yet reviewed, true accepted, false overridden
     @Column(name = "accepted")
     private Boolean accepted;
 
@@ -48,23 +48,17 @@ public class AnnotationPrediction {
     @Column(name = "reviewed_at")
     private Instant reviewedAt;
 
-    // Real pixel coordinates of the point this prediction was made against, copied from the
-    // GeneratedPoint-equivalent grid position (Mode B) or the source AnnotationPoint (Mode A).
-    // Nullable for backward compatibility with predictions created by the legacy whole-image
-    // path, which never had a real point position (the old review UI hardcoded a center dot).
+    // Pixel coordinates of the point this prediction was made against, nullable for legacy rows
     @Column(name = "row_position")
     private Integer rowPosition;
 
     @Column(name = "col_position")
     private Integer colPosition;
 
-    // Set only for VALIDATION-mode jobs: true when predictedLabelCode matches the source
-    // human-given AnnotationPoint's label code, false when it does not, null for NEW_IMAGES-mode
-    // (and legacy) jobs where there is no human ground truth to compare against.
+    // For validation jobs, whether the predicted label matches the human label, else null
     @Column(name = "agrees_with_human")
     private Boolean agreesWithHuman;
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

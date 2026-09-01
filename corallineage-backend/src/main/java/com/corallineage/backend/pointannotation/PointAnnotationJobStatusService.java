@@ -12,13 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
-/**
- * Persists every AUTO_ANNOTATING-phase status transition in its own Propagation.REQUIRES_NEW
- * transaction, on a separate bean from AutoAnnotationExecutor, mirroring
- * training.TrainingJobStatusService. AutoAnnotationExecutor's poll loop can last minutes, so a
- * single shared transaction would hold a DB connection open the whole time and let a late
- * failure prevent an earlier write from committing.
- */
+/** Persists auto annotating status transitions in their own transaction */
 @Service
 public class PointAnnotationJobStatusService {
 
@@ -37,11 +31,7 @@ public class PointAnnotationJobStatusService {
         this.annotationCommitService = annotationCommitService;
     }
 
-    /**
-     * Persists a live per-image (really per-point) progress reading from the poller in
-     * AutoAnnotationExecutor. Silently no-ops if the job can't be found, mirroring
-     * TrainingJobStatusService.updateProgress: expected under a real race, not a genuine error.
-     */
+    /** Persists live progress from the poller, does nothing if the job is gone */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProgress(Long jobId, Integer processedCount, Integer totalCount, Long currentPointId) {
         pointAnnotationJobRepository.findById(jobId).ifPresent(job -> {
@@ -52,13 +42,7 @@ public class PointAnnotationJobStatusService {
         });
     }
 
-    /**
-     * A failure here is a failure of the delegated {@link AnnotationJob}'s inference batch, not of
-     * the point-annotation job itself (which already reached its own terminal "COMPLETE" the moment
-     * startAutoAnnotate created the delegation) - marks that AnnotationJob FAILED so the review
-     * screen/resolve-route surface the real error, instead of resurrecting the point-annotation
-     * job's own status.
-     */
+    /** Marks the delegated annotation job failed */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long jobId, String errorMessage) {
         pointAnnotationJobRepository.findById(jobId).ifPresent(job -> {
@@ -73,15 +57,7 @@ public class PointAnnotationJobStatusService {
         });
     }
 
-    /**
-     * Marks the delegated {@link AnnotationJob} COMPLETED and derives its reviewStatus from the
-     * AnnotationPrediction accept counts, mirroring AnnotationJobExecutor.executeExistingVersionAsync's
-     * identical inline logic - the point-annotation job's own status is untouched here (already
-     * COMPLETE since startAutoAnnotate). Returns the lazy fields the caller needs to log the
-     * completion event (datasetVersion, modelTag, initiatedBy), captured here while the entities are
-     * still attached to this method's own transaction, since AutoAnnotationExecutor logs the event
-     * only after this transaction has already committed and closed.
-     */
+    /** Marks the delegated annotation job completed and derives its review status */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CompletionResult completeAutoAnnotation(Long jobId) {
         PointAnnotationJob job = pointAnnotationJobRepository.findById(jobId)

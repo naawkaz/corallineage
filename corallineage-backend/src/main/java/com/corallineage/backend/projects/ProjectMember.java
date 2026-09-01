@@ -28,12 +28,7 @@ public class ProjectMember {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    /**
-     * When false (the default), this member has unrestricted access to every source in the
-     * project, including sources added later; the project_member_source_access join table is
-     * bypassed. When true, access is exactly this member's rows in that table (an empty set
-     * means no sources). Only ever true for COLLABORATOR members; OWNER always bypasses it.
-     */
+    /** False by default, unrestricted access to every source, true limits access to granted sources */
     @Column(name = "source_access_restricted", nullable = false)
     private boolean sourceAccessRestricted = false;
 
@@ -42,7 +37,6 @@ public class ProjectMember {
         if (createdAt == null) createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

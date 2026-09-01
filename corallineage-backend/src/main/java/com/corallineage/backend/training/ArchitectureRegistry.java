@@ -8,12 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Caches the curated architecture list fetched from the Python ML service's GET /architectures.
- * Refreshed on startup; falls back to a hardcoded default if the ML service isn't reachable yet
- * (e.g. Python service not started), so the backend still boots and /architectures still degrades
- * gracefully rather than throwing on every request.
- */
+/** Caches the architecture list from the ML service, falls back to a default */
 @Component
 public class ArchitectureRegistry {
 

@@ -13,10 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-/**
- * CoralNet CSV format: a single CSV file with required columns
- * image_filename, row, col, label_code (any order, extra columns ignored).
- */
+/** Imports a CoralNet CSV with image filename row col and label code columns */
 @Component
 public class CoralNetCsvParser implements DatasetFormatParser {
 
@@ -124,7 +121,7 @@ public class CoralNetCsvParser implements DatasetFormatParser {
         }
     }
 
-    /** Minimal CSV split supporting double-quoted fields with escaped ("") quotes. */
+    /** Splits a CSV line, supports quoted fields */
     private String[] splitCsvLine(String line) {
         List<String> fields = new ArrayList<>();
         StringBuilder current = new StringBuilder();

@@ -7,11 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Warm-start blank-import submit request: annotates an existing dataset version's already-present
- * images (no upload, no new staging version) with a chosen model, structurally between Mode A
- * ("Validate") and Mode B ("New Images") - see AnnotationJobService.submitExistingVersionJob.
- */
+/** Request to annotate an existing dataset version's images with a chosen model */
 public class SubmitExistingVersionJobRequest {
 
     @NotNull

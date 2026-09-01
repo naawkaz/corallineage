@@ -11,10 +11,7 @@ import java.util.Collection;
 
 public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent, Long> {
 
-    // Native query with explicit ::text/::timestamptz casts: Postgres' extended query
-    // protocol cannot infer a bind parameter's type from an "x IS NULL OR ..." predicate
-    // alone (no surrounding type context), which raised "could not determine data type
-    // of parameter" for the nullable filters when using an equivalent JPQL query.
+    // Native query with explicit casts so Postgres can infer nullable bind parameter types
     @Query(value = """
             SELECT e.* FROM annotation_events e
             LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id
@@ -44,13 +41,7 @@ public interface AnnotationEventRepository extends JpaRepository<AnnotationEvent
                                         @Param("to") Instant to,
                                         Pageable pageable);
 
-    // Used only when the caller supplies no *dataset-scoping* filter (datasetId/datasetVersionId/
-    // modelVersionId all absent - see AnnotationEventController); eventType/from/to still apply
-    // normally. Rather than blocking the call, results are filtered down to rows whose derivable
-    // dataset id (via dataset_version_id directly, via the triggering model's trained-on version,
-    // or via the logged image's origin version) is in the requester's accessible set. A row with
-    // no derivable dataset id on any of the three (a genuinely cross-cutting event) stays visible
-    // to everyone - there is no ownership anchor to hide it behind.
+    // Used when no dataset scoping filter is supplied, filters rows to the requester's accessible datasets
     @Query(value = """
             SELECT e.* FROM annotation_events e
             LEFT JOIN dataset_versions dv ON dv.id = e.dataset_version_id

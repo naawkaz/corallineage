@@ -67,9 +67,7 @@ public class OntologyChangeController {
             datasetService.requireAccess(scopedDatasetId, authentication.getName());
             return ontologyChangeService.getDirtyAnnotations(ontologyChangeId, imageId, pageable);
         }
-        // No scoping filter (or an imageId with no matching rows yet): filter server-side to the
-        // requester's accessible datasets rather than blocking the call or returning everyone's
-        // dirty-annotation queue.
+        // No scoping filter, so filter to the requester's accessible datasets
         Set<Long> accessibleDatasetIds = projectMemberService.getAllAccessibleDatasetIds(authentication.getName());
         return ontologyChangeService.getDirtyAnnotationsAccessibleWithNoFilter(accessibleDatasetIds, pageable);
     }

@@ -12,11 +12,11 @@ public class RecordOntologyChangeRequest {
     @NotNull(message = "changeType is required")
     private ChangeType changeType;
 
-    /** The version being branched from - the change creates a new DatasetVersion on top of it. */
+    /** The version this change branches from */
     @NotNull(message = "basedOnDatasetVersionId is required")
     private Long basedOnDatasetVersionId;
 
-    /** User-supplied tag for the new branched DatasetVersion this change creates. */
+    /** Tag for the new branched version */
     @NotBlank(message = "newVersionTag is required")
     @Size(max = 50, message = "newVersionTag must be at most 50 characters")
     private String newVersionTag;
@@ -26,7 +26,7 @@ public class RecordOntologyChangeRequest {
     @Valid
     private List<NewLabelSpec> newLabels;
 
-    /** DEPRECATED only: an existing, non-deprecated label code offered as a replacement. */
+    /** Replacement label offered when deprecating a label */
     private String replacementLabelCode;
 
     @NotBlank(message = "changedBy is required")

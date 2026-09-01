@@ -90,10 +90,7 @@ public class TrainingJobService {
         return trainingJobMapper.toResponse(job);
     }
 
-    /**
-     * Resolves the owning dataset id for a training job so callers can run the membership
-     * check before returning any job data. Also used by getEpochMetrics.
-     */
+    /** Resolves the owning dataset id for a training job */
     @Transactional(readOnly = true)
     public Long getDatasetIdForJob(Long jobId) {
         TrainingJob job = trainingJobRepository.findById(jobId)
@@ -114,12 +111,7 @@ public class TrainingJobService {
         return architectureRegistry.getAll();
     }
 
-    /**
-     * Epoch metrics keyed by training job id rather than a registered model id, so a still-RUNNING
-     * job (which has no ModelVersion row yet, only a TrainingJob.mlflowRunId once MLflow's run has
-     * started) can feed the same live loss curve the completed-model diagnostics view already uses.
-     * Returns an empty list, not an error, whenever the run id isn't known yet or MLflow is unreachable.
-     */
+    /** Returns epoch metrics keyed by job id, empty list if unavailable */
     @Transactional(readOnly = true)
     public List<MlflowDetailsResponse.EpochMetricPoint> getEpochMetrics(Long jobId) {
         TrainingJob job = trainingJobRepository.findById(jobId)
@@ -144,9 +136,7 @@ public class TrainingJobService {
             }
             return version;
         }
-        // "Latest version" mode skips incomplete versions and falls back to the newest complete one,
-        // rather than blocking outright - an incomplete label-only version shouldn't stall training
-        // against the dataset's otherwise-usable history.
+        // Latest version mode falls back to the newest complete version
         List<DatasetVersion> versions = datasetVersionRepository
                 .findAllByDatasetIdOrderByCreatedAtDesc(datasetId, Pageable.unpaged())
                 .getContent();
@@ -179,12 +169,7 @@ public class TrainingJobService {
         }
     }
 
-    /**
-     * The @Async executor lives on a separate bean (TrainingJobExecutor) rather than a method on
-     * this class - Spring's @Async proxy only intercepts calls made through the bean's proxy, and
-     * a same-class "this.executeTrainingAsync(...)" self-invocation would silently run synchronously.
-     * Mirrors the same split used for DatasetImportService/DatasetImportExecutor.
-     */
+    /** Runs on a separate bean so the async proxy applies */
     private void dispatchAfterCommit(Long jobId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

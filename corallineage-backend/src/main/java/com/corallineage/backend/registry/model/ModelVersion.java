@@ -64,7 +64,6 @@ public class ModelVersion {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

@@ -1,12 +1,6 @@
 package com.corallineage.backend.pointannotation;
 
-/**
- * Optional hyperparameter overrides for {@link PointAnnotationJobService#trainModel}, mirroring
- * {@code InitiateTrainingRequest}'s own architecture/learningRate/batchSize/epochs fields - lets
- * the frontend reuse the exact same "Train New Model" dialog (and its submit shape) for a
- * cold-start point-annotation job's training step, not just the standalone Model Registry flow.
- * All fields optional; {@code TrainingJobService.initiateTrainingJob} already defaults any left null.
- */
+/** Optional hyperparameter overrides for training a point annotation job */
 public class TrainPointAnnotationJobRequest {
 
     private String architecture;

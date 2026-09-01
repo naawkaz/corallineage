@@ -30,7 +30,7 @@ public class DatasetVersion {
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
 
-    // Enum values: IMAGES_ADDED, IMAGES_REMOVED, ANNOTATIONS_MODIFIED, LABEL_DEFINITION_CHANGED, MANUAL_SNAPSHOT
+    // Enum values IMAGES_ADDED IMAGES_REMOVED ANNOTATIONS_MODIFIED LABEL_DEFINITION_CHANGED MANUAL_SNAPSHOT
     @Column(name = "trigger_reason", nullable = false, length = 50)
     private String triggerReason;
 
@@ -46,12 +46,7 @@ public class DatasetVersion {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    // True for a staging version created to hold freshly uploaded/imported images pending review
-    // (e.g. AnnotationJobExecutor's Mode B "new images" staging area) - excluded from
-    // DatasetVersionService.getVersionHistory so it never appears in the researcher-facing Versions
-    // list, but still individually reachable via getVersionById. Nullable at the JPA level: existing
-    // rows predate this column (same ddl-auto=update NOT-NULL-on-a-populated-table reasoning as
-    // gridRows/gridCols elsewhere in this codebase); null is treated as "not staging".
+    // True for a staging version holding images pending review, excluded from the version list
     @Column(name = "is_staging")
     private Boolean isStaging;
 
@@ -60,7 +55,6 @@ public class DatasetVersion {
         if (createdAt == null) createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

@@ -43,7 +43,7 @@ public class AnnotationJobController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    /** Mode A: "Validate against human labels" - recheck a model's accuracy against real human-given points. */
+    /** Rechecks a model's accuracy against human labeled points */
     @PostMapping("/jobs/validate")
     public ResponseEntity<AnnotationJobResponse> submitValidationJob(@Valid @RequestBody SubmitValidationJobRequest request,
                                                                        Authentication authentication) {
@@ -51,7 +51,7 @@ public class AnnotationJobController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    /** Mode B: "Annotate new images" - bulk-label freshly uploaded images not yet part of any dataset version. */
+    /** Bulk labels freshly uploaded images */
     @PostMapping("/jobs/new-images")
     public ResponseEntity<AnnotationJobResponse> submitNewImagesJob(
             @RequestParam Long modelVersionId,
@@ -68,7 +68,7 @@ public class AnnotationJobController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    /** Commits a fully-reviewed Mode B job's images and final point labels into a new, real dataset version. */
+    /** Creates a dataset version from a reviewed job's images and labels */
     @PostMapping("/jobs/{jobId}/add-to-project")
     public AnnotationJobResponse addToProject(@PathVariable Long jobId, @Valid @RequestBody AddToProjectRequest request,
                                                Authentication authentication) {
@@ -77,10 +77,7 @@ public class AnnotationJobController {
         return annotationJobService.addToProject(jobId, request);
     }
 
-    /**
-     * Warm-start blank-import: annotates an existing dataset version's already-present images with
-     * a chosen model, no upload, no new staging version created.
-     */
+    /** Annotates an existing dataset version's images with a chosen model */
     @PostMapping("/jobs/existing-version")
     public ResponseEntity<AnnotationJobResponse> submitExistingVersionJob(
             @Valid @RequestBody SubmitExistingVersionJobRequest request, Authentication authentication) {
@@ -88,7 +85,7 @@ public class AnnotationJobController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    /** Commits a fully-reviewed existing-version job's predictions directly onto its target dataset version, in place. */
+    /** Applies a reviewed job's predictions onto its dataset version */
     @PostMapping("/jobs/{jobId}/apply-to-version")
     public AnnotationJobResponse applyToExistingVersion(@PathVariable Long jobId, Authentication authentication) {
         Long datasetId = annotationJobService.getDatasetIdForJob(jobId);
@@ -106,7 +103,7 @@ public class AnnotationJobController {
         return annotationJobService.getJobs(datasetId, PageRequest.of(page, size));
     }
 
-    /** Scoped jobs list for a specific model's own detail page (replaces the old dataset-wide list page). */
+    /** Lists jobs for one model */
     @GetMapping("/jobs/by-model")
     public Page<AnnotationJobResponse> getJobsByModel(
             @RequestParam Long modelVersionId,
@@ -149,7 +146,7 @@ public class AnnotationJobController {
         return annotationJobService.reviewPrediction(jobId, predictionId, request);
     }
 
-    /** Bulk-accepts every still-pending prediction on a job at its current predicted label. */
+    /** Accepts every pending prediction on a job */
     @PostMapping("/jobs/{jobId}/predictions/accept-all")
     public AnnotationJobResponse acceptAllPredictions(
             @PathVariable Long jobId,

@@ -28,9 +28,7 @@ public class Dataset {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    // Next fallback number for a model registered on this dataset without an explicit tag
-    // ("model-v{N}"), incremented only when used. Nullable at the JPA level; application code
-    // treats null as 1. Scoped per dataset so a deleted model cannot cause a number to be reused.
+    // Next fallback model number for this dataset, null treated as 1
     @Column(name = "next_model_fallback_number")
     private Integer nextModelFallbackNumber;
 
@@ -39,7 +37,6 @@ public class Dataset {
         if (createdAt == null) createdAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

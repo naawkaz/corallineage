@@ -73,27 +73,14 @@ public class DatasetVersionService {
         return createSnapshotBranchedFrom(datasetId, request, previousLatest);
     }
 
-    /**
-     * Like {@link #createSnapshot}, but marks the created version {@code isStaging=true} so it's
-     * excluded from {@link #getVersionHistory} (never shown in the researcher-facing Versions list)
-     * while still individually reachable via {@link #getVersionById}. For staging areas that hold
-     * images pending review before being committed for real (e.g. AnnotationJobExecutor's Mode B
-     * "new images" upload) - not exposed on the public {@link CreateVersionRequest} DTO since no
-     * caller outside this internal use case should ever be able to request it.
-     */
+    /** Creates a staging version excluded from the version list */
     @Transactional
     public DatasetVersionResponse createStagingSnapshot(Long datasetId, CreateVersionRequest request) {
         DatasetVersion previousLatest = datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
         return createSnapshotBranchedFrom(datasetId, request, previousLatest, true);
     }
 
-    /**
-     * Like {@link #createSnapshot}, but copies labels + image membership forward from an explicit
-     * {@code branchPoint} rather than always the dataset's overall latest version. Used by ontology
-     * change recording, where the new version must branch from whichever version the user picked
-     * (which may not be the dataset's current latest) - using the plain createSnapshot here would
-     * silently branch from the wrong version instead.
-     */
+    /** Creates a version branched from a given point rather than the latest */
     @Transactional
     public DatasetVersionResponse createSnapshotBranchedFrom(Long datasetId, CreateVersionRequest request,
                                                               DatasetVersion branchPoint) {
@@ -137,11 +124,7 @@ public class DatasetVersionService {
         return attachCompleteness(datasetVersionMapper.toResponseWithLabels(savedVersion, labels));
     }
 
-    /**
-     * Copies forward the previous version's image membership rows onto {@code version} - cheap
-     * (just new join rows, no Image data duplicated). A dataset's very first version starts with
-     * no membership; the importer adds rows for the freshly-imported images afterward.
-     */
+    /** Copies the previous version's image membership forward */
     List<DatasetVersionImage> snapshotCurrentImageMembership(DatasetVersion version, DatasetVersion previousLatest) {
         List<DatasetVersionImage> snapshot = new ArrayList<>();
         if (previousLatest == null) {
@@ -156,7 +139,7 @@ public class DatasetVersionService {
         return snapshot;
     }
 
-    /** {@code true} when every dirty annotation raised against this version has been resolved. */
+    /** True when every dirty annotation on this version is resolved */
     @Transactional(readOnly = true)
     public boolean isComplete(Long datasetVersionId) {
         return dirtyAnnotationRepository
@@ -195,25 +178,7 @@ public class DatasetVersionService {
         return datasetVersionMapper.toLabelResponse(saved);
     }
 
-    /**
-     * Per the confirmed product decision, an UNRESOLVED version (still needs blank-import
-     * seed-labeling/training or review before it's usable) is excluded here entirely - it only
-     * ever appears in the Unlabeled import queue card (see
-     * {@link com.corallineage.backend.pointannotation.PointAnnotationJobService#getUnlabeledImportQueue}),
-     * never duplicated in this list. An incomplete version (unresolved dirty annotations from an
-     * ontology change still affecting it) is excluded the same way - it only shows up via the
-     * Ontology change history list until that change is fully resolved, per the same "not a real,
-     * usable version yet" reasoning. Filtering happens after the per-version resolve-status/
-     * completeness enrichment (not expressible as a single query spanning DatasetVersion/
-     * PointAnnotationJob/AnnotationJob/DirtyAnnotation), so pagination runs in memory over the
-     * filtered set rather than at the DB level - the same N+1/in-memory trade-off
-     * {@link #attachCompleteness} already accepts for this app's data volumes.
-     *
-     * {@code versionNumber} is assigned before either filter, over every non-staging version ever
-     * created for the dataset (oldest = 1), so a version's number is permanent and never shifts
-     * later just because an unrelated version became resolved/hidden - gaps in the visible sequence
-     * are expected and fine, the same way a git log can skip over hidden WIP commits.
-     */
+    /** Excludes unresolved and incomplete versions from the list, version numbers stay permanent */
     @Transactional(readOnly = true)
     public Page<DatasetVersionResponse> getVersionHistory(Long datasetId, Pageable pageable) {
         if (!datasetRepository.existsById(datasetId)) {
@@ -244,26 +209,14 @@ public class DatasetVersionService {
         return new PageImpl<>(resolved.subList(start, end), pageable, total);
     }
 
-    /**
-     * A single version's permanent ordinal number (see {@link #getVersionHistory}'s own javadoc for
-     * what "permanent" means here) without loading/numbering the whole dataset's version list -
-     * for call sites that only ever need one version's number at a time (the Unlabeled import
-     * queue, the Ontology change history list), not a paginated list of versions themselves.
-     */
+    /** A single version's permanent ordinal number */
     @Transactional(readOnly = true)
     public Integer getVersionNumber(DatasetVersion version) {
         return (int) datasetVersionRepository.countByDatasetIdAndIsStagingNotTrueAndIdLessThanEqual(
                 version.getDataset().getId(), version.getId());
     }
 
-    /**
-     * The versions {@link #getVersionHistory} filters out: completed BLANK imports with no
-     * {@link com.corallineage.backend.pointannotation.PointAnnotationJob} or delegated
-     * {@link com.corallineage.backend.annotation.AnnotationJob} started against them yet
-     * (resolveRoute "START"). Used by {@code PointAnnotationJobService.getUnlabeledImportQueue} to
-     * surface these in the Unlabeled import queue - otherwise a completed BLANK import has nowhere
-     * to show up at all until the user manually opens the version by URL.
-     */
+    /** Versions from a completed blank import with no job started yet */
     @Transactional(readOnly = true)
     public List<DatasetVersionResponse> getPendingBlankStarts(Long datasetId) {
         return datasetVersionRepository
@@ -278,10 +231,7 @@ public class DatasetVersionService {
                 .toList();
     }
 
-    /**
-     * Populates {@code complete}/{@code unresolvedDirtyCount} with one extra query per version.
-     * N+1 accepted at current data volumes.
-     */
+    /** Populates complete and unresolvedDirtyCount with one extra query per version */
     private DatasetVersionResponse attachCompleteness(DatasetVersionResponse response) {
         long unresolved = dirtyAnnotationRepository
                 .countByOntologyChange_AffectedDatasetVersion_IdAndResolvedAtIsNull(response.getId());
@@ -290,13 +240,7 @@ public class DatasetVersionService {
         return response;
     }
 
-    /**
-     * Populates {@code importStatus}/{@code importFormat}/{@code blankImportStarted} from the most
-     * recent {@link ImportJob} that produced this version, if any (a manually snapshotted or
-     * ontology-branched version has none, both stay null/false). Lets the version list show a
-     * spinner while an import is still processing, and offer "Resolve" for a completed BLANK
-     * import that hasn't had blank-import started on it yet.
-     */
+    /** Populates import status from the most recent import job that produced this version */
     private DatasetVersionResponse attachImportStatus(DatasetVersionResponse response) {
         importJobRepository.findTopByCreatedDatasetVersionIdOrderBySubmittedAtDesc(response.getId())
                 .ifPresent(job -> {
@@ -308,20 +252,7 @@ public class DatasetVersionService {
         return response;
     }
 
-    /**
-     * Populates {@code resolveStatus}/{@code resolveRoute}/{@code resolveJobId}: "UNRESOLVED" plus
-     * where "Resolve" should navigate, for a BLANK-import version that hasn't had its points fully
-     * committed yet. Checked in order: a cold-start {@link com.corallineage.backend.pointannotation.PointAnnotationJob}
-     * still short of its own "COMPLETE" (grid generation through seed-labeling through training -
-     * that job's own label page handles every one of those sub-stages itself, so one route covers
-     * them all); then an {@link com.corallineage.backend.annotation.AnnotationJob}
-     * (commitInPlace=true, not yet applied) - either the warm-start blank-import path's own job, or
-     * the job a cold-start job's auto-annotate delegates into once training completes (see
-     * PointAnnotationJob.annotationJob), both routed identically since review happens on the same
-     * screen either way; then, if neither job exists yet but this version came from a completed
-     * BLANK import, "START" (no job to route into, the frontend opens the blank-import start
-     * dialog itself to decide cold vs warm).
-     */
+    /** Populates resolve status and where to navigate to resolve a blank import version */
     private void attachResolveStatus(DatasetVersionResponse response) {
         var pointJob = pointAnnotationJobRepository.findFirstByDatasetVersion_IdOrderByCreatedAtDesc(response.getId());
         if (pointJob.isPresent() && !"COMPLETE".equals(pointJob.get().getStatus())) {
@@ -331,9 +262,7 @@ public class DatasetVersionService {
             return;
         }
 
-        // A COMPLETE point-annotation job means its own stage (seed labeling through training) is
-        // done, but the delegated AnnotationJob's review may still be pending, so fall through to
-        // the AnnotationJob check below.
+        // A COMPLETE point annotation job may still have a pending delegated review, so fall through
         var annotationJob = annotationJobRepository.findFirstByDatasetVersion_IdAndCommitInPlaceTrueOrderByInitiatedAtDesc(response.getId());
         if (annotationJob.isPresent()) {
             if (annotationJob.get().getAddedToProjectVersionId() == null) {
@@ -351,13 +280,7 @@ public class DatasetVersionService {
         }
     }
 
-    /**
-     * Logs an annotation event in its own REQUIRES_NEW transaction. When called
-     * inside an active transaction (normal Spring flow), the log is deferred until
-     * after the surrounding transaction commits so the event can reference rows
-     * (e.g. a freshly created dataset version) that only become visible at commit.
-     * Falls back to logging immediately when no transaction is active (e.g. unit tests).
-     */
+    /** Logs an event after the transaction commits */
     private void logAfterCommit(EventType eventType, DatasetVersion version,
                                 String performedBy, String description) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {

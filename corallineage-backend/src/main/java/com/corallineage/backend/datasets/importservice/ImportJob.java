@@ -65,7 +65,6 @@ public class ImportJob {
         if (submittedAt == null) submittedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

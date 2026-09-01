@@ -11,8 +11,7 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
 
     Optional<ImportJob> findTopByCreatedDatasetVersionIdOrderBySubmittedAtDesc(Long createdDatasetVersionId);
 
-    // BLANK-format import jobs still processing (or failed) before they've produced a
-    // DatasetVersion at all - see PointAnnotationJobService.getUnlabeledImportQueue.
+    // BLANK format import jobs still processing or failed before producing a version
     List<ImportJob> findByDataset_IdAndFormatAndCreatedDatasetVersionIdIsNullOrderBySubmittedAtDesc(
             Long datasetId, String format);
 }

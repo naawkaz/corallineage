@@ -9,10 +9,7 @@ import java.util.Optional;
 
 public interface GeneratedPointRepository extends JpaRepository<GeneratedPoint, Long> {
 
-    // Explicit order (not just "whatever the query planner returns") - without it, Postgres can
-    // return a different row order on each call once rows have been UPDATEd (e.g. the frontend's
-    // seed-labeling list visibly reordering itself as points get labeled), since an unsorted query
-    // has no guaranteed order at all. Ordering by id matches point-generation order.
+    // Explicit order keeps the seed labeling list stable as points get updated
     Page<GeneratedPoint> findByJobIdAndSeedOrderByIdAsc(Long jobId, boolean seed, Pageable pageable);
 
     long countByJobIdAndSeedTrue(Long jobId);

@@ -2,10 +2,7 @@ package com.corallineage.backend.annotation;
 
 import jakarta.validation.constraints.NotBlank;
 
-/**
- * Mode B ("Annotate new images") completion request: commits a fully-reviewed job's images
- * and final (accepted/corrected) point labels into a new, real dataset version on the project.
- */
+/** Completes a new images job by creating a dataset version from its reviewed images and labels */
 public class AddToProjectRequest {
 
     @NotBlank

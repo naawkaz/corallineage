@@ -13,12 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * COCO JSON format: a single annotations.json with "images", "annotations",
- * and "categories" arrays. category_id maps to label_code via categories[].name.
- * Point coordinates come from the "point" field if present, else the bounding
- * box centroid.
- */
+/** Imports COCO JSON annotations, maps category id to label code */
 @Component
 public class CocoJsonParser implements DatasetFormatParser {
 

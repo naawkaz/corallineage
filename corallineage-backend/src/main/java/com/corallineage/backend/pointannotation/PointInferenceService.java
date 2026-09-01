@@ -26,19 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Point-level inference: crops a patch around each pending point (same crop math training uses)
- * and drives {@link PythonMlServiceClient#startAnnotate}/{@code pollAnnotateStatus} through
- * {@link AutoAnnotationExecutor}, since each patch is sent as its own synthetic "image" (keyed by
- * the {@link GeneratedPoint}'s own id), and that endpoint now runs the batch on a background
- * thread on the Python side rather than blocking the caller.
- *
- * Split into two @Transactional entry points (prepareAndStartAnnotate, applyPredictions) rather
- * than one long runInference call, since AutoAnnotationExecutor's poll loop between them can run
- * for seconds to minutes and must not hold a single transaction (and DB connection) open across
- * that whole span. See PointAnnotationJobStatusService's class comment for the same reasoning
- * applied to the job's status writes.
- */
+/** Runs point level inference by cropping a patch for each pending point */
 @Service
 public class PointInferenceService {
 
@@ -64,16 +52,11 @@ public class PointInferenceService {
         this.patchSize = patchSize;
     }
 
-    /** Result of kicking off a batch: whether there was anything to send, and (if so) the patch
-     * directory the caller must clean up once the batch (polled elsewhere) finishes. */
+    /** Result of starting a batch, and its patch directory to clean up */
     public record AnnotationKickoff(boolean hasPendingWork, Path patchDir) {
     }
 
-    /**
-     * Crops every pending point's patch (unchanged patch-cropping/temp-file-writing logic) and
-     * starts the Python batch. Returns immediately once Flask acknowledges the batch started;
-     * does not wait for predictions.
-     */
+    /** Crops every pending point and starts the batch, returns once accepted */
     @Transactional
     public AnnotationKickoff prepareAndStartAnnotate(Long jobId) {
         PointAnnotationJob job = pointAnnotationJobRepository.findById(jobId)
@@ -108,16 +91,7 @@ public class PointInferenceService {
         }
     }
 
-    /**
-     * Applies a completed batch's predictions once AutoAnnotationExecutor's poll loop sees
-     * COMPLETED. Writes real {@link AnnotationPrediction} rows against the job's delegated
-     * {@link AnnotationJob} (set by PointAnnotationJobService.startAutoAnnotate) rather than
-     * mutating the GeneratedPoint rows directly - review of these predictions happens entirely
-     * through the same AnnotationReview screen and accept/override/accept-all endpoints every
-     * other annotation job already uses, not a second GeneratedPoint-based review path. Re-fetches
-     * the points fresh by id rather than reusing entities from prepareAndStartAnnotate's now-closed
-     * transaction (those would be detached after minutes of polling in between).
-     */
+    /** Applies a completed batch's predictions as annotation predictions */
     @Transactional
     public void applyPredictions(Long jobId, AnnotateResult result) {
         PointAnnotationJob job = pointAnnotationJobRepository.findById(jobId)

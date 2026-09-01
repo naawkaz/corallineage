@@ -10,12 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * "Blank / Unlabeled Dataset" import: just images, no per-point annotation sidecar file at all -
- * the label vocabulary is declared upfront by the caller instead (see
- * {@code DatasetImportExecutor}'s explicit-labelCodes path) and points get added later via the
- * Point Annotation pipeline. Every image file found anywhere in the upload is included; no points.
- */
+/** Imports images with no annotation file, labels are declared upfront */
 @Component
 public class BlankFormatParser implements DatasetFormatParser {
 

@@ -49,7 +49,7 @@ public class OntologyChange {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    /** DEPRECATED only: an existing, non-deprecated label code offered as a replacement (informational). */
+    /** Replacement label offered when deprecating a label */
     @Column(name = "replacement_label_code", length = 100)
     private String replacementLabelCode;
 
@@ -58,7 +58,6 @@ public class OntologyChange {
         if (changedAt == null) changedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

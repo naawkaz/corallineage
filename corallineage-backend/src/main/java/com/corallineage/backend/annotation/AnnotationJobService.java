@@ -91,7 +91,7 @@ public class AnnotationJobService {
         this.annotationCommitService = annotationCommitService;
     }
 
-    // Internal whole-image submit path. External callers use submitValidationJob / submitNewImagesJob.
+    // Internal whole image submit path, external callers use submitValidationJob or submitNewImagesJob
 
     @Transactional
     public AnnotationJobResponse submitAnnotationJob(InitiateAnnotationJobRequest request, String actingUsername) {
@@ -125,7 +125,7 @@ public class AnnotationJobService {
         return annotationJobMapper.toResponse(saved, 0, 0);
     }
 
-    // --- Mode A: "Validate against human labels" ---
+    // Mode A: "Validate against human labels"
 
     @Transactional
     public AnnotationJobResponse submitValidationJob(SubmitValidationJobRequest request, String actingUsername) {
@@ -159,8 +159,7 @@ public class AnnotationJobService {
         job.setInitiatedBy(request.getInitiatedBy());
         job.setStatus("RUNNING");
         job.setImageIds(request.getImageIds());
-        // No accept/override step for a validation job (it's a direct comparison, not a
-        // labeling workflow), so reviewStatus starts already resolved rather than PENDING.
+        // A validation job has no review step, so review status starts resolved
         job.setReviewStatus("COMPLETED");
         AnnotationJob saved = annotationJobRepository.save(job);
 
@@ -172,7 +171,7 @@ public class AnnotationJobService {
         return annotationJobMapper.toResponse(saved, 0, 0, 0);
     }
 
-    // --- Mode B: "Annotate new images" ---
+    // Mode B: "Annotate new images"
 
     private static final BigDecimal DEFAULT_CONFIDENCE_THRESHOLD = new BigDecimal("0.8500");
 
@@ -195,10 +194,7 @@ public class AnnotationJobService {
 
         AnnotationJob job = new AnnotationJob();
         job.setModelVersion(model);
-        // job.dataset is set once the executor resolves the target Dataset; left null here would
-        // violate no DB constraint (dataset is nullable, see AnnotationJob's own javadoc) but the
-        // executor still needs a datasetId to work against, passed through directly below rather
-        // than round-tripped through the entity before the async dispatch.
+        // job.dataset is resolved later by the executor, the datasetId is passed through directly below
         job.setJobType("NEW_IMAGES");
         job.setInitiatedBy(initiatedBy);
         job.setStatus("RUNNING");
@@ -215,7 +211,7 @@ public class AnnotationJobService {
         return annotationJobMapper.toResponse(saved, 0, 0);
     }
 
-    // --- Warm-start blank-import: annotate an existing dataset version's already-present images ---
+    // Annotates an existing dataset version's images
 
     private static final int DEFAULT_EXISTING_VERSION_GRID_ROWS = 3;
     private static final int DEFAULT_EXISTING_VERSION_GRID_COLS = 4;
@@ -270,11 +266,7 @@ public class AnnotationJobService {
         return annotationJobMapper.toResponse(saved, 0, 0);
     }
 
-    /**
-     * Commits a fully-reviewed existing-version job's accepted/overridden predictions directly onto
-     * the job's already-set (real, pre-existing) dataset version, no new version is branched. The
-     * counterpart to addToProject for jobs created via submitExistingVersionJob (commitInPlace=true).
-     */
+    /** Applies a reviewed job's predictions directly onto its dataset version */
     @Transactional
     public AnnotationJobResponse applyToExistingVersion(Long jobId, String appliedBy) {
         AnnotationJob job = annotationCommitService.applyToExistingVersion(jobId, appliedBy);
@@ -294,7 +286,7 @@ public class AnnotationJobService {
         }
     }
 
-    /** Mirrors DatasetImportService.persistUpload, minus the relative-path directory structure (flat file list here). */
+    /** Reconstructs an uploaded flat file list into a temp directory */
     private Path persistUpload(MultipartFile[] files) {
         try {
             Path tempDir = Files.createTempDirectory("coral-annotation-upload-");
@@ -314,10 +306,7 @@ public class AnnotationJobService {
         }
     }
 
-    /**
-     * Commits a fully-reviewed NEW_IMAGES job's images and final point labels into a new, real
-     * dataset version on the project, branched from the dataset's current latest version.
-     */
+    /** Creates a dataset version from a reviewed job's images and labels */
     @Transactional
     public AnnotationJobResponse addToProject(Long jobId, AddToProjectRequest request) {
         AnnotationJob job = findOrThrow(jobId);
@@ -410,11 +399,7 @@ public class AnnotationJobService {
                 });
     }
 
-    /**
-     * Resolves the owning dataset id for a job, falling back to datasetVersion.dataset when
-     * job.dataset is null (legacy NEW_IMAGES rows before the executor resolves a target dataset,
-     * or other pre-backfill rows, see AnnotationJob's own field javadoc).
-     */
+    /** Resolves the owning dataset id for a job */
     @Transactional(readOnly = true)
     public Long getDatasetIdForJob(Long jobId) {
         AnnotationJob job = findOrThrow(jobId);
@@ -444,7 +429,7 @@ public class AnnotationJobService {
                         : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
-    /** Scoped jobs list for a specific model's own detail page, replaces the old dataset-wide list page. */
+    /** Lists jobs for one model */
     @Transactional(readOnly = true)
     public Page<AnnotationJobResponse> getJobsByModel(Long modelVersionId, Pageable pageable) {
         return annotationJobRepository.findByModelVersion_IdOrderByInitiatedAtDesc(modelVersionId, pageable)
@@ -453,11 +438,7 @@ public class AnnotationJobService {
                         : annotationJobMapper.toResponse(job, countTotal(job.getId()), countReviewed(job.getId())));
     }
 
-    /**
-     * Derives the job's dataset server-side from the submitted images rather than trusting a
-     * client-supplied dataset id, every image must belong to the same dataset (via its
-     * datasetVersion.dataset), matching the invariant the UI's image picker already enforces.
-     */
+    /** Derives a job's dataset from its images */
     private Dataset resolveCommonDataset(List<Image> images) {
         Dataset first = images.get(0).getOriginDatasetVersion().getDataset();
         for (Image image : images) {
@@ -526,11 +507,7 @@ public class AnnotationJobService {
         return annotationJobMapper.toPredictionResponse(saved);
     }
 
-    /**
-     * Bulk-accepts every still-pending prediction on a job at its current predicted label - the
-     * "Accept All Labels" action, equivalent to calling reviewPrediction({accepted: true}) on each
-     * remaining pending prediction individually, in one request.
-     */
+    /** Accepts every pending prediction on a job at its predicted label */
     @Transactional
     public AnnotationJobResponse acceptAllPredictions(Long jobId, String reviewedBy) {
         AnnotationJob job = findOrThrow(jobId);
@@ -582,11 +559,7 @@ public class AnnotationJobService {
                 .orElseThrow(() -> new NotFoundException("Annotation job not found: " + id));
     }
 
-    /**
-     * The @Async executor lives on a separate bean (AnnotationJobExecutor) rather than a method on
-     * this class, mirrors TrainingJobService/TrainingJobExecutor's split, needed because Spring's
-     * @Async proxy does not intercept same-class self-invocation.
-     */
+    /** Runs on a separate bean so the async proxy applies */
     private void dispatchAfterCommit(Long jobId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

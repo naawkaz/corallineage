@@ -2,21 +2,12 @@ package com.corallineage.backend.pointannotation;
 
 import java.time.Instant;
 
-/**
- * One row of the Unlabeled import queue - merges two different job types that can both leave a
- * dataset version needing attention before it's usable: a cold-start {@link PointAnnotationJob}
- * (grid generation through seed-labeling through training) and a warm-start/delegated
- * {@link com.corallineage.backend.annotation.AnnotationJob} (commitInPlace=true, review pending).
- * One merged, sorted, paginated list instead of the frontend juggling two separate queries - see
- * PointAnnotationJobService.getUnlabeledImportQueue.
- */
+/** One row of the unlabeled import queue */
 public class UnlabeledImportQueueEntryResponse {
 
     private String jobType;
     private Long jobId;
-    // Permanent ordinal position of the affected dataset version (see
-    // DatasetVersionService.getVersionNumber) - null for an IMPORT entry, since no version exists
-    // yet while it's still uploading/parsing.
+    // Permanent ordinal position of the affected dataset version, null for a still uploading import
     private Integer versionNumber;
     private String versionTag;
     private String status;
@@ -26,8 +17,7 @@ public class UnlabeledImportQueueEntryResponse {
     private Instant startedAt;
     private String resolveRoute;
     private Long resolveJobId;
-    // Only set for a VERSION_START entry - the image count StartBlankImportDialog needs to size
-    // its seed-image-count field / fetch warm-start images. Null for every other jobType.
+    // Only set for a VERSION_START entry
     private Integer imageCount;
 
     public String getJobType() { return jobType; }

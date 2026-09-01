@@ -11,12 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** HTTP client for the Python ML service's /architectures, /train and /annotate endpoints.
- *
- * /train and /annotate are fire-and-forget kickoffs now: the Flask side runs the actual work
- * in a background thread and returns immediately (202 STARTED), so this client also exposes
- * poll methods that read the job's current status from Flask's in-memory status dicts.
- */
+/** HTTP client for the ML service's train annotate and architecture endpoints */
 @Component
 public class PythonMlServiceClient {
 
@@ -26,15 +21,11 @@ public class PythonMlServiceClient {
     private record StartedResponse(String status, String jobId) {
     }
 
-    /** Mirrors the Flask GET /train/{jobId}/status response body. */
+    /** Mirrors the training status response */
     public record TrainingStatus(String status, String mlflowRunId, TrainResult result, String error) {
     }
 
-    /**
-     * Mirrors the Flask GET /annotate/{jobId}/status response body. currentPointId maps from
-     * Flask's "currentImageId" key, which despite the name actually holds the GeneratedPoint id
-     * being processed (see PointInferenceService's request-assembly comment for that naming).
-     */
+    /** Mirrors the annotate status response */
     public record AnnotateStatus(String status, Integer processedCount, Integer totalCount,
                                   @JsonProperty("currentImageId") Long currentPointId,
                                   AnnotateResult result, String error) {
@@ -60,7 +51,7 @@ public class PythonMlServiceClient {
         }
     }
 
-    /** Kicks off training on the Python side and returns as soon as it acknowledges the job started. */
+    /** Starts training and returns once acknowledged */
     public void startTraining(String architecture, String datasetPath, Map<String, Object> hyperparameters, Long jobId) {
         try {
             restClient.post()
@@ -79,11 +70,7 @@ public class PythonMlServiceClient {
         }
     }
 
-    /**
-     * Polls the Python service's in-memory training job status. Returns a status of "UNKNOWN"
-     * rather than throwing when the poll fails or the job isn't tracked there yet, a single
-     * flaky poll must never interrupt the caller's polling loop or fail the training job itself.
-     */
+    /** Polls training status, returns unknown on a failed poll */
     public TrainingStatus pollTrainingStatus(Long jobId) {
         try {
             TrainingStatus status = restClient.get()
@@ -96,7 +83,7 @@ public class PythonMlServiceClient {
         }
     }
 
-    /** Kicks off annotation on the Python side and returns as soon as it acknowledges the job started. */
+    /** Starts annotation and returns once acknowledged */
     public void startAnnotate(String architecture, String weightsPath, Map<String, String> classMappings,
                                List<AnnotateImageInput> images, Long jobId) {
         try {
@@ -117,10 +104,7 @@ public class PythonMlServiceClient {
         }
     }
 
-    /**
-     * Polls the Python service's in-memory annotate job status. Returns a status of "UNKNOWN"
-     * rather than throwing when the poll fails, for the same reason as pollTrainingStatus.
-     */
+    /** Polls annotate status, returns unknown on a failed poll */
     public AnnotateStatus pollAnnotateStatus(Long jobId) {
         try {
             AnnotateStatus status = restClient.get()
@@ -133,12 +117,7 @@ public class PythonMlServiceClient {
         }
     }
 
-    /**
-     * Synchronous wrapper over the async /annotate route (202 immediately, batch completes on a
-     * background thread) for AnnotationJobExecutor. Starts the batch under a synthesized job id
-     * namespaced away from real job ids, then polls GET /annotate/{jobId}/status to a terminal
-     * state. Blocking is safe here: every caller already runs on its own @Async thread.
-     */
+    /** Synchronous wrapper over the annotate route */
     public AnnotateResult annotate(String architecture, String weightsPath, Map<String, String> classMappings,
                                     List<AnnotateImageInput> images) {
         String legacyJobId = "legacy-" + UUID.randomUUID();

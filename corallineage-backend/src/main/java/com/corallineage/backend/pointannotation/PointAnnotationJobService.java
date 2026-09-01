@@ -104,10 +104,7 @@ public class PointAnnotationJobService {
         this.importJobRepository = importJobRepository;
     }
 
-    /**
-     * Generates the point grid synchronously within the request rather than on an @Async executor.
-     * Acceptable at current image counts; would need async-ifying for large raw uploads.
-     */
+    /** Generates the point grid synchronously within the request */
     @Transactional
     public PointAnnotationJobResponse submitJob(StartPointAnnotationJobRequest request, String actingUsername) {
         DatasetVersion version = datasetVersionRepository.findById(request.getDatasetVersionId())
@@ -163,14 +160,14 @@ public class PointAnnotationJobService {
         return toResponse(completedJob, images.size());
     }
 
-    /** Resolves the owning dataset id for a point annotation job, for the membership check. */
+    /** Resolves the owning dataset id for a point annotation job */
     @Transactional(readOnly = true)
     public Long getDatasetIdForJob(Long jobId) {
         PointAnnotationJob job = findOrThrow(jobId);
         return job.getDatasetVersion().getDataset().getId();
     }
 
-    /** Resolves the owning dataset id for a single generated point, via its parent job. */
+    /** Resolves the owning dataset id for a generated point */
     @Transactional(readOnly = true)
     public Long getDatasetIdForPoint(Long pointId) {
         GeneratedPoint point = generatedPointRepository.findById(pointId)
@@ -190,21 +187,7 @@ public class PointAnnotationJobService {
                 .map(job -> toResponse(job, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId())));
     }
 
-    /**
-     * The Unlabeled import queue: merges cold-start {@link PointAnnotationJob} rows with
-     * not-yet-applied, commitInPlace {@link AnnotationJob} rows (warm-start blank-import, or the
-     * job a cold-start job's auto-annotate delegated into) into one list sorted by start time,
-     * fixing the bug where a warm-start job never showed up here at all (only PointAnnotationJob
-     * rows were ever queried). Paginated in memory over the merged, already-small-in-practice set
-     * rather than at the DB level, same trade-off {@code DatasetVersionService} already accepts
-     * for its own resolve-status filtering - there's no single query that spans two entity types.
-     *
-     * A {@link PointAnnotationJob} that already delegated (COMPLETE + {@code annotationJob} set) is
-     * skipped here entirely, not just routed onward: its delegated {@link AnnotationJob} already
-     * appears as its own row via the second query below (commitInPlace=true, not yet applied), and
-     * that row is the one carrying live status - showing both would duplicate one unit of work as
-     * two rows, one of them a stale "COMPLETE" that never updates again.
-     */
+    /** Merges pending point annotation and in place annotation jobs into one sorted queue */
     @Transactional(readOnly = true)
     public Page<UnlabeledImportQueueEntryResponse> getUnlabeledImportQueue(Long datasetId, Pageable pageable) {
         List<UnlabeledImportQueueEntryResponse> entries = new ArrayList<>();
@@ -219,18 +202,13 @@ public class PointAnnotationJobService {
                 .findByDataset_IdAndCommitInPlaceTrueAndAddedToProjectVersionIdIsNullOrderByInitiatedAtDesc(datasetId)) {
             entries.add(toQueueEntry(job));
         }
-        // A BLANK import still uploading/parsing (no DatasetVersion exists yet to attach a
-        // PointAnnotationJob to) - without this, the queue shows nothing at all for the whole
-        // span between "Upload" and the import finishing, even though something is visibly
-        // in flight.
+        // A blank import still uploading, no version exists yet to attach a job to
         for (ImportJob importJob : importJobRepository
                 .findByDataset_IdAndFormatAndCreatedDatasetVersionIdIsNullOrderBySubmittedAtDesc(datasetId, "BLANK")) {
             if (!"PROCESSING".equals(importJob.getStatus()) && !"FAILED".equals(importJob.getStatus())) continue;
             entries.add(toQueueEntry(importJob));
         }
-        // A completed BLANK import that hasn't had cold/warm start chosen yet (see
-        // DatasetVersionService.getPendingBlankStarts) - otherwise it's invisible everywhere
-        // except by navigating to its version URL directly.
+        // A completed blank import with no start chosen yet
         for (DatasetVersionResponse pendingStart : datasetVersionService.getPendingBlankStarts(datasetId)) {
             entries.add(toQueueEntry(pendingStart));
         }
@@ -242,7 +220,7 @@ public class PointAnnotationJobService {
         return new PageImpl<>(entries.subList(start, end), pageable, total);
     }
 
-    /** Only called for jobs not yet delegated (see the {@code delegated} filter above the call site) - resolveRoute is always SEED_LABEL here. */
+    /** Resolve route is seed label for jobs not yet delegated */
     private UnlabeledImportQueueEntryResponse toQueueEntry(PointAnnotationJob job) {
         UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
         entry.setJobType("POINT_ANNOTATION");
@@ -259,7 +237,7 @@ public class PointAnnotationJobService {
         return entry;
     }
 
-    /** A BLANK import job still uploading/parsing - not clickable (no target to resolve into yet). */
+    /** A blank import job still uploading, not clickable */
     private UnlabeledImportQueueEntryResponse toQueueEntry(ImportJob importJob) {
         UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
         entry.setJobType("IMPORT");
@@ -272,7 +250,7 @@ public class PointAnnotationJobService {
         return entry;
     }
 
-    /** A completed BLANK import with no cold/warm start chosen yet - resolveRoute "START". */
+    /** A completed blank import with no start chosen yet */
     private UnlabeledImportQueueEntryResponse toQueueEntry(DatasetVersionResponse pendingStart) {
         UnlabeledImportQueueEntryResponse entry = new UnlabeledImportQueueEntryResponse();
         entry.setJobType("VERSION_START");
@@ -307,11 +285,7 @@ public class PointAnnotationJobService {
         return generatedPointRepository.findByJobIdAndSeedOrderByIdAsc(jobId, seed, pageable).map(pointAnnotationMapper::toResponse);
     }
 
-    /**
-     * A human directly assigns a label to a generated point (the seed-labeling step - no model
-     * prediction involved yet). Bridges into the existing training/diff pipeline by upserting a
-     * real {@link AnnotationPoint} row, so downstream consumers of that entity need no changes.
-     */
+    /** Labels a point and upserts a confirmed annotation point */
     @Transactional
     public GeneratedPointResponse labelPoint(Long pointId, LabelPointRequest request) {
         GeneratedPoint point = generatedPointRepository.findById(pointId)
@@ -331,12 +305,7 @@ public class PointAnnotationJobService {
         return pointAnnotationMapper.toResponse(saved);
     }
 
-    /**
-     * Submits a real training job on this point-annotation job's dataset version, reusing
-     * {@link TrainingJobService} completely unchanged - {@code DatasetPreparationService} already
-     * trains on whatever {@link com.corallineage.backend.versioning.dataset.AnnotationPoint} rows
-     * exist, which by now include every seed point this job's labeling step materialized.
-     */
+    /** Submits a training job on this job's dataset version */
     @Transactional
     public PointAnnotationJobResponse trainModel(Long jobId, TrainPointAnnotationJobRequest request) {
         PointAnnotationJob job = findOrThrow(jobId);
@@ -372,20 +341,7 @@ public class PointAnnotationJobService {
         return toResponse(saved, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
     }
 
-    /**
-     * Kicks off point-level inference on every non-seed point once the triggered training job has
-     * completed. Rather than tracking auto-annotate/review state on this job's own GeneratedPoint
-     * rows (the pre-delegation design), this creates a real {@link AnnotationJob} (commitInPlace=true,
-     * jobType NEW_IMAGES - the same shape submitExistingVersionJob's warm-start flow already
-     * produces) scoped to this job's dataset version and non-seed images, and marks this job
-     * COMPLETE immediately: its own responsibility (grid generation through training) is done, and
-     * every subsequent stage (inference, review, accept/override) lives on the delegated
-     * AnnotationJob/AnnotationPrediction pipeline that every other annotation flow already uses -
-     * one review screen and one data model instead of two. {@link AutoAnnotationExecutor} still
-     * does the actual patch-prep/Python-inference/progress-polling work (unchanged), but
-     * {@link PointInferenceService#applyPredictions} now writes its results as AnnotationPrediction
-     * rows against the delegated job instead of mutating GeneratedPoint fields - see that method.
-     */
+    /** Delegates the job's non seed points into a new annotation job for inference and review */
     @Transactional
     public PointAnnotationJobResponse startAutoAnnotate(Long jobId) {
         PointAnnotationJob job = findOrThrow(jobId);
@@ -429,12 +385,7 @@ public class PointAnnotationJobService {
         return toResponse(saved, (int) datasetVersionImageRepository.countByDatasetVersionId(job.getDatasetVersion().getId()));
     }
 
-    /**
-     * Called by {@link com.corallineage.backend.training.TrainingJobExecutor} once a TrainingJob
-     * reaches COMPLETED, so a cold-start job's training step delegates straight into auto-annotate.
-     * No-ops if the training job is not linked to a point-annotation job, or if that job already
-     * moved past TRAINING.
-     */
+    /** Delegates into auto annotate once training completes */
     @Transactional
     public void autoAnnotateAfterTraining(Long trainingJobId) {
         pointAnnotationJobRepository.findByTrainingJob_Id(trainingJobId)
@@ -442,16 +393,7 @@ public class PointAnnotationJobService {
                 .ifPresent(job -> startAutoAnnotate(job.getId()));
     }
 
-    /**
-     * Called by {@link com.corallineage.backend.training.TrainingJobExecutor} when a TrainingJob it
-     * ran reaches FAILED - reverts a cold-start job's own status from TRAINING back to
-     * SEED_LABELING, since otherwise nothing ever moves it out of TRAINING again (no queue entry
-     * shows a "Resolve" action for a TRAINING-status row - see DatasetDashboard.tsx's
-     * IN_PROGRESS_STATUSES). Seed labels already entered are untouched, so retraining (a fresh
-     * "Train model" submit) is all that's needed to try again. No-ops under the same conditions as
-     * {@link #autoAnnotateAfterTraining}: not linked to a point-annotation job, or that job already
-     * moved past TRAINING.
-     */
+    /** Reverts a job from training back to seed labeling on training failure */
     @Transactional
     public void revertAfterTrainingFailure(Long trainingJobId) {
         pointAnnotationJobRepository.findByTrainingJob_Id(trainingJobId)
@@ -462,14 +404,7 @@ public class PointAnnotationJobService {
                 });
     }
 
-    /**
-     * The @Async executor lives on a separate bean (AutoAnnotationExecutor) rather than a method on
-     * this class, and dispatch waits for the enclosing transaction to commit first - same reasoning
-     * as TrainingJobService.dispatchAfterCommit: a same-bean self-invocation would bypass Spring's
-     * @Async proxy, and dispatching before commit risks the background thread reading this job's
-     * new annotationJob FK (or the delegated AnnotationJob row itself) before this transaction's
-     * write actually lands.
-     */
+    /** Runs on a separate bean, dispatched only after the transaction commits */
     private void dispatchAutoAnnotateAfterCommit(Long jobId) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

@@ -29,7 +29,6 @@ public class User {
         if (displayName == null || displayName.isBlank()) displayName = username;
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

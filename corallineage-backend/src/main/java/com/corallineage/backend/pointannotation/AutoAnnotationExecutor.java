@@ -12,20 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 
-/**
- * Orchestrates a point-annotation job's AUTO_ANNOTATING-phase background run, mirroring
- * training.TrainingJobExecutor's shape. Deliberately holds no @Transactional boundary of its own:
- * every DB write is delegated to PointAnnotationJobStatusService (each call its own fresh
- * Propagation.REQUIRES_NEW transaction) or PointInferenceService (each call its own plain
- * @Transactional method). See PointAnnotationJobStatusService's class comment for why.
- *
- * Inference itself now runs on the Python side in a background thread (see app.py), so
- * pythonMlServiceClient (via PointInferenceService.prepareAndStartAnnotate) just kicks off the
- * batch and returns immediately; this method polls pollAnnotateStatus in its own loop until the
- * batch reaches a terminal state, persisting processedCount/totalCount/currentPointId on every
- * RUNNING tick so the frontend can show live "processed X of Y" progress instead of a single
- * blocking spinner for the whole batch.
- */
+/** Runs a point annotation job's auto annotate phase in the background, polling progress */
 @Service
 public class AutoAnnotationExecutor {
 
@@ -95,20 +82,12 @@ public class AutoAnnotationExecutor {
         }
     }
 
-    /**
-     * Falls back to a generic message when the Python-reported error is null/blank (a status poll
-     * caught a FAILED batch before Flask finished writing a detailed error, for example), so a
-     * point annotation job never ends up FAILED with an empty errorMessage that gives the user
-     * nothing to act on.
-     */
+    /** Falls back to a generic error message when none is reported */
     private String describeFailure(String pythonError) {
         return (pythonError == null || pythonError.isBlank()) ? "Auto-annotation failed" : pythonError;
     }
 
-    /**
-     * Falls back to the exception's class name when the message is null (a bare NullPointerException,
-     * for example), mirroring TrainingJobExecutor.describeFailure.
-     */
+    /** Falls back to the exception class name when no message exists */
     private String describeFailure(Exception ex) {
         String message = ex.getMessage();
         return (message == null || message.isBlank()) ? ex.getClass().getSimpleName() : message;

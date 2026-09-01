@@ -34,10 +34,7 @@ public class JwtService {
                 .compact();
     }
 
-    /**
-     * Returns the username encoded in the token, or null if the token is missing,
-     * malformed, expired, or has an invalid signature. Never throws.
-     */
+    /** Returns the username in a token, or null if invalid */
     public String extractUsername(String token) {
         try {
             Claims claims = Jwts.parser()

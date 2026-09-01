@@ -16,13 +16,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/**
- * Stateless JWT-based API security. Register/login are public; everything else under
- * /api/v1/** requires a valid Authorization: Bearer <token> header. Swagger UI stays
- * reachable unauthenticated for local dev convenience. The image file-byte endpoint
- * is also public, since it is rendered via plain <img src> tags across the app and
- * browsers do not attach custom headers to those requests.
- */
+/** Stateless JWT security, auth endpoints and docs are public, everything else requires a bearer token */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -52,10 +46,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml"
                         ).permitAll()
-                        // Plain <img src> tags can't attach an Authorization header, so the raw
-                        // file-byte endpoint stays public rather than requiring every image
-                        // render across the app to fetch-as-blob. Everything else under
-                        // /api/v1/images/** (listing, metadata, points) still requires auth.
+                        // img tags cannot attach an Authorization header, so the raw file byte endpoint stays public
                         .requestMatchers("/api/v1/images/*/file").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().permitAll()

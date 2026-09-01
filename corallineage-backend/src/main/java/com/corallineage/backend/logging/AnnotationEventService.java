@@ -30,12 +30,7 @@ public class AnnotationEventService {
         this.modelVersionRepository = modelVersionRepository;
     }
 
-    /**
-     * Resolves a single dataset id to run the membership check against, from whichever scoping
-     * filter the caller supplied (datasetId directly, or derived from datasetVersionId/modelVersionId).
-     * Returns null when none of the three scoping filters were supplied, signalling the caller
-     * should fall back to the accessible-set filtering path instead of a single-dataset check.
-     */
+    /** Resolves a single dataset id from the given scoping filter, or null if none was given */
     @Transactional(readOnly = true)
     public Long resolveScopedDatasetId(Long datasetVersionId, Long modelVersionId, Long datasetId) {
         if (datasetId != null) {
@@ -66,13 +61,7 @@ public class AnnotationEventService {
                 .map(annotationEventMapper::toResponse);
     }
 
-    /**
-     * Used when the caller supplied no scoping filter at all: rather than returning every event
-     * across every project to any authenticated user, results are filtered server-side to rows
-     * whose derivable dataset id is in the requester's accessible set (see
-     * AnnotationEventRepository.findAccessibleWithNoFilter for exactly how that's derived, and
-     * how rows with no derivable dataset id at all are handled).
-     */
+    /** Filters events to the requester's accessible datasets */
     @Transactional(readOnly = true)
     public Page<AnnotationEventResponse> queryEventsAccessibleWithNoDatasetFilter(EventType eventType, Instant from, Instant to,
                                                                                    Set<Long> accessibleDatasetIds, Pageable pageable) {

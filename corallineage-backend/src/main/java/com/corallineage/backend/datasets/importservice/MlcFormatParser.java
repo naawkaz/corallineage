@@ -10,13 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * MLC format: one .txt file per image, each line "row col label_code" or "row; col; label_code"
- * (semicolon-delimited exports also carry a leading "# Row; Col; Label" comment line). The image
- * filename is matched first as the full image name with ".txt" appended ("foo.jpg" + "foo.jpg.txt"),
- * then as the .txt name with its extension swapped for an image extension ("foo.txt" + "foo.jpg").
- * A .txt with no matching image is skipped rather than aborting the import.
- */
+/** Imports MLC text files, one per image, each line holds row col and label code */
 @Component
 public class MlcFormatParser implements DatasetFormatParser {
 
@@ -63,9 +57,7 @@ public class MlcFormatParser implements DatasetFormatParser {
         return new ParseResult(images, points);
     }
 
-    /**
-     * Tries "foo.jpg.txt" -> "foo.jpg" first, then "foo.txt" -> "foo.jpg"/"foo.jpeg"/"foo.png".
-     */
+    /** Matches a text file to its image by filename convention */
     private Path findMatchingImage(Path txtFile) throws IOException {
         String txtFilename = txtFile.getFileName().toString();
         Path dir = txtFile.getParent();
@@ -87,7 +79,7 @@ public class MlcFormatParser implements DatasetFormatParser {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    /** Splits on semicolons, commas, and/or whitespace, trimming empty tokens. */
+    /** Splits a line on semicolons commas or whitespace */
     private String[] splitFields(String line) {
         return Stream.of(line.split("[;,\\s]+"))
                 .map(String::trim)

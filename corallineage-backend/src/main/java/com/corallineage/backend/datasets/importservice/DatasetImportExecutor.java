@@ -107,13 +107,10 @@ public class DatasetImportExecutor {
 
             DatasetVersion previousLatest = datasetVersionRepository
                     .findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
-            // A dataset with no prior version has no label vocabulary to validate against yet -
-            // this first import defines it, via bootstrapLabelDefinitions below, rather than
-            // aborting. Every later import is still validated strictly against what exists.
+            // The first import defines the label vocabulary, later imports validate against it
             if (previousLatest != null) {
                 List<LabelDefinition> existingLabels = labelDefinitionRepository.findByDatasetVersionId(previousLatest.getId());
-                // Validates every requested code resolves against the dataset's current label
-                // set before anything is written to disk or the DVC-tracked directory.
+                // Validate every requested code before anything is written to disk
                 labelCodeResolver.resolve(existingLabels, requestedCodes);
             }
 
@@ -156,8 +153,7 @@ public class DatasetImportExecutor {
             Map<String, Image> imagesByFilename = savedImages.stream()
                     .collect(Collectors.toMap(Image::getFilename, img -> img, (a, b) -> a));
 
-            // createSnapshot already copied forward the previous version's membership onto
-            // newVersion; add explicit membership rows for the freshly-imported images on top.
+            // Add membership rows for the freshly imported images on top of the copied forward membership
             List<DatasetVersionImage> newMembership = new ArrayList<>();
             for (Image savedImage : savedImages) {
                 DatasetVersionImage membership = new DatasetVersionImage();
@@ -211,12 +207,7 @@ public class DatasetImportExecutor {
         }
     }
 
-    /**
-     * A dataset with zero prior versions has no label vocabulary yet, so the first import
-     * defines it: one LabelDefinition per distinct code found in the source data, named
-     * after its own code. Every subsequent import still resolves strictly against whatever
-     * vocabulary already exists - this only fires once, for the dataset's first version.
-     */
+    /** Creates one label per distinct code found when a dataset has no prior versions */
     private List<LabelDefinition> bootstrapLabelDefinitions(DatasetVersion newVersion, Set<String> codes) {
         List<LabelDefinition> created = new ArrayList<>();
         for (String code : codes) {
@@ -229,14 +220,7 @@ public class DatasetImportExecutor {
         return created;
     }
 
-    /**
-     * The "Blank / Unlabeled Dataset" import path: the label vocabulary is declared upfront by
-     * the user (either typed into a structured code/name/category form, or copied wholesale from
-     * another project's version via "Reuse labels from") rather than discovered from parsed
-     * annotation data. Uses the caller-provided name/category verbatim, never defaults the name
-     * to the code. Additive, skips any code that already exists on this version (copied forward
-     * from a prior version, or already declared by an earlier blank import).
-     */
+    /** Applies a caller declared label vocabulary for a blank import */
     private List<LabelDefinition> declareLabelDefinitions(DatasetVersion version, List<LabelDefinition> existing,
                                                            List<LabelDeclarationRequest> declarations) {
         Set<String> existingCodes = existing.stream().map(LabelDefinition::getLabelCode).collect(Collectors.toSet());
@@ -268,11 +252,7 @@ public class DatasetImportExecutor {
         };
     }
 
-    /**
-     * Mirrors DatasetVersionService's logAfterCommit: AnnotationEventLoggerService.log()
-     * runs in REQUIRES_NEW on a separate connection, so it cannot see the new version /
-     * images / points rows this method just wrote until the outer transaction commits.
-     */
+    /** Logs the import event after the transaction commits */
     private void logImportCompletedAfterCommit(DatasetVersion version, String performedBy, ImportFormat format,
                                                int imageCount, int pointCount) {
         String description = "Imported " + imageCount + " images / " + pointCount

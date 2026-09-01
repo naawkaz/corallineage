@@ -14,17 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/**
- * Writes a fully-reviewed commitInPlace {@link AnnotationJob}'s accepted/overridden predictions
- * directly onto the job's already-set dataset version. Extracted out of {@link AnnotationJobService}
- * (which still exposes the manual "Apply to Version" button's endpoint through this) so it can also
- * be called from {@link AnnotationJobExecutor} and
- * {@link com.corallineage.backend.pointannotation.PointAnnotationJobStatusService} to auto-apply a
- * job the moment every prediction lands at/above the confidence threshold with nothing left to
- * review - those two classes already sit on either side of an existing
- * AnnotationJobService <-> AnnotationJobExecutor circular dependency, so this logic needed a home
- * that depends on neither.
- */
 @Service
 public class AnnotationCommitService {
 

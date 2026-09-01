@@ -6,12 +6,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 
-/**
- * Shared image read/crop helpers for point generation and point-level inference. Mirrors the crop
- * math already in {@code training.DatasetPreparationService} (kept as a separate small copy here
- * rather than a cross-module extraction, since it's ~10 lines and the two modules otherwise have
- * no dependency on each other).
- */
+/** Shared image crop helpers for point generation and inference */
 final class ImagePatchUtil {
 
     private ImagePatchUtil() {

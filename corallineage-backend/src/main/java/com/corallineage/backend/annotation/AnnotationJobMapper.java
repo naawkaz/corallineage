@@ -27,7 +27,7 @@ public class AnnotationJobMapper {
         return response;
     }
 
-    /** VALIDATION-mode overload: also carries the correct/total accuracy summary. */
+    /** Includes the accuracy summary for validation jobs */
     public AnnotationJobResponse toResponse(AnnotationJob job, long totalPredictions, long reviewedPredictions,
                                             long correctPredictions) {
         AnnotationJobResponse response = toResponse(job, totalPredictions, reviewedPredictions);

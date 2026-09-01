@@ -54,7 +54,6 @@ public class ReportMetadata {
         if (generatedAt == null) generatedAt = Instant.now();
     }
 
-    // --- getters and setters ---
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

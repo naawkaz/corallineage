@@ -1,6 +1,6 @@
 package com.corallineage.backend.training;
 
-/** Raised when the Python ML service is unreachable or returns an error for /train or /architectures. */
+/** Raised when the ML service is unreachable or errors */
 public class MlServiceException extends RuntimeException {
 
     public MlServiceException(String message) {

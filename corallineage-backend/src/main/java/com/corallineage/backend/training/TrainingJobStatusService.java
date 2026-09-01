@@ -10,16 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * Persists every TrainingJob status transition (RUNNING, COMPLETED, FAILED) in its own
- * Propagation.REQUIRES_NEW transaction, on a separate bean from TrainingJobExecutor so the
- * Spring proxy actually applies REQUIRES_NEW.
- *
- * Each status write committing independently means a failure in dataset preparation, the ML
- * service call, or model registration can never mark a shared transaction rollback-only and
- * prevent the FAILED write from committing. It also avoids holding a DB connection open for the
- * full duration of the training call.
- */
+/** Persists every training job status transition in its own transaction */
 @Service
 public class TrainingJobStatusService {
 
@@ -62,12 +53,7 @@ public class TrainingJobStatusService {
         trainingJobRepository.save(job);
     }
 
-    /**
-     * Persists a live epoch-progress reading from the poller in TrainingJobExecutor. Silently
-     * no-ops if the job can't be found: this is expected under a real race (the poller's last
-     * in-flight request lands right after the job already reached a terminal state and, in tests,
-     * after cleanup deleted the row), not a genuine error to surface.
-     */
+    /** Persists live epoch progress from the poller, does nothing if the job is gone */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateProgress(Long jobId, Integer currentEpoch, Integer totalEpochs) {
         trainingJobRepository.findById(jobId).ifPresent(job -> {
@@ -77,14 +63,7 @@ public class TrainingJobStatusService {
         });
     }
 
-    /**
-     * Persists the MLflow run id as soon as the poller learns it, which may be well before the
-     * job reaches COMPLETED now that the Python side starts its MLflow run before the epoch loop.
-     * Kept as its own small method rather than folded into updateProgress's signature: the run id
-     * becomes known on an earlier poll tick than epoch/total (before any metric history exists to
-     * compute a current epoch from), so the two are genuinely written on different poll ticks.
-     * Same silent-no-op-if-missing behavior as updateProgress, for the same reason.
-     */
+    /** Persists the MLflow run id once known */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateMlflowRunId(Long jobId, String mlflowRunId) {
         trainingJobRepository.findById(jobId).ifPresent(job -> {

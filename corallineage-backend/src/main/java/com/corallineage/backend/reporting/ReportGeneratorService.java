@@ -218,7 +218,7 @@ public class ReportGeneratorService {
         return new ReportAnalytics(classDistribution, annotationSourceSplit, perClassMetrics, mlflowDetails);
     }
 
-    /** Uses the most-recently-trained model in scope, since perClassMetrics has no per-model attribution in the spec's JSON shape. */
+    /** Uses the most recently trained model in scope */
     private List<PerClassMetric> extractPerClassMetrics(List<ModelVersion> modelsInScope) {
         ModelVersion latest = modelsInScope.stream()
                 .max(Comparator.comparing(ModelVersion::getTrainedAt))

@@ -86,7 +86,7 @@ public class ModelVersionService {
         return modelVersionMapper.toResponse(saved);
     }
 
-    /** Delegates to MlflowIntegrationService; owns the 404-vs-503 distinction the spec calls for. */
+    /** Delegates to MlflowIntegrationService */
     @Transactional(readOnly = true)
     public MlflowDetailsResponse getMlflowDetails(Long id) {
         ModelVersion model = findOrThrow(id);
@@ -100,33 +100,13 @@ public class ModelVersionService {
         return details;
     }
 
-    /** Resolves the owning dataset id for a model, for the membership check. */
+    /** Resolves the owning dataset id for a model */
     @Transactional(readOnly = true)
     public Long getDatasetIdForModel(Long id) {
         return findOrThrow(id).getTrainedOnDatasetVersion().getDataset().getId();
     }
 
-    /**
-     * Reserves and returns the next fallback model number for {@code dataset}, incrementing its
-     * persisted counter in place (a managed entity within this method's transaction, so the write
-     * flushes on commit without a separate save call). Replaces the previous
-     * {@code modelVersionRepository.count() + 1} approach, which counted every model across every
-     * dataset - a model deleted from a different dataset could shift another dataset's next
-     * fallback number, and two datasets training around the same time could even race onto the
-     * same tag.
-     *
-     * The stored counter is a cache, not a guarantee, so this also verifies the candidate tag is
-     * actually free and skips forward past any that already exist before returning. Two ways the
-     * counter can get out of sync with reality, both real: (1) next_model_fallback_number is
-     * nullable at the JPA level (see Dataset's field comment) - a dataset predating this column
-     * defaults to null, read here as 1, even if it already has a model tagged "model-v1" from
-     * before this counter existed. (2) registerFromTrainingResult runs inside
-     * TrainingJobStatusService.markCompleted's REQUIRES_NEW transaction - if the model_versions
-     * insert fails (e.g. exactly the collision this method now guards against), the whole
-     * transaction rolls back, including this method's in-memory counter bump, so a naive
-     * "read counter, increment, insert" retries the exact same losing number forever instead of
-     * ever moving past the collision.
-     */
+    /** Reserves the next fallback model number for a dataset and verifies it is free */
     private int nextModelFallbackNumber(Dataset dataset) {
         int number = dataset.getNextModelFallbackNumber() != null ? dataset.getNextModelFallbackNumber() : 1;
         while (modelVersionRepository.existsByModelTag("model-v" + number)) {

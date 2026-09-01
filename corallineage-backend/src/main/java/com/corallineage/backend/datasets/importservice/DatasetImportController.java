@@ -49,10 +49,7 @@ public class DatasetImportController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
-    // labelCodes/labelNames/labelCategories are parallel multipart form arrays (one entry per
-    // declared label, category left as an empty string rather than omitted so array indices line
-    // up) rather than a JSON body, since this endpoint already accepts files as multipart form
-    // data. Each label requires a code and a name; an empty-string category is treated as absent.
+    // labelCodes labelNames and labelCategories are parallel multipart form arrays
     private List<LabelDeclarationRequest> toLabelDeclarations(String[] labelCodes, String[] labelNames,
                                                                String[] labelCategories) {
         if (labelCodes == null || labelCodes.length == 0) {

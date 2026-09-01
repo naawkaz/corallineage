@@ -1,10 +1,6 @@
 package com.corallineage.backend.versioning.dataset;
 
-/**
- * Lightweight point-plus-label projection for a dataset version's image grid overlay. Deliberately
- * excludes fields the grid overlay doesn't need (confidence score, annotation source, annotated by,
- * timestamps) since it can be fetched for every image in a version at once.
- */
+/** Lightweight point and label projection for the image grid overlay */
 public class AnnotationPointSummaryResponse {
 
     private Long id;
