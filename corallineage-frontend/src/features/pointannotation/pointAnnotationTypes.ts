@@ -20,8 +20,7 @@ export interface PointAnnotationJob {
   seedTotalPoints: number
   seedLabeledPoints: number
   trainingJobId: number | null
-  // Set once auto-annotate is triggered: the id of the real AnnotationJob (see the annotation
-  // feature's AnnotationReview.tsx) this job's review delegates into.
+  // Set once auto-annotate is triggered: the id of the AnnotationJob this job's review delegates into.
   annotationJobId: number | null
   modelVersionId: number | null
   modelTag: string | null
@@ -68,10 +67,8 @@ export interface TrainPointAnnotationJobRequest {
   epochs?: number
 }
 
-// One row of the Unlabeled import queue - merges cold-start PointAnnotationJob rows with
-// not-yet-applied, commitInPlace AnnotationJob rows (warm-start or delegated-from-cold-start),
-// already sorted and with resolveRoute/resolveJobId fully resolved server-side. See
-// PointAnnotationJobService.getUnlabeledImportQueue.
+// One row of the unlabeled import queue: cold-start PointAnnotationJob rows and not-yet-applied
+// commitInPlace AnnotationJob rows, sorted and with resolveRoute/resolveJobId resolved server-side.
 export interface UnlabeledImportQueueEntry {
   jobType: 'POINT_ANNOTATION' | 'ANNOTATION' | 'IMPORT' | 'VERSION_START'
   jobId: number

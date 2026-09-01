@@ -19,9 +19,8 @@ interface LossCurveChartProps {
 // training view (fed a series that grows point by point as polling picks up new epochs).
 export default function LossCurveChart({ epochMetrics }: LossCurveChartProps) {
   const chartData = epochMetrics.map((p) => ({ ...p, epochLabel: `Epoch ${p.epoch + 1}` }))
-  // Models trained before the train/val split feature only have the old single loss
-  // series (trainLoss/valLoss are null for every point), fall back to that series
-  // instead of rendering a blank chart.
+  // Some models only carry a single combined loss series (trainLoss/valLoss null); fall back
+  // to it rather than rendering a blank chart.
   const hasValidationSplit = chartData.some((p) => p.trainLoss != null || p.valLoss != null)
 
   if (chartData.length === 0) return null

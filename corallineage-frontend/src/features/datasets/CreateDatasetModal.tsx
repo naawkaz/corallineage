@@ -93,7 +93,7 @@ export default function CreateDatasetModal({ open, projectId, onClose, onCreated
             onClick={handleSubmit}
             disabled={submitting || !datasetName.trim()}
           >
-            {submitting ? 'Creating…' : 'Create source'}
+            {submitting ? 'Creating...' : 'Create source'}
           </button>
         </div>
       </div>

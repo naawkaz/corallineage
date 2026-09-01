@@ -19,14 +19,10 @@ interface StartBlankImportDialogProps {
 }
 
 /**
- * "Resolve" dialog opened from the Dataset Versions list for a completed BLANK import that hasn't
- * had blank import started yet, standalone rather than nested in CreateVersionModal's own
- * post-import step (see CreateVersionModal.tsx's identical "Start Blank Import" fields) since it
- * needs to be reachable independently, after the import modal has long since been closed.
+ * "Resolve" dialog opened from the dataset versions list for a completed BLANK import.
  *
- * Forks on whether the dataset already has a trained model: warm start (a model exists) skips
- * straight to auto-annotate + review against the chosen model; cold start (no model yet) falls
- * back to the unchanged seed-then-train point-annotation pipeline.
+ * Forks on whether the source already has a trained model: warm start (model exists) goes
+ * straight to auto-annotate then review; cold start falls back to the seed-then-train pipeline.
  */
 export default function StartBlankImportDialog({
   sourceId,
@@ -75,7 +71,7 @@ export default function StartBlankImportDialog({
   async function handleStartColdStart() {
     setSubmitting(true)
     setError(null)
-    const toastId = toast.push({ variant: 'progress', title: 'Generating points…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Generating points...' })
     try {
       const pointJob = await startPointAnnotationJob({
         datasetVersionId,
@@ -101,7 +97,7 @@ export default function StartBlankImportDialog({
     if (!selectedModelId) return
     setSubmitting(true)
     setError(null)
-    const toastId = toast.push({ variant: 'progress', title: 'Starting auto-annotate…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Starting auto-annotate...' })
     try {
       const imagesPage = await fetchImages(sourceId, datasetVersionId, 0, Math.max(imageCount, 1))
       const imageIds = imagesPage.content.map((image) => image.id)
@@ -135,8 +131,8 @@ export default function StartBlankImportDialog({
             {!modelsLoading && (
               <div className="modal-subtitle">
                 {warmStart
-                  ? 'A trained model already exists for this source — auto-annotate with it, then review.'
-                  : 'No trained model yet for this source — label seed images to train one.'}
+                  ? 'A trained model already exists for this source - auto-annotate with it, then review.'
+                  : 'No trained model yet for this source - label seed images to train one.'}
               </div>
             )}
           </div>
@@ -147,7 +143,7 @@ export default function StartBlankImportDialog({
         <div className="modal-body">
           {modelsLoading ? (
             <div className="loading-state">
-              <span className="spinner" /> Checking for a trained model…
+              <span className="spinner" /> Checking for a trained model...
             </div>
           ) : warmStart ? (
             <>
@@ -288,7 +284,7 @@ export default function StartBlankImportDialog({
             onClick={warmStart ? handleStartWarmStart : handleStartColdStart}
             disabled={submitting || modelsLoading || (warmStart && !selectedModelId)}
           >
-            {submitting ? 'Starting…' : warmStart ? 'Start Auto-Annotate' : 'Generate Points & Start Labeling'}
+            {submitting ? 'Starting...' : warmStart ? 'Start Auto-Annotate' : 'Generate Points & Start Labeling'}
           </button>
         </div>
       </div>

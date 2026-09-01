@@ -35,19 +35,15 @@ interface TrainModelDialogProps {
   versions: DatasetVersion[]
   /** Preselects a specific dataset version instead of defaulting to versions[0]. */
   initialVersionId?: number
-  /** Overrides the submit action (defaults to the generic standalone-training-job endpoint). */
+  /** Overrides the submit action (defaults to the standalone training-job endpoint). */
   onSubmit?: (form: TrainModelDialogForm) => Promise<TrainingJob>
   onClose: () => void
   onCompleted: () => void
 }
 
-// Owns all of the "Train New Model" form's own state (architecture, selected version, hyperparams,
-// the active job + its live epoch-metric poll). This dialog is only ever mounted while its parent's
-// open flag is true (e.g. `{trainDialogOpen && <TrainModelDialog .../>}`), so a fresh mount on
-// every open already gives a clean form - there's no "reset on open" useEffect to write here. See
-// corallineage-frontend/CLAUDE.md for the pattern this replaced and why: don't reset dialog-local
-// state with a useEffect keyed on an `open` flag, especially not one that also happens to be
-// another effect's dependency (activeJob here).
+// Owns the "Train New Model" form state (architecture, selected version, hyperparameters, the
+// active job and its live epoch-metric poll). Mounted only while its parent's open flag is true,
+// so each open is a fresh mount with a clean form.
 export default function TrainModelDialog({
   sourceId,
   initiatedBy,
@@ -79,11 +75,8 @@ export default function TrainModelDialog({
     if (initialVersionId == null && versions.length > 0) setSelectedVersionId(versions[0].id)
   }, [versions, initialVersionId])
 
-  // Polls the active training job every 3s while it's QUEUED/RUNNING, purely to drive this
-  // dialog's own live epoch-progress bar and loss curve while it stays open - the completion
-  // toast is no longer fired from here. JobPollingProvider (shared/lib/JobPollingProvider.tsx)
-  // now owns that globally, so it fires exactly once regardless of whether this dialog is still
-  // open or the user already navigated away - firing it here too would just duplicate it.
+  // Polls the active job every 3s while QUEUED/RUNNING to drive this dialog's epoch-progress bar
+  // and loss curve. The completion toast is JobPollingProvider's job, not this poll's.
   useEffect(() => {
     if (!activeJob || (activeJob.status !== 'QUEUED' && activeJob.status !== 'RUNNING')) {
       return
@@ -103,11 +96,8 @@ export default function TrainModelDialog({
             window.clearInterval(pollingRef.current)
             pollingRef.current = null
             onCompleted()
-            // Auto-dismiss on success - the registered model is already visible in the
-            // refreshed Model Registry table behind this dialog (onCompleted() above), so
-            // there's nothing left to do here. FAILED is deliberately left open: the error
-            // message this dialog is about to render is the only place that shows it, and
-            // closing on failure would hide it before the user can read it.
+            // Auto-dismiss on success; the model is already in the refreshed registry behind
+            // this dialog. FAILED stays open so the user can read the error message.
             if (updated.status === 'COMPLETED') {
               onClose()
             }
@@ -195,7 +185,7 @@ export default function TrainModelDialog({
               onChange={(e) => setSelectedVersionId(e.target.value ? Number(e.target.value) : null)}
             >
               <option value="" disabled>
-                Select a version…
+                Select a version...
               </option>
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -275,7 +265,7 @@ export default function TrainModelDialog({
               ) : (
                 (activeJob.status === 'QUEUED' || activeJob.status === 'RUNNING') && (
                   <div className="loading-state">
-                    <span className="spinner" /> Training in progress…
+                    <span className="spinner" /> Training in progress...
                   </div>
                 )
               )}
@@ -290,7 +280,7 @@ export default function TrainModelDialog({
         </div>
         <div className="modal-footer">
           <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting || selectedVersionId == null}>
-            {submitting ? 'Submitting…' : 'Start Training'}
+            {submitting ? 'Submitting...' : 'Start Training'}
           </button>
         </div>
       </div>

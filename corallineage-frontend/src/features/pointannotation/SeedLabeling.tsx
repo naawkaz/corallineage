@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
 import type { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch'
@@ -21,6 +21,8 @@ import type { GeneratedPoint, PointAnnotationJob } from '../pointannotation/poin
 import type { Architecture, TrainingJob } from '../training/trainingTypes'
 import type { DatasetVersion, LabelDefinition } from '../datasets/versionsTypes'
 
+// Cold-start seed-labeling screen: the user hand-labels the generated seed points image by
+// image, then trains the first model and hands off to auto-annotation.
 export default function SeedLabeling() {
   const { id, sourceId: sourceIdParam } = useParams<{ id: string; sourceId: string }>()
   const jobId = Number(id)
@@ -60,11 +62,8 @@ export default function SeedLabeling() {
   useEffect(() => {
     Promise.all([fetchPointAnnotationJob(jobId), loadPoints()])
       .then(([jobRes]) => {
-        // Landed here directly (a stale link, browser back/forward, a bookmark) on a job whose
-        // seed-labeling stage is already behind it - forward straight to the delegated
-        // AnnotationJob's review screen instead of rendering a dead seed-labeling UI for a step
-        // that's already done. Mirrors the redirect the TRAINING poll below already does for the
-        // case where that transition happens while this page is open.
+        // Job whose seed-labeling stage is already done (reached via a stale link or back/forward):
+        // forward to the delegated AnnotationJob's review screen instead of a dead seed UI.
         if (jobRes.status === 'COMPLETE' && jobRes.annotationJobId != null) {
           navigate(`/sources/${sourceId}/annotation/jobs/${jobRes.annotationJobId}/review`)
           return null
@@ -114,9 +113,8 @@ export default function SeedLabeling() {
     return map
   }, [points])
 
-  // Re-selects the first image whenever the point set changes for a different reason than one
-  // point flipping status (e.g. initial load) - same derived-during-render pattern the Dirty
-  // Annotations Queue uses for its equivalent sync.
+  // Re-select the first image when the image set itself changes (e.g. initial load), not when a
+  // single point flips status. Derived during render.
   const imageKey = imageIds.join(',')
   const [syncedImageKey, setSyncedImageKey] = useState('')
   if (imageKey !== syncedImageKey) {
@@ -147,10 +145,8 @@ export default function SeedLabeling() {
     }
   }
 
-  // A distinct, deliberate action, reached through the full labelset panel, not the per-point
-  // picker, so adding a new vocabulary entry mid-session is a conscious choice with its own
-  // moment of friction, never something a mistyped keystroke in the fast, repetitive seed-labeling
-  // loop can do by accident.
+  // Reached only through the label-set panel, not the per-point picker, so adding a vocabulary
+  // entry mid-session is deliberate rather than a mistyped keystroke in the labeling loop.
   async function handleAddLabel() {
     if (!job || !newLabelCode.trim() || !newLabelName.trim()) return
     setAddingLabel(true)
@@ -173,21 +169,10 @@ export default function SeedLabeling() {
     }
   }
 
-  // Submitted via the shared TrainModelDialog (also used unmodified by ModelRegistry.tsx): unlike
-  // that page's own usage, this one routes through trainPointAnnotationJob so the resulting
-  // TrainingJob gets attached to this PointAnnotationJob (job.trainingJobId) instead of created as
-  // a standalone job - see PointAnnotationJobService.trainModel and the plan doc's Part D notes for
-  // why this distinction matters (TrainingJobExecutor.autoAnnotateAfterTraining reads it).
-  //
-  // Per the confirmed UX: once training is kicked off, the user leaves this page immediately
-  // rather than watching progress here - the backend auto-delegates into auto-annotate the moment
-  // training completes (TrainingJobExecutor -> PointAnnotationJobService.autoAnnotateAfterTraining,
-  // no manual "Run Auto-Annotation" click), and cross-page feedback (a spinner on the Unlabeled
-  // import queue entry, a toast once it's ready for review) is JobPollingProvider's job (Part G) -
-  // it fires the "Training complete"/"Ready for review" toasts globally, so this only needs to
-  // push its own immediate "started" acknowledgement before navigating away, since the shared
-  // provider deliberately never toasts on a job's first sight (that's what avoids re-toasting
-  // every already-in-progress job just because the user opened a new page).
+  // Routes through trainPointAnnotationJob so the TrainingJob is attached to this
+  // PointAnnotationJob (job.trainingJobId) rather than standalone; the backend reads that to
+  // auto-delegate into auto-annotate once training completes. The user navigates away
+  // immediately after submit; cross-page progress and completion toasts are JobPollingProvider's.
   async function handleTrainSubmit(form: {
     architecture: string
     datasetVersionId: number
@@ -210,11 +195,8 @@ export default function SeedLabeling() {
     return trainingJobResponse
   }
 
-  // Polls the underlying (real, unmodified) Training Job while this point-annotation job is
-  // TRAINING - reuses the existing Training Jobs page's own 3s-polling convention. Only matters if
-  // the user navigates directly back to this page mid-training (the normal path leaves immediately
-  // after submitting); once the job leaves TRAINING (delegated to auto-annotate), forward straight
-  // to the delegated AnnotationJob's review screen rather than showing a dead-end status here.
+  // Polls the training job every 3s while this job is TRAINING, only relevant if the user
+  // navigates back here mid-training. Once it leaves TRAINING, forward to the review screen.
   useEffect(() => {
     if (!job || job.status !== 'TRAINING' || job.trainingJobId == null) return
     let cancelled = false
@@ -245,7 +227,7 @@ export default function SeedLabeling() {
     return (
       <div className="content">
         <div className="loading-state">
-          <span className="spinner" /> Loading seed labeling…
+          <span className="spinner" /> Loading seed labeling...
         </div>
       </div>
     )
@@ -563,7 +545,7 @@ export default function SeedLabeling() {
                 onClick={handleAddLabel}
                 disabled={addingLabel || !newLabelCode.trim() || !newLabelName.trim()}
               >
-                {addingLabel ? 'Creating…' : 'Create Label'}
+                {addingLabel ? 'Creating...' : 'Create Label'}
               </button>
             </div>
           </div>
@@ -603,8 +585,7 @@ function SeedPointCard({
   onSelect: () => void
   onLabel: (point: GeneratedPoint, labelCode: string) => void
 }) {
-  // The dropdown alone is the confirm action (no separate "Label" button): picking an option
-  // immediately labels the point - mirrors AnnotationReview.tsx's PredictionCard.
+  // Picking an option is itself the confirm action; there is no separate "Label" button.
   const canLabel = point.status !== 'HUMAN_LABELED'
 
   return (
@@ -624,7 +605,7 @@ function SeedPointCard({
           value={point.finalLabelCode ?? ''}
           onChange={canLabel ? (labelCode) => onLabel(point, labelCode) : () => {}}
           disabled={!canLabel}
-          placeholder="Search labels…"
+          placeholder="Search labels..."
         />
       </div>
     </div>

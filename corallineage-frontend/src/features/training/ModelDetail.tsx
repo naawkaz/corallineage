@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -161,7 +161,7 @@ export default function ModelDetail() {
     return (
       <div className="content">
         <div className="loading-state">
-          <span className="spinner" /> Loading model…
+          <span className="spinner" /> Loading model...
         </div>
       </div>
     )
@@ -382,7 +382,7 @@ export default function ModelDetail() {
         >
             {diagnostics.kind === 'loading' && (
               <div className="loading-state">
-                <span className="spinner" /> Loading MLflow details…
+                <span className="spinner" /> Loading MLflow details...
               </div>
             )}
             {diagnostics.kind === 'not-found' && (
@@ -441,7 +441,7 @@ export default function ModelDetail() {
           )}
           {jobsLoading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading jobs…
+              <span className="spinner" /> Loading jobs...
             </div>
           ) : jobs.length === 0 ? (
             <div className="empty-state">
@@ -544,10 +544,8 @@ interface AnnotationDialogProps {
 }
 
 /**
- * "Validate model performance": rechecks this model's predictions against real human-labeled
- * points on an existing dataset version, a direct accuracy comparison, no review step. Only ever
- * mounted while validateOpen is true, so a fresh mount already gives a clean form - do not add a
- * "reset form" useEffect keyed on an open boolean (see corallineage-frontend/CLAUDE.md).
+ * "Validate model performance": rechecks this model's predictions against human-labeled points
+ * on an existing dataset version, a direct accuracy comparison with no review step.
  */
 function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, onCompleted }: AnnotationDialogProps) {
   const [versions, setVersions] = useState<DatasetVersion[]>([])
@@ -591,11 +589,8 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
       .finally(() => setImagesLoading(false))
   }, [sourceId, selectedVersionId])
 
-  // Only drives this dialog's own live status UI (spinner/badge/"View results" below) while it
-  // stays open - the toast for the eventual completion/failure is JobPollingProvider's job now
-  // (see its own comment), not this poll's: a toast owned by a poll that dies with this dialog's
-  // unmount is exactly the orphaned-"stuck in progress forever" toast bug that was reported, since
-  // a 'progress'-variant toast never auto-dismisses on its own until something updates it.
+  // Drives only this dialog's live status UI while it stays open. The completion/failure toast
+  // is JobPollingProvider's job, so it still fires if the dialog closes first.
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -636,8 +631,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
         initiatedBy,
       })
       setActiveJob(created)
-      // A one-shot, self-dismissing notice, not the job's actual progress state - see the note
-      // above the polling effect for why this dialog no longer owns that toast.
+      // A one-shot "started" notice, not the job's progress state.
       toast.push({ variant: 'info', title: 'Validation started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {
@@ -824,8 +818,7 @@ function ValidateModelDialog({ model, sourceId, initiatedBy, navigate, onClose, 
 /**
  * "Upload & Annotate New Images": uploads images not yet part of any dataset version, runs them
  * through this model, auto-confirms predictions above the confidence threshold, and queues the
- * rest for manual review before they're added to the dataset. Only ever mounted while uploadOpen
- * is true - see the note on ValidateModelDialog above.
+ * rest for manual review before they're added to the dataset.
  */
 function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClose, onCompleted }: AnnotationDialogProps) {
   const [gridRows, setGridRows] = useState(3)
@@ -840,11 +833,8 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
   const pollingRef = useRef<number | null>(null)
   const toast = useToast()
 
-  // Only drives this dialog's own live status UI (spinner/badge/"View results" below) while it
-  // stays open - the toast for the eventual completion/failure is JobPollingProvider's job now
-  // (see its own comment), not this poll's: a toast owned by a poll that dies with this dialog's
-  // unmount is exactly the orphaned-"stuck in progress forever" toast bug that was reported, since
-  // a 'progress'-variant toast never auto-dismisses on its own until something updates it.
+  // Drives only this dialog's live status UI while it stays open. The completion/failure toast
+  // is JobPollingProvider's job, so it still fires if the dialog closes first.
   useEffect(() => {
     if (!activeJob || activeJob.status !== 'RUNNING') return
     const intervalId = window.setInterval(() => {
@@ -885,8 +875,7 @@ function UploadAndAnnotateDialog({ model, sourceId, initiatedBy, navigate, onClo
       )
       setActiveJob(created)
       setUploadFiles([])
-      // A one-shot, self-dismissing notice, not the job's actual progress state - see the note
-      // above the polling effect for why this dialog no longer owns that toast.
+      // A one-shot "started" notice, not the job's progress state.
       toast.push({ variant: 'info', title: 'Annotating new images started', detail: 'Track progress below, or come back later.' })
       onCompleted()
     } catch (err) {

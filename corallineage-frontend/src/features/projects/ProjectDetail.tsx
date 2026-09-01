@@ -111,7 +111,7 @@ export default function ProjectDetail() {
 
         {loading ? (
           <div className="loading-state">
-            <span className="spinner" /> Loading project…
+            <span className="spinner" /> Loading project...
           </div>
         ) : (
           <>
@@ -184,7 +184,7 @@ export default function ProjectDetail() {
               )}
               {membersLoading ? (
                 <div className="loading-state">
-                  <span className="spinner" /> Loading collaborators…
+                  <span className="spinner" /> Loading collaborators...
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

@@ -84,7 +84,7 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
           )}
           {loading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading access…
+              <span className="spinner" /> Loading access...
             </div>
           ) : (
             <SourceChecklist sources={sources} checked={checked} onToggle={toggle} />
@@ -95,7 +95,7 @@ export default function ManageAccessModal({ open, projectId, member, sources, on
             Cancel
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving || loading}>
-            {saving ? 'Saving…' : 'Save access'}
+            {saving ? 'Saving...' : 'Save access'}
           </button>
         </div>
       </div>

@@ -38,10 +38,8 @@ function queueEntryStatusBadge(status: string): string {
   }
 }
 
-// A background/no-action-possible status: the row shows a spinner in place of its status text
-// (never alongside it) and isn't clickable, mirroring how VersionsList treats a PROCESSING
-// import row. SEED_LABELING/REVIEW/PENDING_START are deliberately excluded - those are exactly
-// the statuses where the user is expected to click in and act.
+// Statuses where no user action is possible yet: the row shows a spinner instead of its status
+// and is not clickable. SEED_LABELING/REVIEW/PENDING_START are excluded since the user acts on those.
 const IN_PROGRESS_STATUSES = new Set(['GENERATING', 'TRAINING', 'RUNNING', 'PROCESSING'])
 
 export default function DatasetDashboard() {
@@ -76,8 +74,6 @@ export default function DatasetDashboard() {
       .then(([datasetRes]) => {
         if (cancelled) return
         setDataset(datasetRes)
-        // setLatestVersion(versionsRes.content[0] ?? null)
-        // setModelCount(modelsRes.totalElements)
         setError(null)
       })
       .catch((err) => {
@@ -91,9 +87,8 @@ export default function DatasetDashboard() {
     }
   }, [sourceId])
 
-  // Re-fetches whenever JobPollingProvider's shared refreshSignal changes (it polls this same
-  // endpoint itself and bumps the signal on any observed status transition), so this card reflects
-  // live progress without running its own poll interval.
+  // Re-fetch on JobPollingProvider's refreshSignal so this card reflects live progress without
+  // its own poll interval.
   useEffect(() => {
     if (!sourceId) return
     let cancelled = false
@@ -158,10 +153,8 @@ export default function DatasetDashboard() {
 
   const pointQueueEntries = queueEntries.filter((e) => e.jobType === 'POINT_ANNOTATION')
   const pendingSeedJobs = pointQueueEntries.filter((e) => e.status === 'SEED_LABELING')
-  // Points, not jobs: a single cold-start job can carry hundreds of seed points, so counting jobs
-  // (1/1 once any job exists) said nothing about how much labeling is actually left - this sums
-  // the same seedTotalPoints/seedLabeledPoints figures the queue table's own "Seed progress"
-  // column already shows per row.
+  // Count points, not jobs: one cold-start job can carry hundreds of seed points, so a job count
+  // says nothing about how much labeling is left.
   const totalSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedTotalPoints ?? 0), 0)
   const labeledSeedPoints = pointQueueEntries.reduce((sum, e) => sum + (e.seedLabeledPoints ?? 0), 0)
   const pendingSeedPoints = totalSeedPoints - labeledSeedPoints
@@ -170,9 +163,8 @@ export default function DatasetDashboard() {
   const totalPredictions = annotationJobs.reduce((sum, j) => sum + j.totalPredictions, 0)
   const pendingPredictions = annotationJobs.reduce((sum, j) => sum + (j.totalPredictions - j.reviewedPredictions), 0)
   const pendingPredictionsPct = totalPredictions > 0 ? (pendingPredictions / totalPredictions) * 100 : 0
-  // Dataset versions carrying at least one prediction that landed below the auto-accept
-  // confidence threshold and is still sitting in review (totalPredictions > reviewedPredictions).
-  // Deduped since a version can have more than one annotation job against it.
+  // Dataset versions with at least one prediction still in review. Deduped since a version can
+  // have more than one annotation job.
   const pendingPredictionVersionIds = [
     ...new Set(
       annotationJobs
@@ -217,7 +209,7 @@ export default function DatasetDashboard() {
 
         {loading ? (
           <div className="loading-state">
-            <span className="spinner" /> Loading source…
+            <span className="spinner" /> Loading source...
           </div>
         ) : (
           dataset && (
@@ -264,7 +256,7 @@ export default function DatasetDashboard() {
                   )}
                   {queueLoading ? (
                     <div className="loading-state">
-                      <span className="spinner" /> Loading jobs…
+                      <span className="spinner" /> Loading jobs...
                     </div>
                   ) : queueEntries.length === 0 ? (
                     <div className="empty-state">
@@ -331,7 +323,7 @@ export default function DatasetDashboard() {
                   )}
                   {dirtyChangesLoading ? (
                     <div className="loading-state">
-                      <span className="spinner" /> Loading changes…
+                      <span className="spinner" /> Loading changes...
                     </div>
                   ) : dirtyChanges.length === 0 ? (
                     <div className="empty-state">
@@ -342,7 +334,7 @@ export default function DatasetDashboard() {
                       <thead>
                         <tr>
                           <th>Type</th>
-                          <th>Old → New</th>
+                          <th>Old -> New</th>
                           <th className="num">Remaining</th>
                           <th></th>
                         </tr>
@@ -364,7 +356,7 @@ export default function DatasetDashboard() {
                               </td>
                               <td>
                                 <span className="mono" style={{ fontSize: 12 }}>
-                                  {c.oldLabelCode ?? '(none)'} → {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
+                                  {c.oldLabelCode ?? '(none)'} -> {c.newLabelCodes?.join(', ') || (c.replacementLabelCode ? `(replacement: ${c.replacementLabelCode})` : '(none)')}
                                 </span>
                               </td>
                               <td className="num">

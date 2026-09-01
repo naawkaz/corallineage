@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Bar,
@@ -72,7 +72,7 @@ export default function DatasetDiffPage() {
                 value={fromVersionId ?? ''}
                 onChange={(e) => setFromVersionId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">Select…</option>
+                <option value="">Select...</option>
                 {versions.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.versionTag}
@@ -87,7 +87,7 @@ export default function DatasetDiffPage() {
                 value={toVersionId ?? ''}
                 onChange={(e) => setToVersionId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">Select…</option>
+                <option value="">Select...</option>
                 {versions.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.versionTag}
@@ -100,7 +100,7 @@ export default function DatasetDiffPage() {
               onClick={handleCompare}
               disabled={loading || !fromVersionId || !toVersionId}
             >
-              {loading ? 'Comparing…' : 'Compare'}
+              {loading ? 'Comparing...' : 'Compare'}
             </button>
           </div>
           {error && (
@@ -133,7 +133,7 @@ export default function DatasetDiffPage() {
                       key={c.labelCode}
                       className={`badge ${c.changeType === 'ADDED' ? 'badge-green' : 'badge-gray'}`}
                     >
-                      {c.changeType === 'ADDED' ? '+ ' : '− '}
+                      {c.changeType === 'ADDED' ? '+ ' : '- '}
                       {c.labelCode}
                     </span>
                   ))}
@@ -156,7 +156,7 @@ export default function DatasetDiffPage() {
                     <div className="diff-grid">
                       {diff.imagesRemoved.map((img) => (
                         <div key={img.imageId} className="diff-thumb removed" title={img.filename}>
-                          <div className="diff-badge">−</div>
+                          <div className="diff-badge">-</div>
                           <img
                             src={imageFileUrlById(img.imageId)}
                             alt={img.filename}
@@ -194,14 +194,14 @@ export default function DatasetDiffPage() {
               </div>
             </TitledCard>
 
-            {/* title={`Class distribution data · Δ ${formatCount(diff.summary.annotationsModified)}`} */}
+            {/* title={`Class distribution data - delta ${formatCount(diff.summary.annotationsModified)}`} */}
 
             <TitledCard
               title={
                 <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
                   <span>Class distribution data</span>
                   <span className='badge badge-gray'>
-                    Δ {formatCount(diff.summary.annotationsModified)}
+                    delta {formatCount(diff.summary.annotationsModified)}
                   </span>
                 </div>
               }

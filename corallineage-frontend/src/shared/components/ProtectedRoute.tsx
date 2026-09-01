@@ -10,7 +10,7 @@ export default function ProtectedRoute() {
   if (loading) {
     return (
       <div className="loading-state" style={{ height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <span className="spinner" /> Loading…
+        <span className="spinner" /> Loading...
       </div>
     )
   }

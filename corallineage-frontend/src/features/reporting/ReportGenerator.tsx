@@ -75,7 +75,7 @@ export default function ReportGenerator() {
   async function handleGenerate() {
     setLoading(true)
     setError(null)
-    const toastId = toast.push({ variant: 'progress', title: 'Generating report…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Generating report...' })
     try {
       const result = await generateReport({
         requestedBy: user?.username ?? '',
@@ -112,7 +112,7 @@ export default function ReportGenerator() {
   async function handleExportPdf() {
     if (!report) return
     setExportingPdf(true)
-    const toastId = toast.push({ variant: 'progress', title: 'Exporting PDF…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Exporting PDF...' })
     try {
       const epochLineByRunId: Record<string, string | null> = {}
       if (report.analytics) {
@@ -172,7 +172,7 @@ export default function ReportGenerator() {
 
   function handleExportJson() {
     if (!report) return
-    const toastId = toast.push({ variant: 'progress', title: 'Exporting JSON…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Exporting JSON...' })
     try {
       downloadJson(`${report.reportId}.json`, report)
       toast.update(toastId, { variant: 'success', title: 'JSON exported', detail: `${report.reportId}.json` })
@@ -182,7 +182,7 @@ export default function ReportGenerator() {
   }
 
   async function handleRedownload(reportId: string) {
-    const toastId = toast.push({ variant: 'progress', title: 'Preparing download…' })
+    const toastId = toast.push({ variant: 'progress', title: 'Preparing download...' })
     try {
       const data = await exportReport(reportId)
       downloadJson(`${reportId}.json`, data)
@@ -212,7 +212,7 @@ export default function ReportGenerator() {
               )}
               {previousReportsLoading ? (
                 <div className="loading-state">
-                  <span className="spinner" /> Loading reports…
+                  <span className="spinner" /> Loading reports...
                 </div>
               ) : previousReports.length === 0 ? (
                 <div className="empty-state">
@@ -235,7 +235,7 @@ export default function ReportGenerator() {
                           <span className="mono" style={{ fontSize: 12 }}>{r.reportId}</span>
                         </td>
                         <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                          {formatDate(r.fromDate)} – {formatDate(r.toDate)}
+                          {formatDate(r.fromDate)} - {formatDate(r.toDate)}
                         </td>
                         <td>{r.requestedBy}</td>
                         <td>
@@ -310,7 +310,7 @@ export default function ReportGenerator() {
             </div>
 
             <button className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
-              {loading ? 'Generating…' : 'Generate Report'}
+              {loading ? 'Generating...' : 'Generate Report'}
             </button>
 
             {error && (
@@ -325,7 +325,7 @@ export default function ReportGenerator() {
           <>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <button className="btn btn-secondary" onClick={handleExportPdf} disabled={exportingPdf}>
-                {exportingPdf ? 'Exporting…' : 'Export PDF'}
+                {exportingPdf ? 'Exporting...' : 'Export PDF'}
               </button>
               <button className="btn btn-secondary" onClick={handleExportJson}>
                 Export JSON
@@ -570,7 +570,7 @@ export default function ReportGenerator() {
                     <thead>
                       <tr>
                         <th>Type</th>
-                        <th>Old → New</th>
+                        <th>Old -> New</th>
                         <th>Changed by</th>
                         <th>Changed at</th>
                       </tr>
@@ -583,7 +583,7 @@ export default function ReportGenerator() {
                           </td>
                           <td>
                             <span className="mono" style={{ fontSize: 12 }}>
-                              {c.oldLabelCode ?? '-'} → {c.newLabelCodes?.join(', ') || '-'}
+                              {c.oldLabelCode ?? '-'} -> {c.newLabelCodes?.join(', ') || '-'}
                             </span>
                           </td>
                           <td>{c.changedBy}</td>

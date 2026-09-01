@@ -155,7 +155,7 @@ export default function OntologyChangeReview() {
         <div className="page-title">
           {changeLoading || !change
             ? 'Ontology Change'
-            : `${changeTypeLabel(change.changeType)}: ${change.oldLabelCode ?? '(none)'} → ${change.newLabelCodes?.join(', ') || (change.replacementLabelCode ? `(replacement: ${change.replacementLabelCode})` : '(none)')}`}
+            : `${changeTypeLabel(change.changeType)}: ${change.oldLabelCode ?? '(none)'} -> ${change.newLabelCodes?.join(', ') || (change.replacementLabelCode ? `(replacement: ${change.replacementLabelCode})` : '(none)')}`}
         </div>
         {change && (
           <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -192,7 +192,7 @@ export default function OntologyChangeReview() {
       {dirtyLoading ? (
         <div className="card">
           <div className="loading-state">
-            <span className="spinner" /> Loading dirty annotations…
+            <span className="spinner" /> Loading dirty annotations...
           </div>
         </div>
       ) : dirtyAnnotations.length === 0 ? (
@@ -294,7 +294,7 @@ export default function OntologyChangeReview() {
                                   top: `${(p.rowPosition / canvasNaturalSize.height) * 100}%`,
                                   left: `${(p.colPosition / canvasNaturalSize.width) * 100}%`,
                                 }}
-                                title={`${p.currentLabelCode}${p.resolved ? ` → ${p.newLabelCode}` : ''}`}
+                                title={`${p.currentLabelCode}${p.resolved ? ` -> ${p.newLabelCode}` : ''}`}
                                 onClick={() => setSelectedDirtyPointId(p.id)}
                               >
                                 {p.pointIndex}
@@ -418,13 +418,13 @@ function DirtyPointCard({
           value={currentValue}
           onChange={canResolve ? (labelCode) => onResolve(dirty, labelCode) : () => {}}
           disabled={!canResolve}
-          placeholder={canResolve ? 'Search allowed labels…' : undefined}
+          placeholder={canResolve ? 'Search allowed labels...' : undefined}
         />
       </div>
 
       {dirty.resolved && (
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
-          {dirty.currentLabelCode} → {dirty.newLabelCode}
+          {dirty.currentLabelCode} -> {dirty.newLabelCode}
           {dirty.resolvedBy ? ` by ${dirty.resolvedBy}` : ''}
         </div>
       )}

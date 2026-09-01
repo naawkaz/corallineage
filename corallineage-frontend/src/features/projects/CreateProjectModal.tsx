@@ -89,7 +89,7 @@ export default function CreateProjectModal({ open, onClose, onCreated }: CreateP
             onClick={handleSubmit}
             disabled={submitting || !projectName.trim()}
           >
-            {submitting ? 'Creating…' : 'Create project'}
+            {submitting ? 'Creating...' : 'Create project'}
           </button>
         </div>
       </div>

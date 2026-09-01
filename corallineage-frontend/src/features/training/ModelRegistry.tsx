@@ -36,11 +36,8 @@ export default function ModelRegistry() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // New training job form's dropdown source data - fetched once at page level since it's
-  // needed regardless of whether the dialog is open. The form fields themselves (architecture,
-  // selectedVersionId, learningRate, etc) live inside TrainModelDialog below: they only matter
-  // while that dialog is mounted, so mounting fresh IS the reset - see the note above
-  // TrainModelDialog for why this replaced a "reset on open" useEffect.
+  // Dropdown source data for the train dialog, fetched at page level. The dialog's own form
+  // fields live inside TrainModelDialog and reset by remounting on each open.
   const [architectures, setArchitectures] = useState<Architecture[]>([])
   const [versions, setVersions] = useState<DatasetVersion[]>([])
 
@@ -151,7 +148,7 @@ export default function ModelRegistry() {
 
             {loading ? (
               <div className="loading-state">
-                <span className="spinner" /> Loading models…
+                <span className="spinner" /> Loading models...
               </div>
             ) : (!data || data.content.length === 0) && inProgressJobs.length === 0 ? (
               <div className="empty-state">
@@ -240,7 +237,7 @@ export default function ModelRegistry() {
             )}
             {jobsLoading ? (
               <div className="loading-state">
-                <span className="spinner" /> Loading jobs…
+                <span className="spinner" /> Loading jobs...
               </div>
             ) : jobs.length === 0 ? (
               <div className="empty-state">

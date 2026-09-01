@@ -16,9 +16,8 @@ interface VersionsListProps {
 }
 
 /**
- * The Dataset Versions list (filters + table + pagination), embedded inline on the Source
- * Dashboard below the stat cards (item 33). "New Version" opens CreateVersionModal, which
- * now also carries the full import flow (formerly the standalone Import page).
+ * The dataset versions list (filters, table, pagination), embedded on the Source Dashboard.
+ * "Add Images" opens CreateVersionModal, which also carries the full import flow.
  */
 export default function VersionsList({ sourceId }: VersionsListProps) {
   const navigate = useNavigate()
@@ -53,12 +52,8 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId, page])
 
-  // Imports process in the background (the create dialog no longer sticks around waiting on
-  // them, see CreateVersionModal), so a still-processing row's spinner needs to turn into a real
-  // status without the user manually refreshing the page. Rather than this list running its own
-  // poll, it re-fetches whenever JobPollingProvider's shared refreshSignal changes (it polls
-  // dataset versions itself and bumps the signal on any observed importStatus transition) - one
-  // shared interval instead of every list/dialog running its own.
+  // Imports process in the background, so re-fetch whenever JobPollingProvider's refreshSignal
+  // changes instead of running a poll here.
   const isFirstRefreshSignal = useRef(true)
   useEffect(() => {
     if (isFirstRefreshSignal.current) {
@@ -88,7 +83,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               className="form-input"
-              placeholder="Search version tag or notes…"
+              placeholder="Search version tag or notes..."
               style={{ width: 260 }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -132,7 +127,7 @@ export default function VersionsList({ sourceId }: VersionsListProps) {
 
         {loading ? (
           <div className="loading-state">
-            <span className="spinner" /> Loading versions…
+            <span className="spinner" /> Loading versions...
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline'
 import { fetchEvents } from '../events/eventsApi'
@@ -170,7 +170,7 @@ export default function EventLog() {
         <div className="card">
           {loading ? (
             <div className="loading-state">
-              <span className="spinner" /> Loading events…
+              <span className="spinner" /> Loading events...
             </div>
           ) : !data || data.content.length === 0 ? (
             <div className="empty-state">
@@ -187,10 +187,10 @@ export default function EventLog() {
                     <div className="event-type">{eventTypeLabel(e.eventType)}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                       {e.description ?? '-'}
-                      {e.modelVersionId != null && <> · model v{e.modelVersionId}</>}
+                      {e.modelVersionId != null && <> - model v{e.modelVersionId}</>}
                     </div>
                     <div className="event-meta">
-                      {e.performedBy} · {formatDate(e.occurredAt)}
+                      {e.performedBy} - {formatDate(e.occurredAt)}
                     </div>
                   </div>
                 </div>

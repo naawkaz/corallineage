@@ -13,10 +13,8 @@ interface CreateVersionModalProps {
   datasetId: number
   open: boolean
   onClose: () => void
-  // Fires right after a successful submit (bare snapshot created, or an import job kicked off).
-  // The parent (VersionsList) closes the dialog and refreshes its list from this - it does not
-  // wait around inside this modal for an import to finish processing, see the note above
-  // handleSubmit for why.
+  // Fires right after a successful submit (snapshot created, or import job accepted). The parent
+  // closes the dialog and refreshes its list.
   onSubmitted: () => void
 }
 
@@ -28,35 +26,18 @@ const FORMATS: { value: ImportFormat; label: string; hint: string }[] = [
 ]
 
 /**
- * "+ New Version" dialog on the Source Dashboard (rendered from VersionsList.tsx). Covers both
- * a bare manual snapshot (no files picked, triggerReason hardcoded to MANUAL_SNAPSHOT, no UI
- * control for it) and a full dataset import (MLC/CoralNet CSV/COCO JSON/Blank formats, directory
- * upload, Blank-format label declaration with cross-source label reuse) - folded in from what
- * used to be the standalone Import page.
+ * "Add Images" dialog on the Source Dashboard. Covers a bare manual snapshot (no files picked)
+ * and a full dataset import (MLC / CoralNet CSV / COCO JSON / Blank formats, directory upload,
+ * Blank-format label declaration with cross-source label reuse).
  *
- * Does NOT wait around for an import to finish processing: it dismisses itself as soon as the
- * submit request is accepted (see handleSubmit). Import status (PROCESSING/COMPLETED/FAILED)
- * and, for a completed BLANK import, the "Resolve" step (model/grid/confidence-threshold picker)
- * all live in VersionsList's own table row instead - a spinner while processing, then an
- * "Unresolved"/"Import failed" badge and a "Resolve ->" action that opens StartBlankImportDialog.
- * This used to poll import status inline and show the resolve form in this same modal; that made
- * the dialog sit there showing a spinner for however long the import took, with no way to just
- * close it and come back later. VersionsList now polls itself instead (see its own comment).
+ * Dismisses itself as soon as the submit request is accepted rather than waiting for the import
+ * to process. Import status and the Blank-import "Resolve" step live in VersionsList's table row.
  */
-// This component is always mounted by its parent (VersionsList.tsx renders
-// `<CreateVersionModal open={x} .../>` unconditionally) rather than being conditionally rendered
-// like the dialogs in AnnotationReview.tsx/ModelRegistry.tsx/ModelDetail.tsx, so it used to
-// carry a `useEffect(() => { if (open) resetAll() }, [open])` to blank out its own state on every
-// open - the same pattern that lived in those files. Instead of that effect (an extra render
-// pass every open, and a real cascading one if a reset field is ever added to another effect's
-// deps), this wrapper only renders the inner component while `open` is true, so every
-// open->close->open cycle unmounts and remounts it. A fresh mount gets fresh initial state for
-// free - there's nothing to reset. Do NOT re-add a reset-on-open effect here.
+// The parent mounts this unconditionally, so the wrapper renders the inner component only while
+// `open` is true. Each open is then a fresh mount with fresh initial state; no reset-on-open
+// effect is needed here.
 export default function CreateVersionModal(props: CreateVersionModalProps) {
   if (!props.open) return null
-  // Conditionally rendering (rather than always mounting Inner and toggling visibility with CSS)
-  // is what makes the remount-gives-you-a-reset trick work: every `open` flip from false -> true
-  // is a brand new mount of CreateVersionModalInner with brand new initial state.
   return <CreateVersionModalInner {...props} />
 }
 
@@ -74,9 +55,8 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
   const [files, setFiles] = useState<File[]>([])
   const [declaredLabels, setDeclaredLabels] = useState<LabelDeclaration[]>([])
 
-  // "Reuse labels from <source> <version>", a two-dropdown sentence rather than a free-text
-  // vocabulary field, since the label set is structural (code, name, optional category), not
-  // prose. Scoped to sibling Sources within the same Project as this one.
+  // "Reuse labels from <source> <version>": a two-dropdown picker scoped to sibling sources in
+  // the same project. The label set is structural (code, name, optional category), not free text.
   const [reuseSourceId, setReuseSourceId] = useState<number | ''>('')
   const [reuseVersions, setReuseVersions] = useState<DatasetVersion[]>([])
   const [reuseVersionId, setReuseVersionId] = useState<number | ''>('')
@@ -85,8 +65,8 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
   const [reuseApplied, setReuseApplied] = useState(false)
   const [reuseError, setReuseError] = useState<string | null>(null)
 
-  // "Import from JSON file", a third way to populate declaredLabels alongside reuse and
-  // manual add. Accepts the same shape produced by VersionDetail's "Export label set" button.
+  // "Import from JSON file": populates declaredLabels from the shape produced by VersionDetail's
+  // "Export label set" button.
   const [labelsFileError, setLabelsFileError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -184,25 +164,19 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
 
   const isBlank = format === 'BLANK'
 
-  // No resetAll()/reset-on-open effect here anymore - see the note above CreateVersionModal.
-  // Every open is a fresh mount of this component, so all the useState calls above already start
-  // from their initial values. handleClose no longer needs to blank anything out first; it just
-  // tells the parent to flip `open` back to false, which unmounts this component.
   function handleClose() {
     onClose()
   }
 
-  // Dismisses itself immediately once the request is accepted, rather than sticking around to
-  // poll an import job to completion - see this file's own top-of-file note for why.
+  // Returns as soon as the request is accepted; the import processes in the background.
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError(null)
     const hasFiles = files.length > 0
-    const toastId = hasFiles ? toast.push({ variant: 'progress', title: 'Uploading images…' }) : null
+    const toastId = hasFiles ? toast.push({ variant: 'progress', title: 'Uploading images...' }) : null
     try {
       if (!hasFiles) {
-        // Bare manual snapshot - no files picked, no import job needed. Trigger reason is
-        // always MANUAL_SNAPSHOT here since this path has no other way to have been reached.
+        // Bare manual snapshot: no files, no import job. Trigger reason is always MANUAL_SNAPSHOT.
         const request: CreateVersionRequest = {
           versionTag: versionTag.trim(),
           triggerReason: 'MANUAL_SNAPSHOT',
@@ -334,7 +308,7 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
                   value={reuseSourceId}
                   onChange={(e) => setReuseSourceId(e.target.value === '' ? '' : Number(e.target.value))}
                 >
-                  <option value="">a source…</option>
+                  <option value="">a source...</option>
                   {datasets.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.datasetName}
@@ -352,7 +326,7 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
                   }}
                 >
                   <option value="">
-                    {reuseVersionsLoading ? 'loading…' : 'a version…'}
+                    {reuseVersionsLoading ? 'loading...' : 'a version...'}
                   </option>
                   {reuseVersions.map((v) => (
                     <option key={v.id} value={v.id}>
@@ -366,7 +340,7 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
                   onClick={applyReuseSelection}
                   disabled={reuseSourceId === '' || reuseVersionId === '' || reuseApplying}
                 >
-                  {reuseApplying ? 'Loading…' : 'Use these labels'}
+                  {reuseApplying ? 'Loading...' : 'Use these labels'}
                 </button>
               </div>
               {reuseError && (
@@ -486,7 +460,7 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
               (files.length > 0 && isBlank && declaredLabels.length === 0)
             }
           >
-            {submitting ? 'Creating…' : files.length === 0 ? 'Create version' : isBlank ? 'Upload' : 'Add Folder'}
+            {submitting ? 'Creating...' : files.length === 0 ? 'Create version' : isBlank ? 'Upload' : 'Add Folder'}
           </button>
         </div>
       </div>
@@ -494,9 +468,8 @@ function CreateVersionModalInner({ datasetId, onClose, onSubmitted }: Omit<Creat
   )
 }
 
-// Read-only, grouped-by-subfolder listing of an already-selected `webkitdirectory` file set - just
-// enough to let the user sanity-check what they're about to upload before committing, not an
-// interactive in-dialog file browser (that stays out of scope per the confirmed decision).
+// Read-only, grouped-by-subfolder listing of a selected `webkitdirectory` file set, so the user
+// can sanity-check what they are about to upload.
 function FileTreePreview({ files }: { files: File[] }) {
   const groups = new Map<string, string[]>()
   for (const file of files) {

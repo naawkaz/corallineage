@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowDownTrayIcon, ArrowLeftIcon, ViewfinderCircleIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch'
@@ -31,8 +31,7 @@ export default function VersionDetail() {
   const [imagesError, setImagesError] = useState<string | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
-  // Points overlay toggle for the image grid. Plain local state, deliberately not persisted
-  // anywhere, resets whenever this page unmounts/remounts (e.g. navigating away and back).
+  // Points overlay toggle for the image grid. Local state, not persisted.
   const [pointsToggle, setPointsToggle] = useState(false)
   const [points, setPoints] = useState<AnnotationPointSummary[] | null>(null)
   const [pointsLoading, setPointsLoading] = useState(false)
@@ -198,7 +197,7 @@ export default function VersionDetail() {
         )}
         {loading && !version && (
           <div className="loading-state">
-            <span className="spinner" /> Loading version…
+            <span className="spinner" /> Loading version...
           </div>
         )}
 
@@ -329,7 +328,7 @@ export default function VersionDetail() {
                       onClick={handleAddLabel}
                       disabled={addLabelSubmitting || !labelCode.trim() || !labelName.trim()}
                     >
-                      {addLabelSubmitting ? 'Adding…' : 'Add Label'}
+                      {addLabelSubmitting ? 'Adding...' : 'Add Label'}
                     </button>
                   </div>
                 </div>
@@ -406,7 +405,7 @@ export default function VersionDetail() {
               {imagesError && <div className="alert alert-error">{imagesError}</div>}
               {imagesLoading && images.length === 0 && (
                 <div className="loading-state">
-                  <span className="spinner" /> Loading images…
+                  <span className="spinner" /> Loading images...
                 </div>
               )}
               {!imagesLoading && !imagesError && images.length === 0 && (
@@ -517,9 +516,8 @@ export default function VersionDetail() {
 }
 
 /**
- * The zoomed single-image view. A dedicated component (rather than inline JSX in VersionDetail)
- * so its label-toggle state is truly local, it unmounts (and resets) whenever the lightbox
- * closes, independently of the outer grid's points toggle in the parent.
+ * Zoomed single-image lightbox. A dedicated component so its label-toggle state is local and
+ * resets when the lightbox closes.
  */
 function Lightbox({
   image,
@@ -563,7 +561,7 @@ function Lightbox({
         className="btn btn-secondary"
         style={{ position: 'absolute', left: 24 }}
       >
-        ‹ Prev
+        < Prev
       </button>
 
       <div
@@ -645,7 +643,7 @@ function Lightbox({
         className="btn btn-secondary"
         style={{ position: 'absolute', right: 24 }}
       >
-        Next ›
+        Next >
       </button>
       <button
         onClick={(e) => {
