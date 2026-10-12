@@ -99,10 +99,17 @@ class PointAnnotationJobServiceTest {
     }
 
     private Image image(Long id, String relativePath) {
+        return image(id, relativePath, 1L);
+    }
+
+    private Image image(Long id, String relativePath, Long originVersionId) {
         Image image = new Image();
         image.setId(id);
         image.setFilename(id + ".jpg");
         image.setFilePath(relativePath);
+        DatasetVersion origin = new DatasetVersion();
+        origin.setId(originVersionId);
+        image.setOriginDatasetVersion(origin);
         return image;
     }
 
@@ -130,6 +137,44 @@ class PointAnnotationJobServiceTest {
         assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 5), "researcher_01"))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasMessageContaining("no images");
+    }
+
+    @Test
+    void submitJob_onlyCarriedForwardImages_throwsInvalidRequest(@org.junit.jupiter.api.io.TempDir Path workingDirectory) {
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        when(datasetVersionImageRepository.findImageIdsByDatasetVersionId(1L)).thenReturn(Set.of(1L, 2L));
+        when(imageRepository.findAllById(Set.of(1L, 2L))).thenReturn(List.of(
+                image(1L, "dataset/1.jpg", 99L), image(2L, "dataset/2.jpg", 99L)));
+
+        assertThatThrownBy(() -> newService(workingDirectory).submitJob(request(1L, 1), "researcher_01"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("no new images");
+    }
+
+    @Test
+    void submitJob_excludesCarriedForwardImagesFromGrid(@org.junit.jupiter.api.io.TempDir Path workingDirectory) throws IOException {
+        writeTestImage(workingDirectory.resolve("dataset/1.jpg"));
+        writeTestImage(workingDirectory.resolve("dataset/2.jpg"));
+
+        when(datasetVersionRepository.findById(1L)).thenReturn(Optional.of(version(1L)));
+        when(datasetVersionImageRepository.findImageIdsByDatasetVersionId(1L)).thenReturn(Set.of(1L, 2L));
+        when(imageRepository.findAllById(Set.of(1L, 2L))).thenReturn(List.of(
+                image(1L, "dataset/1.jpg", 99L), image(2L, "dataset/2.jpg", 1L)));
+        when(pointAnnotationJobRepository.save(any(PointAnnotationJob.class))).thenAnswer(inv -> {
+            PointAnnotationJob job = inv.getArgument(0);
+            if (job.getId() == null) job.setId(7L);
+            return job;
+        });
+        when(generatedPointRepository.countByJobIdAndSeedTrue(7L)).thenReturn(1L);
+        when(generatedPointRepository.countByJobIdAndSeedTrueAndStatus(7L, "HUMAN_LABELED")).thenReturn(0L);
+
+        PointAnnotationJobResponse response = newService(workingDirectory).submitJob(request(1L, 1), "researcher_01");
+
+        assertThat(response.getTotalImages()).isEqualTo(1);
+
+        org.mockito.ArgumentCaptor<List<GeneratedPoint>> captor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(generatedPointRepository).saveAll(captor.capture());
+        assertThat(captor.getValue().stream().map(p -> p.getImage().getId()).distinct()).containsExactly(2L);
     }
 
     @Test

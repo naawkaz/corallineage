@@ -127,6 +127,7 @@ public class PointInferenceService {
             prediction.setRowPosition(point.getRowPosition());
             prediction.setColPosition(point.getColPosition());
             prediction.setPredictedLabelCode(predicted.predictedLabelCode());
+            
             prediction.setConfidenceScore(confidenceScore);
             if (delegatedJob.getConfidenceThreshold() != null
                     && confidenceScore.compareTo(delegatedJob.getConfidenceThreshold()) >= 0) {

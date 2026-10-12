@@ -43,14 +43,14 @@ public class CocoJsonParser implements DatasetFormatParser {
         Map<Long, String> imageIdToFilename = new HashMap<>();
         for (JsonNode image : requireArray(root, "images", jsonFile)) {
             long imageId = image.get("id").asLong();
-            String filename = image.get("file_name").asText();
-            Path imagePath = extractedDir.resolve(filename);
+            String declared = image.get("file_name").asText();
+            String filename = basename(declared);
+            Path imagePath = extractedDir.resolve(declared);
             if (!Files.exists(imagePath)) {
-                Path found = findByFilename(extractedDir, filename);
-                imagePath = found;
+                imagePath = findByFilename(extractedDir, filename);
             }
             if (imagePath == null || !Files.exists(imagePath)) {
-                throw new ImportParseException("Image file \"" + filename + "\" referenced in " + ANNOTATIONS_FILENAME
+                throw new ImportParseException("Image file \"" + declared + "\" referenced in " + ANNOTATIONS_FILENAME
                         + " not found in archive");
             }
             imagesById.put(imageId, new ParsedImage(filename, imagePath));
@@ -71,18 +71,33 @@ public class CocoJsonParser implements DatasetFormatParser {
                 throw new ImportParseException("Annotation references unknown category_id " + categoryId);
             }
 
-            int[] rowCol = resolveCoordinates(annotation, jsonFile);
-            int pointIndex = pointIndexByImage.merge(imageId, 1, Integer::sum) - 1;
-            points.add(new ParsedAnnotationPoint(filename, pointIndex, rowCol[0], rowCol[1], labelCode));
+            for (int[] rowCol : resolveCoordinates(annotation, jsonFile)) {
+                int pointIndex = pointIndexByImage.merge(imageId, 1, Integer::sum) - 1;
+                points.add(new ParsedAnnotationPoint(filename, pointIndex, rowCol[0], rowCol[1], labelCode));
+            }
         }
 
         return new ParseResult(new ArrayList<>(imagesById.values()), points);
     }
 
-    private int[] resolveCoordinates(JsonNode annotation, Path jsonFile) {
+    private List<int[]> resolveCoordinates(JsonNode annotation, Path jsonFile) {
+        JsonNode keypoints = annotation.get("keypoints");
+        if (keypoints != null && keypoints.isArray() && keypoints.size() >= 3) {
+            List<int[]> result = new ArrayList<>();
+            for (int i = 0; i + 2 < keypoints.size(); i += 3) {
+                int visibility = keypoints.get(i + 2).asInt();
+                if (visibility == 0) {
+                    continue;
+                }
+                result.add(new int[] { keypoints.get(i + 1).asInt(), keypoints.get(i).asInt() });
+            }
+            if (!result.isEmpty()) {
+                return result;
+            }
+        }
         JsonNode point = annotation.get("point");
         if (point != null && point.has("x") && point.has("y")) {
-            return new int[] { point.get("y").asInt(), point.get("x").asInt() };
+            return List.of(new int[] { point.get("y").asInt(), point.get("x").asInt() });
         }
         JsonNode bbox = annotation.get("bbox");
         if (bbox != null && bbox.isArray() && bbox.size() == 4) {
@@ -90,10 +105,16 @@ public class CocoJsonParser implements DatasetFormatParser {
             double y = bbox.get(1).asDouble();
             double width = bbox.get(2).asDouble();
             double height = bbox.get(3).asDouble();
-            return new int[] { (int) Math.round(y + height / 2), (int) Math.round(x + width / 2) };
+            return List.of(new int[] { (int) Math.round(y + height / 2), (int) Math.round(x + width / 2) });
         }
-        throw new ImportParseException(
-                "Annotation in " + jsonFile.getFileName() + " has neither a \"point\" nor a \"bbox\" field");
+        throw new ImportParseException("Annotation in " + jsonFile.getFileName()
+                + " has none of a \"keypoints\", \"point\" or \"bbox\" field");
+    }
+
+    private String basename(String filename) {
+        String normalized = filename.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        return slash >= 0 ? normalized.substring(slash + 1) : normalized;
     }
 
     private Path findAnnotationsFile(Path extractedDir) {

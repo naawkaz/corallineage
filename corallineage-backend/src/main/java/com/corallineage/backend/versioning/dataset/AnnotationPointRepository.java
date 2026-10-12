@@ -12,8 +12,6 @@ public interface AnnotationPointRepository extends JpaRepository<AnnotationPoint
 
         long countByImageOriginDatasetVersionDatasetId(Long datasetId);
 
-        List<AnnotationPoint> findByImageOriginDatasetVersionId(Long datasetVersionId);
-
         /** A point's coordinates for dot placement */
         Optional<AnnotationPoint> findByImageIdAndPointIndex(Long imageId, Integer pointIndex);
 

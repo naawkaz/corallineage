@@ -6,6 +6,7 @@ import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
 import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,6 +34,8 @@ class DatasetImportServiceTest {
     private DatasetRepository datasetRepository;
     @Mock
     private DatasetVersionRepository datasetVersionRepository;
+    @Mock
+    private DatasetVersionService datasetVersionService;
     @Mock
     private ImportJobRepository importJobRepository;
     @Mock
@@ -89,6 +92,10 @@ class DatasetImportServiceTest {
     void submitImport_success_createsJobWithProcessingStatusAndDispatches() {
         when(datasetRepository.findById(1L)).thenReturn(Optional.of(dataset()));
         when(datasetVersionRepository.findByDatasetIdAndVersionTag(1L, "v1.0")).thenReturn(Optional.empty());
+        DatasetVersion placeholder = new DatasetVersion();
+        placeholder.setId(42L);
+        when(datasetVersionService.createImportPlaceholder(eq(1L), eq("v1.0"), any(), eq("researcher_01"), any()))
+                .thenReturn(placeholder);
         when(importJobRepository.save(any(ImportJob.class))).thenAnswer(inv -> {
             ImportJob job = inv.getArgument(0);
             job.setId(7L);
@@ -103,6 +110,7 @@ class DatasetImportServiceTest {
         assertThat(response.getFormat()).isEqualTo("CORALNET_CSV");
         verify(datasetImportExecutor).executeImportAsync(
                 eq(7L), eq(1L), any(), eq(ImportFormat.CORALNET_CSV), eq("v1.0"), eq("researcher_01"), eq(List.of()));
+        verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(j -> Long.valueOf(42L).equals(j.getCreatedDatasetVersionId())));
     }
 
     @Test

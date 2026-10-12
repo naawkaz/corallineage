@@ -4,7 +4,10 @@ import com.corallineage.backend.datasets.Dataset;
 import com.corallineage.backend.datasets.DatasetRepository;
 import com.corallineage.backend.exception.ConflictException;
 import com.corallineage.backend.exception.NotFoundException;
+import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
+import com.corallineage.backend.versioning.dataset.DatasetVersionService;
+import com.corallineage.backend.versioning.dataset.TriggerReason;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -23,17 +26,20 @@ public class DatasetImportService {
 
     private final DatasetRepository datasetRepository;
     private final DatasetVersionRepository datasetVersionRepository;
+    private final DatasetVersionService datasetVersionService;
     private final ImportJobRepository importJobRepository;
     private final ImportJobMapper importJobMapper;
     private final DatasetImportExecutor datasetImportExecutor;
 
     public DatasetImportService(DatasetRepository datasetRepository,
             DatasetVersionRepository datasetVersionRepository,
+            DatasetVersionService datasetVersionService,
             ImportJobRepository importJobRepository,
             ImportJobMapper importJobMapper,
             DatasetImportExecutor datasetImportExecutor) {
         this.datasetRepository = datasetRepository;
         this.datasetVersionRepository = datasetVersionRepository;
+        this.datasetVersionService = datasetVersionService;
         this.importJobRepository = importJobRepository;
         this.importJobMapper = importJobMapper;
         this.datasetImportExecutor = datasetImportExecutor;
@@ -52,6 +58,11 @@ public class DatasetImportService {
 
         Path tempDir = persistUpload(files, relativePaths);
 
+        DatasetVersion placeholder = format != ImportFormat.BLANK
+                ? datasetVersionService.createImportPlaceholder(datasetId, versionTag, TriggerReason.IMAGES_ADDED,
+                        importedBy, notes != null ? notes : "Imported via " + format.name())
+                : null;
+
         ImportJob job = new ImportJob();
         job.setDataset(dataset);
         job.setFormat(format.name());
@@ -59,6 +70,9 @@ public class DatasetImportService {
         job.setImportedBy(importedBy);
         job.setNotes(notes);
         job.setStatus("PROCESSING");
+        if (placeholder != null) {
+            job.setCreatedDatasetVersionId(placeholder.getId());
+        }
         ImportJob saved = importJobRepository.save(job);
 
         // The async executor must not start until this transaction commits

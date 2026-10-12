@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ToastContext } from './toastContextCore'
 import type { Toast, ToastInput } from './toastContextCore'
@@ -63,8 +63,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [scheduleAutoDismiss],
   )
 
+  const api = useMemo(() => ({ push, update, dismiss }), [push, update, dismiss])
+
   return (
-    <ToastContext.Provider value={{ push, update, dismiss }}>
+    <ToastContext.Provider value={api}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>

@@ -10,7 +10,6 @@ import com.corallineage.backend.versioning.dataset.DatasetVersion;
 import com.corallineage.backend.versioning.dataset.DatasetVersionImage;
 import com.corallineage.backend.versioning.dataset.DatasetVersionImageRepository;
 import com.corallineage.backend.versioning.dataset.DatasetVersionRepository;
-import com.corallineage.backend.versioning.dataset.DatasetVersionResponse;
 import com.corallineage.backend.versioning.dataset.DatasetVersionService;
 import com.corallineage.backend.versioning.dataset.Image;
 import com.corallineage.backend.versioning.dataset.ImageRepository;
@@ -18,6 +17,7 @@ import com.corallineage.backend.versioning.dataset.LabelDefinition;
 import com.corallineage.backend.versioning.dataset.LabelDefinitionRepository;
 import com.corallineage.backend.versioning.dataset.TriggerReason;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -105,8 +106,17 @@ public class DatasetImportExecutor {
                     .map(ParsedAnnotationPoint::labelCode)
                     .collect(Collectors.toSet());
 
+            Long placeholderVersionId = job.getCreatedDatasetVersionId();
+            Set<Long> excludedVersionIds = new HashSet<>(
+                    importJobRepository.findFailedCreatedDatasetVersionIds(datasetId));
+            if (placeholderVersionId != null) {
+                excludedVersionIds.add(placeholderVersionId);
+            }
             DatasetVersion previousLatest = datasetVersionRepository
-                    .findTopByDatasetIdOrderByCreatedAtDesc(datasetId).orElse(null);
+                    .findAllByDatasetIdOrderByCreatedAtDesc(datasetId, Pageable.unpaged()).stream()
+                    .filter(version -> !excludedVersionIds.contains(version.getId()))
+                    .findFirst()
+                    .orElse(null);
             // The first import defines the label vocabulary, later imports validate against
             // it
             if (previousLatest != null) {
@@ -122,14 +132,20 @@ public class DatasetImportExecutor {
                 Files.copy(image.sourcePath(), dataPath.resolve(image.filename()), StandardCopyOption.REPLACE_EXISTING);
             }
 
-            CreateVersionRequest request = new CreateVersionRequest();
-            request.setVersionTag(versionTag);
-            request.setTriggerReason(TriggerReason.IMAGES_ADDED);
-            request.setCreatedBy(importedBy);
-            request.setNotes("Imported via " + format + " (" + parseResult.images().size() + " images)");
-            DatasetVersionResponse versionResponse = datasetVersionService.createSnapshot(datasetId, request);
-            DatasetVersion newVersion = datasetVersionRepository.findById(versionResponse.getId())
-                    .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionResponse.getId()));
+            Long newVersionId;
+            if (placeholderVersionId != null) {
+                datasetVersionService.finalizeImportVersion(placeholderVersionId, previousLatest);
+                newVersionId = placeholderVersionId;
+            } else {
+                CreateVersionRequest request = new CreateVersionRequest();
+                request.setVersionTag(versionTag);
+                request.setTriggerReason(TriggerReason.IMAGES_ADDED);
+                request.setCreatedBy(importedBy);
+                request.setNotes("Imported via " + format + " (" + parseResult.images().size() + " images)");
+                newVersionId = datasetVersionService.createSnapshot(datasetId, request).getId();
+            }
+            DatasetVersion newVersion = datasetVersionRepository.findById(newVersionId)
+                    .orElseThrow(() -> new NotFoundException("Dataset version not found: " + newVersionId));
 
             List<LabelDefinition> newLabels = labelDefinitionRepository.findByDatasetVersionId(newVersion.getId());
             if (previousLatest == null) {

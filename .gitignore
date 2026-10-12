@@ -3,6 +3,7 @@
 /markdown
 /training-data
 /node_modules
+/.claude
 
 # local run logs
 *.out

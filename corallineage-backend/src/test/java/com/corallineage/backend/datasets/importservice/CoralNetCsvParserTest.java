@@ -31,6 +31,33 @@ class CoralNetCsvParserTest {
     }
 
     @Test
+    void parse_readsCoralNetExportHeader(@TempDir Path dir) throws IOException {
+        Files.createFile(dir.resolve("img001.jpg"));
+        Files.writeString(dir.resolve("annotations.csv"),
+                "Name,Row,Column,Label,Annotator,Machine confidence 1\n"
+                        + "img001.jpg,10,20,ACROPORA,researcher_01,0.98\n"
+                        + "img001.jpg,30,40,SAND,researcher_01,0.87\n");
+
+        ParseResult result = parser.parse(dir);
+
+        assertThat(result.images()).hasSize(1);
+        assertThat(result.points()).containsExactly(
+                new ParsedAnnotationPoint("img001.jpg", 0, 10, 20, "ACROPORA"),
+                new ParsedAnnotationPoint("img001.jpg", 1, 30, 40, "SAND"));
+    }
+
+    @Test
+    void parse_stripsPathFromImageName(@TempDir Path dir) throws IOException {
+        Files.createFile(dir.resolve("img001.jpg"));
+        Files.writeString(dir.resolve("annotations.csv"),
+                "Name,Row,Column,Label\nphotos/img001.jpg,10,20,ACROPORA\n");
+
+        ParseResult result = parser.parse(dir);
+
+        assertThat(result.points().get(0).imageFilename()).isEqualTo("img001.jpg");
+    }
+
+    @Test
     void parse_missingRequiredColumn_throwsImportParseException(@TempDir Path dir) throws IOException {
         Files.writeString(dir.resolve("annotations.csv"), "image_filename,row,col\nimg001.jpg,10,20\n");
 

@@ -35,7 +35,7 @@ function defaultDateInput(daysAgo: number): string {
 export default function ReportGenerator() {
   const { user } = useAuthContext()
   const toast = useToast()
-  const [fromDate, setFromDate] = useState(defaultDateInput(365))
+  const [fromDate, setFromDate] = useState(defaultDateInput(30))
   const [toDate, setToDate] = useState(defaultDateInput(0))
   const [includeEventLog, setIncludeEventLog] = useState(true)
   const [includeOntologyChanges, setIncludeOntologyChanges] = useState(true)
@@ -631,7 +631,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="card" style={{ padding: 16 }}>
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>{label}</div>
-      <div className="mono" style={{ fontSize: 22, fontWeight: 600 }}>
+      <div style={{ fontSize: 48, fontWeight: 600 }}>
         {formatCount(value)}
       </div>
     </div>

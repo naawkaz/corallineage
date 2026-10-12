@@ -34,6 +34,44 @@ class CocoJsonParserTest {
     }
 
     @Test
+    void parse_readsKeypointsArray(@TempDir Path dir) throws IOException {
+        Files.createFile(dir.resolve("img001.jpg"));
+        Files.writeString(dir.resolve("annotations.json"), """
+                {
+                  "images": [{"id": 1, "file_name": "img001.jpg", "width": 100, "height": 100}],
+                  "categories": [{"id": 5, "name": "ACROPORA", "supercategory": "coral"}],
+                  "annotations": [
+                    {"id": 1, "image_id": 1, "category_id": 5, "num_keypoints": 2,
+                     "keypoints": [20, 10, 2, 0, 0, 0, 40, 30, 1]}
+                  ]
+                }
+                """);
+
+        ParseResult result = parser.parse(dir);
+
+        assertThat(result.points()).containsExactly(
+                new ParsedAnnotationPoint("img001.jpg", 0, 10, 20, "ACROPORA"),
+                new ParsedAnnotationPoint("img001.jpg", 1, 30, 40, "ACROPORA"));
+    }
+
+    @Test
+    void parse_stripsPathFromFileName(@TempDir Path dir) throws IOException {
+        Files.createFile(dir.resolve("img001.jpg"));
+        Files.writeString(dir.resolve("annotations.json"), """
+                {
+                  "images": [{"id": 1, "file_name": "images/img001.jpg"}],
+                  "categories": [{"id": 5, "name": "SAND"}],
+                  "annotations": [{"id": 1, "image_id": 1, "category_id": 5, "point": {"x": 1, "y": 2}}]
+                }
+                """);
+
+        ParseResult result = parser.parse(dir);
+
+        assertThat(result.images().get(0).filename()).isEqualTo("img001.jpg");
+        assertThat(result.points().get(0).imageFilename()).isEqualTo("img001.jpg");
+    }
+
+    @Test
     void parse_fallsBackToBboxCentroidWhenNoPoint(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("img001.jpg"));
         Files.writeString(dir.resolve("annotations.json"), """

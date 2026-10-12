@@ -74,6 +74,40 @@ public class DatasetVersionService {
         return createSnapshotBranchedFrom(datasetId, request, previousLatest);
     }
 
+    /** Creates an empty version row so an in progress import is visible before it finishes */
+    @Transactional
+    public DatasetVersion createImportPlaceholder(Long datasetId, String versionTag, TriggerReason triggerReason,
+            String createdBy, String notes) {
+        Dataset dataset = datasetRepository.findById(datasetId)
+                .orElseThrow(() -> new NotFoundException("Dataset not found: " + datasetId));
+        DatasetVersion version = new DatasetVersion();
+        version.setDataset(dataset);
+        version.setVersionTag(versionTag);
+        version.setCreatedBy(createdBy);
+        version.setTriggerReason(triggerReason.name());
+        version.setImageCount(0);
+        version.setAnnotationCount(0);
+        version.setDvcCommitHash("");
+        version.setNotes(notes);
+        version.setIsStaging(false);
+        return datasetVersionRepository.save(version);
+    }
+
+    /** Fills a placeholder version with the DVC snapshot, forward carried labels and membership */
+    public void finalizeImportVersion(Long versionId, DatasetVersion previousLatest) {
+        DatasetVersion version = datasetVersionRepository.findById(versionId)
+                .orElseThrow(() -> new NotFoundException("Dataset version not found: " + versionId));
+        version.setDvcCommitHash(dvcIntegrationService.commitCurrentState(version.getVersionTag()));
+        snapshotCurrentLabelDefinitions(version, previousLatest);
+        List<DatasetVersionImage> membership = snapshotCurrentImageMembership(version, previousLatest);
+        version.setImageCount(membership.size());
+        version.setAnnotationCount(
+                (int) annotationPointRepository.countByImageOriginDatasetVersionDatasetId(version.getDataset().getId()));
+        datasetVersionRepository.save(version);
+        logAfterCommit(EventType.DATASET_VERSION_CREATED, version, version.getCreatedBy(),
+                "Created dataset version " + version.getVersionTag());
+    }
+
     /** Creates a staging version, excluded from the version list */
     @Transactional
     public DatasetVersionResponse createStagingSnapshot(Long datasetId, CreateVersionRequest request) {

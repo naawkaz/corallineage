@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -76,11 +78,17 @@ class DatasetImportExecutorTest {
         Files.writeString(dir.resolve("img001.txt"), "10 20 ACROPORA\n30 40 SAND\n");
     }
 
+    private void stubPreviousVersions(DatasetVersion... versions) {
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(10L), any()))
+                .thenReturn(new PageImpl<>(List.of(versions)));
+        when(importJobRepository.findFailedCreatedDatasetVersionIds(10L)).thenReturn(List.of());
+    }
+
     @Test
     void bootstrapsLabelDefinitions_whenDatasetHasNoPriorVersion(@TempDir Path uploadDir) throws IOException {
         writeMlcFixture(uploadDir);
         when(importJobRepository.findById(1L)).thenReturn(Optional.of(job(1L)));
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.empty());
+        stubPreviousVersions();
 
         DatasetVersionResponse versionResponse = new DatasetVersionResponse();
         versionResponse.setId(100L);
@@ -110,13 +118,85 @@ class DatasetImportExecutorTest {
     }
 
     @Test
+    void populatesPlaceholderVersion_whenJobAlreadyHasCreatedVersionId(@TempDir Path uploadDir) throws IOException {
+        writeMlcFixture(uploadDir);
+        ImportJob job = job(4L);
+        job.setCreatedDatasetVersionId(500L);
+        when(importJobRepository.findById(4L)).thenReturn(Optional.of(job));
+        stubPreviousVersions();
+
+        DatasetVersion placeholder = new DatasetVersion();
+        placeholder.setId(500L);
+        placeholder.setImageCount(0);
+        placeholder.setAnnotationCount(0);
+        when(datasetVersionRepository.findById(500L)).thenReturn(Optional.of(placeholder));
+        when(labelDefinitionRepository.findByDatasetVersionId(500L)).thenReturn(List.of());
+        when(labelDefinitionRepository.save(any(LabelDefinition.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(imageRepository.saveAll(any())).thenAnswer(inv -> {
+            List<Image> images = inv.getArgument(0);
+            for (Image image : images) image.setId(1L);
+            return images;
+        });
+
+        executor.executeImportAsync(4L, 10L, uploadDir, ImportFormat.MLC, "v1.0", "researcher_01", List.of());
+
+        verify(datasetVersionService).finalizeImportVersion(500L, null);
+        verify(datasetVersionService, never()).createSnapshot(any(), any());
+        verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                "COMPLETED".equals(saved.getStatus())));
+    }
+
+    @Test
+    void resolvesVocabularyAgainstLastGoodVersion_ignoringFailedImportPlaceholders(@TempDir Path uploadDir)
+            throws IOException {
+        writeMlcFixture(uploadDir);
+        ImportJob job = job(6L);
+        job.setCreatedDatasetVersionId(700L);
+        when(importJobRepository.findById(6L)).thenReturn(Optional.of(job));
+
+        DatasetVersion goodVersion = new DatasetVersion();
+        goodVersion.setId(5L);
+        DatasetVersion failedPlaceholder = new DatasetVersion();
+        failedPlaceholder.setId(701L);
+        DatasetVersion currentPlaceholder = new DatasetVersion();
+        currentPlaceholder.setId(700L);
+        when(datasetVersionRepository.findAllByDatasetIdOrderByCreatedAtDesc(eq(10L), any()))
+                .thenReturn(new PageImpl<>(List.of(currentPlaceholder, failedPlaceholder, goodVersion)));
+        when(importJobRepository.findFailedCreatedDatasetVersionIds(10L)).thenReturn(List.of(701L));
+
+        LabelDefinition acropora = new LabelDefinition();
+        acropora.setLabelCode("ACROPORA");
+        LabelDefinition sand = new LabelDefinition();
+        sand.setLabelCode("SAND");
+        when(labelDefinitionRepository.findByDatasetVersionId(5L)).thenReturn(List.of(acropora, sand));
+
+        DatasetVersion placeholder = new DatasetVersion();
+        placeholder.setId(700L);
+        placeholder.setImageCount(0);
+        placeholder.setAnnotationCount(0);
+        when(datasetVersionRepository.findById(700L)).thenReturn(Optional.of(placeholder));
+        when(labelDefinitionRepository.findByDatasetVersionId(700L)).thenReturn(List.of(acropora, sand));
+        when(imageRepository.saveAll(any())).thenAnswer(inv -> {
+            List<Image> images = inv.getArgument(0);
+            for (Image image : images) image.setId(1L);
+            return images;
+        });
+
+        executor.executeImportAsync(6L, 10L, uploadDir, ImportFormat.MLC, "v3.0", "researcher_01", List.of());
+
+        verify(datasetVersionService).finalizeImportVersion(700L, goodVersion);
+        verify(importJobRepository).save(org.mockito.ArgumentMatchers.argThat(saved ->
+                "COMPLETED".equals(saved.getStatus())));
+    }
+
+    @Test
     void abortsBeforeAnyWrites_whenExistingLabelsDoNotResolveRequestedCode(@TempDir Path uploadDir) throws IOException {
         writeMlcFixture(uploadDir);
         when(importJobRepository.findById(2L)).thenReturn(Optional.of(job(2L)));
 
         DatasetVersion previousLatest = new DatasetVersion();
         previousLatest.setId(5L);
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.of(previousLatest));
+        stubPreviousVersions(previousLatest);
 
         LabelDefinition onlyKnownLabel = new LabelDefinition();
         onlyKnownLabel.setLabelCode("SAND");
@@ -138,7 +218,7 @@ class DatasetImportExecutorTest {
     void blankFormat_declaresProvidedLabelCodes_andImportsNoPoints(@TempDir Path uploadDir) throws IOException {
         writeBlankFixture(uploadDir);
         when(importJobRepository.findById(3L)).thenReturn(Optional.of(job(3L)));
-        when(datasetVersionRepository.findTopByDatasetIdOrderByCreatedAtDesc(10L)).thenReturn(Optional.empty());
+        stubPreviousVersions();
 
         DatasetVersionResponse versionResponse = new DatasetVersionResponse();
         versionResponse.setId(200L);

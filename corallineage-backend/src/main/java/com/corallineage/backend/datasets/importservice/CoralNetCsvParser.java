@@ -11,13 +11,18 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
-/** Imports a CoralNet CSV with image filename row col and label code columns */
+/** Imports a CoralNet CSV, accepting the site export header and the shorthand column names */
 @Component
 public class CoralNetCsvParser implements DatasetFormatParser {
 
-    private static final List<String> REQUIRED_COLUMNS = List.of("image_filename", "row", "col", "label_code");
+    private static final Map<String, List<String>> COLUMN_ALIASES = Map.of(
+            "image_filename", List.of("image_filename", "name"),
+            "row", List.of("row"),
+            "col", List.of("col", "column"),
+            "label_code", List.of("label_code", "label"));
 
     @Override
     public ParseResult parse(Path extractedDir) {
@@ -44,7 +49,7 @@ public class CoralNetCsvParser implements DatasetFormatParser {
                     continue;
                 String[] fields = splitCsvLine(raw);
 
-                String imageFilename = field(fields, columnIndex, "image_filename", csvFile, lineNo);
+                String imageFilename = basename(field(fields, columnIndex, "image_filename", csvFile, lineNo));
                 int row = parseInt(field(fields, columnIndex, "row", csvFile, lineNo), csvFile, lineNo);
                 int col = parseInt(field(fields, columnIndex, "col", csvFile, lineNo), csvFile, lineNo);
                 String labelCode = field(fields, columnIndex, "label_code", csvFile, lineNo);
@@ -93,15 +98,22 @@ public class CoralNetCsvParser implements DatasetFormatParser {
     }
 
     private Map<String, Integer> indexColumns(String[] header, Path csvFile) {
-        Map<String, Integer> index = new HashMap<>();
+        Map<String, Integer> headerIndex = new HashMap<>();
         for (int i = 0; i < header.length; i++) {
-            index.put(header[i].trim(), i);
+            headerIndex.put(header[i].trim().toLowerCase(), i);
         }
-        for (String required : REQUIRED_COLUMNS) {
-            if (!index.containsKey(required)) {
-                throw new ImportParseException(
-                        "CSV file " + csvFile.getFileName() + " is missing required column \"" + required + "\"");
+        Map<String, Integer> index = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : COLUMN_ALIASES.entrySet()) {
+            Integer position = entry.getValue().stream()
+                    .map(headerIndex::get)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            if (position == null) {
+                throw new ImportParseException("CSV file " + csvFile.getFileName()
+                        + " is missing required column \"" + entry.getValue().get(0) + "\"");
             }
+            index.put(entry.getKey(), position);
         }
         return index;
     }
@@ -113,6 +125,12 @@ public class CoralNetCsvParser implements DatasetFormatParser {
                     + " is missing a value for \"" + column + "\"");
         }
         return fields[idx].trim();
+    }
+
+    private String basename(String filename) {
+        String normalized = filename.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        return slash >= 0 ? normalized.substring(slash + 1) : normalized;
     }
 
     private int parseInt(String value, Path csvFile, int lineNo) {

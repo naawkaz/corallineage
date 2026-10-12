@@ -19,10 +19,15 @@ const POLL_INTERVAL_MS = 4000
 export function JobPollingProvider({ children }: { children: ReactNode }) {
   const { sourceId } = useDatasetContext()
   const toast = useToast()
+  const toastRef = useRef(toast)
   const [refreshSignal, setRefreshSignal] = useState(0)
   const lastStatusRef = useRef(new Map<string, string>())
   const lastVersionIdsRef = useRef(new Set<number>())
   const lastQueueKeysRef = useRef(new Map<string, { versionTag: string | null; jobType: string }>())
+
+  useEffect(() => {
+    toastRef.current = toast
+  }, [toast])
 
   useEffect(() => {
     // Reset last-seen statuses on source change so the first poll under a new source never
@@ -63,9 +68,9 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
               changed = true
               if (previous === 'PROCESSING') {
                 if (version.importStatus === 'COMPLETED') {
-                  toast.push({ variant: 'success', title: 'Import complete', detail: version.versionTag })
+                  toastRef.current.push({ variant: 'success', title: 'Import complete', detail: version.versionTag })
                 } else if (version.importStatus === 'FAILED') {
-                  toast.push({ variant: 'error', title: 'Import failed', detail: version.versionTag })
+                  toastRef.current.push({ variant: 'error', title: 'Import failed', detail: version.versionTag })
                 }
               }
               seen.set(key, version.importStatus)
@@ -85,9 +90,9 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
               const startedRecently = Date.now() - new Date(job.initiatedAt).getTime() < 15000
               if ((previous != null && previous !== 'COMPLETED' && previous !== 'FAILED') || (previous == null && startedRecently)) {
                 if (job.status === 'COMPLETED') {
-                  toast.push({ variant: 'success', title: 'Training complete', detail: job.modelTag ?? undefined })
+                  toastRef.current.push({ variant: 'success', title: 'Training complete', detail: job.modelTag ?? undefined })
                 } else if (job.status === 'FAILED') {
-                  toast.push({ variant: 'error', title: 'Training failed', detail: job.errorMessage ?? undefined })
+                  toastRef.current.push({ variant: 'error', title: 'Training failed', detail: job.errorMessage ?? undefined })
                 }
               }
               seen.set(key, job.status)
@@ -117,13 +122,13 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
               if ((previous != null && previous !== 'COMPLETED' && previous !== 'FAILED') || (previous == null && startedRecently)) {
                 const isValidation = job.jobType === 'VALIDATION'
                 if (job.status === 'COMPLETED') {
-                  toast.push({
+                  toastRef.current.push({
                     variant: 'success',
                     title: isValidation ? 'Validation complete' : 'Auto-annotate complete',
                     detail: isValidation ? `${job.totalPredictions} point(s) checked.` : `${job.totalPredictions} point(s) ready.`,
                   })
                 } else if (job.status === 'FAILED') {
-                  toast.push({
+                  toastRef.current.push({
                     variant: 'error',
                     title: isValidation ? 'Validation failed' : 'Auto-annotate failed',
                     detail: job.errorMessage ?? undefined,
@@ -143,13 +148,13 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
               changed = true
               if (previous != null && previous !== entry.status) {
                 if (entry.jobType === 'ANNOTATION' && entry.status === 'REVIEW') {
-                  toast.push({
+                  toastRef.current.push({
                     variant: 'success',
                     title: 'Ready for review',
                     detail: entry.versionTag ?? undefined,
                   })
                 } else if (entry.status === 'FAILED') {
-                  toast.push({
+                  toastRef.current.push({
                     variant: 'error',
                     title: entry.jobType === 'ANNOTATION' ? 'Annotation job failed' : 'Blank import failed',
                     detail: entry.versionTag ?? undefined,
@@ -171,7 +176,7 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
               seen.delete(key)
               if (info.jobType === 'ANNOTATION' && lastKnownStatus !== 'FAILED') {
                 changed = true
-                toast.push({
+                toastRef.current.push({
                   variant: 'success',
                   title: 'Dataset version ready',
                   detail: info.versionTag ?? undefined,
@@ -194,7 +199,7 @@ export function JobPollingProvider({ children }: { children: ReactNode }) {
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [sourceId, toast])
+  }, [sourceId])
 
   return <JobPollingContext.Provider value={{ refreshSignal }}>{children}</JobPollingContext.Provider>
 }

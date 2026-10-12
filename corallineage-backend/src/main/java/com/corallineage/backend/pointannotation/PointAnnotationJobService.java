@@ -118,6 +118,12 @@ public class PointAnnotationJobService {
                     "Dataset version " + version.getVersionTag() + " has no images to annotate");
         }
         List<Image> images = new ArrayList<>(imageRepository.findAllById(imageIds));
+        images.removeIf(image -> image.getOriginDatasetVersion() == null
+                || !image.getOriginDatasetVersion().getId().equals(version.getId()));
+        if (images.isEmpty()) {
+            throw new InvalidRequestException(
+                    "Dataset version " + version.getVersionTag() + " has no new images to annotate");
+        }
         images.sort(Comparator.comparing(Image::getId));
 
         int gridRows = request.getGridRows() != null ? request.getGridRows() : DEFAULT_GRID_ROWS;
